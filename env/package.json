@@ -1,0 +1,16 @@
+{
+  "name": "build-env",
+  "version": "0.1.0",
+  "author": "Wormhole Contributors",
+  "license": "Apache-2.0",
+  "main": "build-env.ts",
+  "scripts": {
+    "build": "ts-node build-env.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "@wormhole-foundation/sdk-base": "^0.2.6"
+  }
+}

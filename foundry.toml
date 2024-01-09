@@ -1,0 +1,25 @@
+[profile.default]
+solc_version = "0.8.23"
+optimizer = true
+via_ir = true
+extra_output = ["metadata", "storageLayout", "evm.deployedBytecode.immutableReferences"]
+
+libs = [
+    "lib",
+    "node_modules"
+]
+
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "forge-std/=lib/forge-std/src/",
+    "permit2/=modules/permit2/",
+    "uniswap/=modules/uniswap/",
+    "cctp/=modules/circle/",
+    "proxy/=modules/proxy/",
+    "wormhole/=modules/wormhole/",
+    "liquidity-layer/=modules/liquidity-layer/",
+    "swap-layer/=src",
+]
+
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config
