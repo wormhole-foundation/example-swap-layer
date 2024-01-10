@@ -1,0 +1,13 @@
+[
+  {
+    "chainId": 2,
+    "baseFee": 1000000,
+    "gasPrice": 1000000000,
+    "gasPriceMargin": 25,
+    "gasPriceTimestamp": 0,
+    "gasPriceUpdateThreshold": 10,
+    "maxGasDropoff": 1000000000000000000,
+    "gasDropoffMargin": 1,
+    "gasTokenPrice": 100000000
+  }
+]

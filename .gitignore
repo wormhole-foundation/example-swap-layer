@@ -10,3 +10,7 @@ out.log
 broadcast
 dist
 ts-types
+ethers-contracts
+.env.testnet
+.env.mainnet
+```

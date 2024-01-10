@@ -1,0 +1,42 @@
+how to deploy:
+
+target a create2?
+look at test/TestBase
+
+swapLayer = SwapLayer(payable(address(new Proxy(
+      address(new SwapLayer(
+        IPermit2(vm.envAddress("TEST_PERMIT2_ADDRESS")),
+        ISwapRouter(vm.envAddress("TEST_UNISWAP_V3_ROUTER_ADDRESS")),
+        liquidityLayer
+      )),
+      abi.encodePacked(
+        owner,
+        assistant,
+        feeRecipient,
+        foreignChainId,
+        FOREIGN_SWAP_LAYER,
+        feeParams
+      )
+    ))));
+  }
+
+deploy a swap layer via the normal constructor,
+but then deploy a Proxy.sol with the address of the first one (the real implementation), but with all the contructor params packed as the second arg, which will get passed to the implementation's proxyConstructor when called via the ProxyBase.sol when it invokes upgradeChecked()
+
+there also is a payload item on the layout
+
+https://github.com/wormhole-foundation/connect-sdk/blob/main/core/base/__tests__/layout.ts
+
+basically just make a layout based off this file and then use that to byte pack for the deployment
+
+https://docs.uniswap.org/contracts/v3/reference/deployments
+
+-- write deployment script
+-- add layout items needed for deployment
+-- write configuration script
+-- add layout items needed for configuration
+-- add remaining layout items
+-- add simple send thing / check thing script
+-- add redis & spy dockers
+-- add relayer engine
+-- relay simple sends with the relayer engine

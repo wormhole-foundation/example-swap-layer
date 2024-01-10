@@ -1,0 +1,16 @@
+{
+  "guardianSetIndex": 0,
+  "description": "This file contains the chains against which all the scripts should run.",
+  "chains": [
+    {
+      "description": "Goerli",
+      "evmNetworkId": 5,
+      "chainId": 2,
+      "rpc": "http://127.0.0.1:8545",
+      "wormholeAddress": "0x706abc4E45D419950511e474C7B9Ed348A4a716c",
+      "liquidityLayerAddress": "0xD83120e86Df1310F7415C10790ef5b1067eE38a0",
+      "uniswapV3RouterAddress": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+    }
+  ]
+}
