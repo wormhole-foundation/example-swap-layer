@@ -6,7 +6,6 @@ extra_output = ["metadata", "storageLayout", "evm.deployedBytecode.immutableRefe
 
 libs = [
     "lib",
-    "node_modules"
 ]
 
 remappings = [
