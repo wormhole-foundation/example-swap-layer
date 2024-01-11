@@ -11,7 +11,7 @@ contract Proxy {
 
   constructor(address logic, bytes memory data) payable {
     implementationState().implementation = logic;
-    
+
     //We can't externally call ourselves and use msg.sender to prevent unauhorized execution of
     //  the construction code, because the proxy's code only gets written to state when the
     //  deployment transaction completes (and returns the deployed bytecode via CODECOPY).

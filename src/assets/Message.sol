@@ -44,7 +44,7 @@ function parseSwapMessageStructure(
   (version, offset) = message.asUint8Unchecked(offset);
   if (version != VERSION)
     revert InvalidVersion(version, VERSION);
-  
+
   bytes32 recipient_;
   (recipient_, offset) = message.asBytes32Unchecked(offset);
   sms.recipient = fromUniversalAddress(recipient_);
@@ -58,6 +58,6 @@ function parseSwapMessageStructure(
   }
   else if (sms.redeemMode == RedeemMode.Relay)
     offset += RELAY_PARAM_SIZE;
-  
+
   sms.swapOffset = offset;
 }

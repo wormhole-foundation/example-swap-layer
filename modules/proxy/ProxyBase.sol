@@ -13,19 +13,19 @@ event Upgraded(address indexed implementation);
 //works with both standard EIP1967 proxies and our own, slimmed down Proxy contract
 abstract contract ProxyBase {
   //address private immutable _logicContract = address(this);
-  
+
   //deliberately not payable since the contract would only be sending funds to itself
   //selector: f4189c473
   function checkedUpgrade(bytes calldata data) external {
     if (msg.sender != address(this)) {
       if (implementationState().initialized)
         revert InvalidSender();
-      
+
       _proxyConstructor(data);
     }
     else
       _contractUpgrade(data);
-    
+
     //If we upgrade from an old OpenZeppelin proxy, then initialized will not have been set to true
     //  even though the constructor has been called, so we simply manually set it here in all cases.
     //This is slightly gas inefficient but better to be safe than sorry for rare use cases like
@@ -36,7 +36,7 @@ abstract contract ProxyBase {
   function _upgradeTo(address newImplementation, bytes memory data) internal {
     if (newImplementation == implementationState().implementation)
       revert IdempotentUpgrade();
-    
+
     implementationState().implementation = newImplementation;
 
     (bool success, bytes memory revertData) =
@@ -44,7 +44,7 @@ abstract contract ProxyBase {
 
     if (!success)
       revert UpgradeFailed(revertData);
-    
+
     emit Upgraded(newImplementation);
   }
 

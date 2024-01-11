@@ -1,25 +1,54 @@
 import { constMap, Network, Chain, RoArray } from "@wormhole-foundation/sdk-base";
 
-//from here: https://docs.uniswap.org/contracts/v3/reference/deployments
-//and here: https://gov.uniswap.org/t/deploy-uniswap-v3-on-avalanche/20587/18
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//!!!!!!!!!!!!!!!!!!!!!!!!! DO NOT TRUST THE UNISWAP DOCS !!!!!!!!!!!!!!!!!!!!!!!!!
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//
+// The deployment addresses of the UniversalRouter
+//   [in the docs](https://docs.uniswap.org/contracts/v3/reference/deployments)
+//   do not match those
+//   [in the repo](https://github.com/Uniswap/universal-router/tree/main/deploy-addresses).
+//
+// When you pick a chain, e.g. Polygon and look which address is the right one, it turns out that
+//   not only is the exact same contract deployed to both addresses:
+// - [0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD]
+//     (https://polygonscan.com/address/0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad#code)
+// - [0x643770E279d5D0733F21d6DC03A8efbABf3255B4]
+//     (https://polygonscan.com/address/0x643770E279d5D0733F21d6DC03A8efbABf3255B4#code)
+// but they also both have comparable transaction counts of 1,210k vs 770k!
+//
+// And this is not just some freak Polygon peculiarity. The same thing is true on e.g. Arbitrum:
+// - [0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD]
+//     (https://arbiscan.io/address/0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad)
+// - [0xeC8B0F7Ffe3ae75d7FfAb09429e3675bb63503e4]
+//     (https://arbiscan.io/address/0xec8b0f7ffe3ae75d7ffab09429e3675bb63503e4)
+// and again comparable transaction counts of 1,140k vs 801k.
+//
+// Worse:
+// The docs list
+//   [0x5302086A3a25d473aAbBd0356eFf8Dd811a4d89B]
+//     (https://bscscan.com/address/0x5302086A3a25d473aAbBd0356eFf8Dd811a4d89B#code)
+//   as the address for BSC... but when you follow the link, you'll see that what's actually
+//   deployed there is a contract called `UnsupportedProtocol`. But
+//   [0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD]
+//     (https://bscscan.com/address/0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD#code)
+//   exists, as does
+//   [0xeC8B0F7Ffe3ae75d7FfAb09429e3675bb63503e4]
+//     (https://bscscan.com/address/0xeC8B0F7Ffe3ae75d7FfAb09429e3675bb63503e4#code)
+//   which is the address listed in the github repo.
+//
+// So while the docs explicitly state:
+// > Integrators should **no longer assume that they are deployed to the same addresses across
+// >    chains** and be extremely careful to confirm mappings below.
+//
+// You will actually shoot yourself in the foot by using the provided addresses, but will be fine
+//   if you just use the same 0x3fC9... address everywhere, ..e. when you do **the exact opposite
+// of what the docs tell you**.
+//
+// The deployment addresses of the V3-SwapRouter are equally unreliable.
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-const uniV3RouterContracts = [[
-  "Mainnet", [
-    ["Ethereum",  "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"],
-    ["Arbitrum",  "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"],
-    ["Optimism",  "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"],
-    ["Polygon",   "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"],
-    ["Avalanche", "0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE"],
-    ["Base",      "0x2626664c2603336E57B271c5C0b26F421741e481"],
-    ["Bsc",       "0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2"],
-    ["Celo",      "0x5615CDAb10dc425a742d643d949a7F474C01abc4"],
-  ]], [
-  "Testnet", [
-    ["Ethereum",  "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"], //Goerli
-  ]],
-] as const satisfies RoArray<readonly [Network, RoArray<readonly [Chain, string]>]>;
-
-const uniV3NonfungiblePositionManagerContracts = [[
+const uniswapV3NonfungiblePositionManagerContracts = [[
   "Mainnet", [
     ["Ethereum",  "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
     ["Arbitrum",  "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
@@ -35,8 +64,9 @@ const uniV3NonfungiblePositionManagerContracts = [[
   ]],
 ] as const satisfies RoArray<readonly [Network, RoArray<readonly [Chain, string]>]>;
 
-export const uniV3Router = constMap(uniV3RouterContracts);
-export const uniV3NonfungiblePositionManager = constMap(uniV3NonfungiblePositionManagerContracts);
+
+export const uniswapV3PositionManager = constMap(uniswapV3NonfungiblePositionManagerContracts);
 
 //same across all chains/networks
+export const uniswapV3SwapRouter = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
 export const permit2Contract = "0x000000000022D473030F116dDEE9F6B43aC78BA3";

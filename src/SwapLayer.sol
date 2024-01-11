@@ -10,39 +10,44 @@ import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
 
 import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
 
-import "./assets/SwapLayerBase.sol";
-import "./assets/SwapLayerGovernance.sol";
-import "./assets/SwapLayerRelayingFees.sol";
-import "./assets/SwapLayerBatchGet.sol";
+import "./assets/SwapLayerQuery.sol";
 import "./assets/SwapLayerInitiate.sol";
 import "./assets/SwapLayerRedeem.sol";
 
-//Inheritance diagram:
-//SwapLayer -> SwapLayerBatchGet -> SwapLayerRelayingFees -> SwapLayerGovernance -> SwapLayerBase
-//        \\-> SwapLayerInitiate ---^                        ^                  \-> ProxyBase
-//         \-> SwapLayerRedeem   ---------------------------/
+//Inheritance diagram: (SL = SwapLayer)
+//SL -> SL-Query    -> SL-RelayingFees -> SL-Governance -> SL-Base
+// \\-> SL-Initiate ---^                 /             \-> ProxyBase
+//  \-> SL-Redeem   --------------------/
 
-contract SwapLayer is SwapLayerBatchGet, SwapLayerInitiate, SwapLayerRedeem {
+contract SwapLayer is SwapLayerQuery, SwapLayerInitiate, SwapLayerRedeem {
   using BytesParsing for bytes;
 
   //constructor of the logic contract setting immutables
   constructor(
     IPermit2 permit2,
-    ISwapRouter uniswapV3Router,
-    ITokenRouter liquidityLayer
-  ) SwapLayerBase(permit2, uniswapV3Router, liquidityLayer) {}
+    ISwapRouter uniV3Router,
+    ITokenRouter liquidityLayer,
+    uint32 majorDelay,
+    uint32 minorDelay
+  ) SwapLayerGovernance(majorDelay, minorDelay)
+    SwapLayerBase(permit2, uniV3Router, liquidityLayer) {}
 
   function _proxyConstructor(bytes calldata data_) internal override {
     bytes memory data = data_;
     uint offset = 0;
 
     address owner;
+    address admin;
     address assistant;
     address feeRecipient;
-    (owner,        offset) = data.asAddressUnchecked(offset);
-    (assistant,    offset) = data.asAddressUnchecked(offset);
-    (feeRecipient, offset) = data.asAddressUnchecked(offset);
-    _governanceConstruction(owner, assistant, feeRecipient);
+    bool    adminCanUpgradeContract;
+    (owner,                   offset) = data.asAddressUnchecked(offset);
+    (admin,                   offset) = data.asAddressUnchecked(offset);
+    (assistant,               offset) = data.asAddressUnchecked(offset);
+    (feeRecipient,            offset) = data.asAddressUnchecked(offset);
+    (adminCanUpgradeContract, offset) = data.asBoolUnchecked(offset);
+
+    _governanceConstruction(owner, admin, assistant, feeRecipient, adminCanUpgradeContract);
 
     while (offset < data.length) {
       uint16 chain;
@@ -57,6 +62,8 @@ contract SwapLayer is SwapLayerBatchGet, SwapLayerInitiate, SwapLayerRedeem {
     data.checkLength(offset);
 
     _maxApprove(_usdc, address(_liquidityLayer));
+    _maxApprove(_usdc, address(_uniV3Router));
+    _maxApprove(_weth, address(_uniV3Router));
   }
 
   //to support weth.withdraw

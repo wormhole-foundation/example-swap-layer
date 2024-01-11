@@ -5,19 +5,12 @@ pragma solidity ^0.8.23;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { IPermit2 } from "permit2/IPermit2.sol";
 import { ISwapRouter } from "uniswap/ISwapRouter.sol";
+import { IPermit2 } from "permit2/IPermit2.sol";
 import { IWormhole } from "wormhole/IWormhole.sol";
 import { IWETH } from "wormhole/IWETH.sol";
-import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
-
 import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
-
-enum SwapFailurePolicy {
-  Revert,
-  RevertOnInsufficientAllowance,
-  Return
-}
+import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
 
 struct SwapLayerEndpointsState {
   // chainId => wormhole address mapping of swap contracts on other chains
@@ -74,7 +67,7 @@ abstract contract SwapLayerBase {
 
     if (endpoint == bytes32(0))
       revert InvalidEndpoint();
-    
+
     swapLayerEndpointsState().endpoints[endpointChain] = endpoint;
   }
 
@@ -94,7 +87,7 @@ abstract contract SwapLayerBase {
     uint inputAmount,
     uint outputAmount,
     IERC20 inputToken,
-    SwapFailurePolicy failurePolicy,
+    bool revertOnFailure,
     bool approveCheck,
     uint256 deadline,
     bytes memory path
@@ -111,7 +104,10 @@ abstract contract SwapLayerBase {
       ) returns (uint256 amountOut) {
         return amountOut;
       } catch Error(string memory reason) {
-        return _handleFailedSwap(failurePolicy, reason);
+        if (revertOnFailure)
+          revert(reason);
+        else
+          return 0;
       }
     } else {
       try _uniV3Router.exactOutput(
@@ -119,34 +115,11 @@ abstract contract SwapLayerBase {
       ) returns (uint256 amountIn) {
         return amountIn;
       } catch Error(string memory reason) {
-        return _handleFailedSwap(failurePolicy, reason);
+        if (revertOnFailure)
+          revert(reason);
+        else
+          return 0;
       }
     }
-  }
-
-  //UniswapV3 uses its own, separate version of the TransferHelper library (https://github.com/Uniswap/v3-periphery/blob/main/contracts/libraries/TransferHelper.sol)
-  //  to perform transferFrom calls via pay (https://github.com/Uniswap/v3-periphery/blob/697c2474757ea89fec12a4e6db16a574fe259610/contracts/base/PeripheryPayments.sol#L52)
-  //  always in its uniswapV3SwapCallback function (https://github.com/Uniswap/v3-periphery/blob/697c2474757ea89fec12a4e6db16a574fe259610/contracts/SwapRouter.sol#L57)
-  //  which reverts with the error message "STF"
-  //So here we can just check the length of the error message and do a direct integer comparison
-  uint256 private constant UNIV3_TRANSFER_FROM_FAILED_LENGTH = 3;
-  bytes3  private constant UNIV3_TRANSFER_FROM_FAILED_VALUE  = 0x535446; //STF in ASCII
-  function _handleFailedSwap(
-    SwapFailurePolicy failurePolicy,
-    string memory reason
-  ) private pure returns (uint) {
-    if (failurePolicy == SwapFailurePolicy.Revert)
-      revert(reason);
-    
-    if (
-      failurePolicy == SwapFailurePolicy.RevertOnInsufficientAllowance &&
-      bytes(reason).length == UNIV3_TRANSFER_FROM_FAILED_LENGTH
-    ) {
-      (bytes3 reasonValue, ) = bytes(reason).asBytes3Unchecked(0);
-      if (reasonValue == UNIV3_TRANSFER_FROM_FAILED_VALUE)
-        revert(reason);
-    }
-    
-    return 0;
   }
 }

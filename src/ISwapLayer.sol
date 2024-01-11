@@ -19,14 +19,17 @@ interface ISwapLayer {
     OrderResponse calldata attestations
   ) external payable returns (bytes memory);
 
-  //selector: aa327791
-  function updateFeeParams(bytes calldata updates) external;
+  //selector: 64ee4476
+  function batchQueries(bytes calldata queries) external view returns (bytes memory);
 
-  //selector: cb7bfd91
-  function batchGet(bytes memory encodedQueries) external view returns (bytes memory);
+  //selector: 9efc05ce
+  function batchFeeUpdates(bytes calldata updates) external;
 
-  //selector: d78b3c6e
-  function executeGovernanceActions(bytes calldata actions) external;
+  //selector: a9bb3dca
+  function batchGovernanceCommands(bytes calldata commands) external;
+
+  //selector: e60df1a0
+  function batchOwnerInterventions(bytes calldata interventions) external;
 
   //selector: f4189c473 - can't actually be called externally except by the contract itself
   function checkedUpgrade(bytes calldata data) external payable;

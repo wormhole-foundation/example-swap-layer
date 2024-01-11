@@ -14,6 +14,7 @@ uint constant MODE_SIZE = 1;
 uint constant BOOL_SIZE = 1;
 uint constant ADDRESS_SIZE = 20;
 uint constant UNI_FEE_SIZE = 3;
+uint constant SWAP_PARAM_SWAP_TYPE_SIZE = 1;
 uint constant SWAP_PARAM_AMOUNT_SIZE = 16;
 uint constant SWAP_PARAM_DEADLINE_SIZE = 4;
 
@@ -35,7 +36,13 @@ enum RedeemMode {
   Relay
 }
 
+//future-proofing to potentially support other AMMs in the future
+enum SwapType {
+  UniswapV3
+}
+
 //swap layout:
+// 1 byte   swapType
 //16 bytes  limitAmount
 // 4 bytes  deadline (unix timestamp)
 // 3 bytes  legFirstFee
@@ -48,15 +55,19 @@ function parseSwapParams(
   bytes memory params,
   uint offset
 ) pure returns (uint, uint256, bytes memory, uint) { unchecked {
+  uint8 swapType_;
   uint limitAmount;
   uint256 deadline;
   uint24 legFirstFee;
   uint pathLength; //total number of swaps = pathLength + 1
+  (swapType_,    offset) = params.asUint8Unchecked(offset);
   (limitAmount,  offset) = params.asUint128Unchecked(offset);
   (deadline,     offset) = params.asUint32Unchecked(offset);
   (legFirstFee,  offset) = params.asUint24Unchecked(offset);
   (pathLength,   offset) = params.asUint8Unchecked(offset);
-        
+
+  SwapType(swapType_); //check that swapType is valid
+
   uint sliceLen;
   sliceLen = pathLength * UNI_PATH_ELEMENT_SIZE;
   bytes memory partialPath;
@@ -76,7 +87,8 @@ function parseSwapLength(
   bytes memory params,
   uint offset
 ) pure returns (uint /*pathLength*/, uint) { unchecked {
-  offset += SWAP_PARAM_AMOUNT_SIZE + SWAP_PARAM_DEADLINE_SIZE + UNI_FEE_SIZE;
+  offset +=
+    SWAP_PARAM_SWAP_TYPE_SIZE + SWAP_PARAM_AMOUNT_SIZE + SWAP_PARAM_DEADLINE_SIZE + UNI_FEE_SIZE;
   return params.asUint8Unchecked(offset);
 }}
 
@@ -93,10 +105,10 @@ function skipSwap(
 function parseIoToken(
   bytes memory params,
   uint offset
-) pure returns (IoToken, uint) {
-  uint8 ioToken;
-  (ioToken, offset) = params.asUint8Unchecked(offset);
-  return (IoToken(ioToken), offset);
+) pure returns (IoToken ret, uint) {
+  uint8 val;
+  (val, offset) = params.asUint8Unchecked(offset);
+  return (IoToken(val), offset);
 }
 
 function parseIERC20(
@@ -112,9 +124,9 @@ function parseRedeemMode(
   bytes memory params,
   uint offset
 ) pure returns (RedeemMode, uint) {
-  uint8 redeemMode;
-  (redeemMode, offset) = params.asUint8Unchecked(offset);
-  return (RedeemMode(redeemMode), offset);
+  uint8 val;
+  (val, offset) = params.asUint8Unchecked(offset);
+  return (RedeemMode(val), offset);
 }
 
 function parseRelayParams(

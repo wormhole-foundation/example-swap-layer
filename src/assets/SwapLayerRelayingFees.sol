@@ -43,7 +43,7 @@ library FeeParamsLib {
   // note: just 4 bytes would be enough to accurately represent gas token prices in usdc
   //  a 27/5 bit split gives 8 digits of precision and a max value of:
   //    1e2 (8 digit mantissa in usdc) * 1e31 (max exponent) = 1e33
-  
+
   uint256 private constant BASE_FEE_SIZE = 32;
   uint256 private constant BASE_FEE_OFFSET = 0;
   uint256 private constant BASE_FEE_WRITE_MASK =
@@ -54,37 +54,37 @@ library FeeParamsLib {
     BASE_FEE_OFFSET + BASE_FEE_SIZE;
   uint256 private constant GAS_PRICE_WRITE_MASK =
     ~(((1 << GAS_PRICE_SIZE) - 1) << GAS_PRICE_OFFSET);
-  
+
   uint256 private constant GAS_PRICE_MARGIN_SIZE = PercentageLib.BYTE_SIZE * 8;
   uint256 private constant GAS_PRICE_MARGIN_OFFSET =
     GAS_PRICE_OFFSET + GAS_PRICE_SIZE;
   uint256 private constant GAS_PRICE_MARGIN_WRITE_MASK =
     ~(((1 << GAS_PRICE_MARGIN_SIZE) - 1) << GAS_PRICE_MARGIN_OFFSET);
-  
+
   uint256 private constant GAS_PRICE_TIMESTAMP_SIZE = 32;
   uint256 private constant GAS_PRICE_TIMESTAMP_OFFSET =
     GAS_PRICE_MARGIN_OFFSET + GAS_PRICE_MARGIN_SIZE;
   uint256 private constant GAS_PRICE_TIMESTAMP_WRITE_MASK =
     ~(((1 << GAS_PRICE_TIMESTAMP_SIZE) - 1) << GAS_PRICE_TIMESTAMP_OFFSET);
-  
+
   uint256 private constant GAS_PRICE_UPDATE_THRESHOLD_SIZE = PercentageLib.BYTE_SIZE * 8;
   uint256 private constant GAS_PRICE_UPDATE_THRESHOLD_OFFSET =
     GAS_PRICE_TIMESTAMP_OFFSET + GAS_PRICE_TIMESTAMP_SIZE;
   uint256 private constant GAS_PRICE_UPDATE_THRESHOLD_WRITE_MASK =
     ~(((1 << GAS_PRICE_UPDATE_THRESHOLD_SIZE) - 1) << GAS_PRICE_UPDATE_THRESHOLD_OFFSET);
-  
+
   uint256 private constant MAX_GAS_DROPOFF_SIZE = GasDropoffLib.BYTE_SIZE * 8;
   uint256 private constant MAX_GAS_DROPOFF_OFFSET =
     GAS_PRICE_UPDATE_THRESHOLD_OFFSET + GAS_PRICE_UPDATE_THRESHOLD_SIZE;
   uint256 private constant MAX_GAS_DROPOFF_WRITE_MASK =
     ~(((1 << MAX_GAS_DROPOFF_SIZE) - 1) << MAX_GAS_DROPOFF_OFFSET);
-  
+
   uint256 private constant GAS_DROPOFF_MARGIN_SIZE = PercentageLib.BYTE_SIZE * 8;
   uint256 private constant GAS_DROPOFF_MARGIN_OFFSET =
     MAX_GAS_DROPOFF_OFFSET + MAX_GAS_DROPOFF_SIZE;
   uint256 private constant GAS_DROPOFF_MARGIN_WRITE_MASK =
     ~(((1 << GAS_DROPOFF_MARGIN_SIZE) - 1) << GAS_DROPOFF_MARGIN_OFFSET);
-  
+
   uint256 private constant GAS_TOKEN_PRICE_SIZE = 80;
   uint256 private constant GAS_TOKEN_PRICE_OFFSET =
     GAS_DROPOFF_MARGIN_OFFSET + GAS_DROPOFF_MARGIN_SIZE;
@@ -117,7 +117,7 @@ library FeeParamsLib {
   }}
 
   function gasPrice(FeeParams params) internal pure returns (GasPrice) { unchecked {
-    
+
     return GasPrice.wrap(uint32(FeeParams.unwrap(params) >> GAS_PRICE_OFFSET));
   }}
 
@@ -237,7 +237,7 @@ function feeParamsState() pure returns (FeeParamsState storage state) {
 error MaxGasDropoffExceeded(uint requested, uint maximum);
 
 //TODO: do we actually want/need this?
-event FeeParamsUpdated(uint16 indexed updateChain, FeeParams params);
+event FeeParamsUpdated(uint16 indexed chainId, FeeParams params);
 
 enum FeeUpdate {
   GasPrice,
@@ -284,7 +284,7 @@ abstract contract SwapLayerRelayingFees is SwapLayerGovernance {
   // }
 
   //selector: aa327791
-  function updateFeeParams(bytes memory updates) external onlyAssistantOrOwner {
+  function updateFeeParams(bytes memory updates) external onlyAssistantOrUp {
     _updateFeeParams(updates);
   }
 
@@ -297,11 +297,11 @@ abstract contract SwapLayerRelayingFees is SwapLayerGovernance {
       (updateChain, offset) = updates.asUint8Unchecked(offset);
       if (updateChain == 0)
         revert InvalidChainId();
-      
+
       if (curChain != updateChain) {
         if (curChain != 0)
           _setFeeParams(curChain, curParams);
-                  
+
         curParams = _getFeeParams(updateChain);
       }
 
@@ -367,17 +367,17 @@ abstract contract SwapLayerRelayingFees is SwapLayerGovernance {
       uint maxGasDropoff = feeParams.maxGasDropoff().from();
       if (gasDropoff > maxGasDropoff)
         revert MaxGasDropoffExceeded(gasDropoff, maxGasDropoff);
-        
+
       totalGas += DROPOFF_GAS_OVERHEAD;
 
       relayerFee += feeParams.gasDropoffMargin().compound(
         gasDropoff * feeParams.gasTokenPrice()
       ) / 1 ether;
     }
-    
+
     if (swaps > 0)
       totalGas += UNISWAP_GAS_OVERHEAD + UNISWAP_GAS_PER_SWAP * swaps;
-    
+
     relayerFee += feeParams.gasPriceMargin().compound(
       totalGas * feeParams.gasPrice().from() * feeParams.gasTokenPrice()
     ) / 1 ether;

@@ -11,7 +11,6 @@ import { ISignatureTransfer } from "permit2/ISignatureTransfer.sol";
 
 import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
 
-import { SwapFailurePolicy } from "./SwapLayerBase.sol";
 import "./SwapLayerRelayingFees.sol";
 import "./InitiateParams.sol";
 import { encodeSwapMessage, encodeRelayParams } from "./Message.sol";
@@ -80,7 +79,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       mos.output.offset - MODE_SIZE,
       mos.output.size + MODE_SIZE
     );
-    
+
     bytes memory swapMessage = encodeSwapMessage(recipient, redeemPayload, outputSwap);
     if (mos.fastTransfer.mode == FastTransferMode.Enabled) {
       (uint64 vaaSequence, uint64 cctpSequence, uint64 cctpNonce) =
@@ -122,13 +121,14 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       }
       else
         usdcAmount += totalFee;
-      
+
       _acquireInputTokens(usdcAmount, _usdc, params, offset);
     }
     else {
       //we received something else than usdc so we'll have to perform at least one swap
       uint inputAmount;
       IERC20 inputToken;
+      bool approveCheck = false; //gas optimization
       if (inputTokenType == IoToken.Gas) {
         uint wormholeFee = _wormhole.messageFee();
         if (mos.fastTransfer.mode == FastTransferMode.Enabled)
@@ -139,15 +139,14 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         inputAmount = msg.value - wormholeFee;
         _weth.deposit{value: inputAmount}();
         inputToken = _weth;
-      } 
+      }
       else { //must be IoToken.Erc20
         (inputToken,  offset) = parseIERC20(params, offset);
         (inputAmount, offset) = params.asUint128Unchecked(offset);
         offset = _acquireInputTokens(inputAmount, inputToken, params, offset);
+        (approveCheck, offset) = params.asBoolUnchecked(offset);
       }
 
-      bool approveCheck; //gas optimization
-      (approveCheck, offset) = params.asBoolUnchecked(offset);
       (uint outputAmount, uint256 deadline, bytes memory path, ) =
          parseSwapParams(inputToken, _usdc, params, offset);
 
@@ -160,7 +159,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         inputAmount,
         outputAmount,
         inputToken,
-        SwapFailurePolicy.Revert,
+        true, //revert on failure
         approveCheck,
         deadline,
         path
@@ -278,7 +277,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 //     uint tmpOffset = offset + ADDRESS_SIZE;
 //     bool isV2Leg = legFirstFee == UNI_V2_MAGIC_FEE;
 //     uint24 nextFee;
-//     for (; legEnd < pathLength; ++legEnd) { 
+//     for (; legEnd < pathLength; ++legEnd) {
 //       (nextFee, tmpOffset) = params.asUint24Unchecked(tmpOffset);
 //       tmpOffset += ADDRESS_SIZE;
 //       if ((nextFee == UNI_V2_MAGIC_FEE) ^ isV2Leg)
@@ -290,12 +289,12 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 //     }
 
 //     //TODO approve address(isV2Leg ? uniswapV2Router_ : uniV3Router_)
-    
+
 //     if (isOutAmount) {
 //       //exact out swaps must be composed of a single leg
 //       if (legEnd != pathLength)
 //         revert CannotComposeExactOutAcrossUniswapVersions();
-      
+
 //       uint consumedInput;
 //       if (isV2Leg) {
 //         address[] memory path = new address[](pathLength + 2);
@@ -333,10 +332,10 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
 //       if (consumedInput < inputAmount)
 //         inputToken.safeApprove(address(isV2Leg ? uniswapV2Router_ : uniV3Router_), 0);
-      
+
 //       return (consumedInput, offset);
 //     }
-    
+
 //     bool isFinalLeg = legEnd == pathLength;
 //     if (isV2Leg) {
 //       uint legLength = legEnd - legStart + 2;
@@ -390,7 +389,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
 //     if (isFinalLeg)
 //       return (inputAmount, offset);
-    
+
 //     legFirstFee = nextFee;
 //     //inputAmount, inputToken, legFirstFee, and offset have all been updated -> loop
 //   }

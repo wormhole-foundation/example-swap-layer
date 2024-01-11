@@ -14,7 +14,7 @@ library GasPriceLib {
     uint tmp = val / GAS_PRICE_UNIT;
     if (tmp > type(uint32).max)
       revert ExceedsMax(val);
-    
+
     //skip unneccessary cleanup
     uint32 ret;
     assembly ("memory-safe") { ret := tmp }

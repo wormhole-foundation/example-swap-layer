@@ -42,6 +42,11 @@ contract SwapLayerTestBase is Test {
   uint128 constant FAST_TRANSFER_MAX_AMOUNT       = 1e9;
   uint128 constant FAST_TRANSFER_BASE_FEE         = 1e6;
   uint128 constant FAST_TRANSFER_INIT_AUCTION_FEE = 1e6;
+  uint32  constant MAJOR_DELAY                    = 7 days;
+  uint32  constant MINOR_DELAY                    = 2 days;
+
+  //workaround for deal on usdc randomly stopping to work - binance 14 address
+  address constant usdcSource = 0x28C6c06298d514Db089934071355E5743bf21d60;
 
   IWormhole immutable wormhole;
   IERC20  immutable usdc;
@@ -55,6 +60,7 @@ contract SwapLayerTestBase is Test {
   uint256 immutable signerSecret;
   address immutable llOwner;
   address immutable owner;
+  address immutable admin;
   address immutable assistant;
   address immutable feeRecipient;
 
@@ -76,6 +82,7 @@ contract SwapLayerTestBase is Test {
     (signer, signerSecret) = makeAddrAndKey("signer");
     llOwner                = makeAddr("llOwner");
     owner                  = makeAddr("owner");
+    admin                  = makeAddr("admin");
     assistant              = makeAddr("assistant");
     feeRecipient           = makeAddr("feeRecipient");
   }
@@ -115,29 +122,40 @@ contract SwapLayerTestBase is Test {
     circleSimulator.setupCircleAttester();
 
     FeeParams feeParams;
-    feeParams = feeParams.baseFee(1e6); //1 USD
+    feeParams = feeParams.baseFee(1e4); //1 cent
     feeParams = feeParams.gasPrice(GasPriceLib.to(1e10)); //10 gwei
     feeParams = feeParams.gasPriceMargin(PercentageLib.to(25, 0)); //25 % volatility margin
     feeParams = feeParams.gasPriceTimestamp(uint32(block.timestamp));
     feeParams = feeParams.gasPriceUpdateThreshold(PercentageLib.to(10, 0));
     feeParams = feeParams.maxGasDropoff(GasDropoffLib.to(1 ether));
     feeParams = feeParams.gasDropoffMargin(PercentageLib.to(1, 0)); //1 % volatility margin
-    feeParams = feeParams.gasTokenPrice(1e8); //100 usd per fictional gas token
+    feeParams = feeParams.gasTokenPrice(1e7); //10 USD per fictional gas token
 
     swapLayer = SwapLayer(payable(address(new Proxy(
       address(new SwapLayer(
         IPermit2(vm.envAddress("TEST_PERMIT2_ADDRESS")),
-        ISwapRouter(vm.envAddress("TEST_UNISWAP_V3_ROUTER_ADDRESS")),
-        liquidityLayer
+        ISwapRouter(vm.envAddress("TEST_UNISWAP_V3_SWAP_ROUTER_ADDRESS")),
+        liquidityLayer,
+        MAJOR_DELAY,
+        MINOR_DELAY
       )),
       abi.encodePacked(
         owner,
+        admin,
         assistant,
         feeRecipient,
+        false, //adminCanUpgradeContract
         foreignChainId,
         FOREIGN_SWAP_LAYER,
         feeParams
       )
     ))));
+  }
+
+  function _dealUsdc(address to, uint256 amount) internal {
+    //this randomly stopped working:
+    //deal(address(usdc), address(to), amount);
+    vm.prank(usdcSource);
+    usdc.transfer(address(to), amount);
   }
 }

@@ -16,7 +16,7 @@ import { INonfungiblePositionManager } from "./INonfungiblePositionManager.sol";
 
 import "swap-layer/assets/SwapLayerInitiate.sol";
 import "swap-layer/assets/SwapLayerRedeem.sol";
-import "swap-layer/assets/SwapLayerBatchGet.sol";
+import "swap-layer/assets/SwapLayerQuery.sol";
 
 contract SwapLayerSwapTest is SwapLayerTestBase {
   using BytesParsing for bytes;
@@ -36,19 +36,21 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
 
   constructor() {
     uniswapPosMan = INonfungiblePositionManager(
-      vm.envAddress("TEST_UNISWAP_V3_NONFUNGIBLE_POSITION_MANAGER_ADDRESS")
+      vm.envAddress("TEST_UNISWAP_V3_POSITION_MANAGER_ADDRESS")
     );
     (user, userSecret) = makeAddrAndKey("user");
-    deal(address(usdc), user, USER_AMOUNT * 1e6);
+   _dealUsdc(user, USER_AMOUNT * 1e6);
   }
 
   function setUp() public {
     deployBase();
 
-    (address weth_, ) = swapLayer.batchGet(abi.encodePacked(QueryType.Weth)).asAddressUnchecked(0);
+    (address weth_, ) = swapLayer.batchQueries(abi.encodePacked(
+      QueryType.Immutable, ImmutableType.Weth
+    )).asAddressUnchecked(0);
     weth = IWETH(weth_);
     mockToken = StdUtils.deployMockERC20("MockToken", "MOCK", 18);
-    deal(address(usdc), address(this), BASE_AMOUNT * 1e6);
+    _dealUsdc(address(this), BASE_AMOUNT * 1e6);
     deal(address(mockToken), address(this), 2 * BASE_AMOUNT * 1e18);
     weth.deposit{value: BASE_AMOUNT * 1e18}();
     _createPool(address(weth), address(mockToken), BASE_AMOUNT * 1e18, BASE_AMOUNT * 1e18);
@@ -86,7 +88,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
       toUniversalAddress(user),
       true,
       abi.encodePacked(
-        FastTransferMode.Disabled,
+        false, //fast transfer
         RedeemMode.Direct,
         IoToken.Usdc, //output token
         IoToken.Usdc, //input token
@@ -98,28 +100,28 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     assertEq(amount, amountOut);
     vm.stopPrank();
   }
-  
-  // function testEthSwap() public {
-  //   hoax(user);
-  //   bytes memory swapReturn = swapLayer.initiate{value: USER_AMOUNT * 1e18}(
-  //     foreignChainId,
-  //     toUniversalAddress(user),
-  //     true,
-  //     abi.encodePacked(
-  //       uint8(FastTransferMode.Disabled),
-  //       RedeemMode.Direct,
-  //       IoToken.Usdc, //output token
-  //       IoToken.Gas, //input token
-  //       true, //approveCheck
-  //       uint128(0), //minOutputAmount
-  //       uint32(block.timestamp + 1800), //deadline
-  //       UNISWAP_FEE,
-  //       uint8(1), //pathLength
-  //       address(mockToken),
-  //       UNISWAP_FEE
-  //     )
-  //   );
-  //   (uint256 amountOut, ) = swapReturn.asUint256Unchecked(0);
-  //   assertTrue(amountOut > 0);
-  // }
+
+  function testEthSwap() public {
+    hoax(user);
+    bytes memory swapReturn = swapLayer.initiate{value: USER_AMOUNT * 1e18}(
+      foreignChainId,
+      toUniversalAddress(user),
+      true,
+      abi.encodePacked(
+        FastTransferMode.Disabled,
+        RedeemMode.Direct,
+        IoToken.Usdc, //output token
+        IoToken.Gas, //input token
+        SwapType.UniswapV3,
+        uint128(0), //minOutputAmount
+        uint32(block.timestamp + 1800), //deadline
+        UNISWAP_FEE,
+        uint8(1), //pathLength
+        address(mockToken),
+        UNISWAP_FEE
+      )
+    );
+    (uint256 amountOut, ) = swapReturn.asUint256Unchecked(0);
+    assertTrue(amountOut > 0);
+  }
 }

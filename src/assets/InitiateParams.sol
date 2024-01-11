@@ -104,7 +104,6 @@ uint constant PERMIT2_TRANSFER_SIZE =
 //    acquire layout
 //   16 bytes  input amount
 //  1: GAS
-//    1 byte   approveCheck
 //    swap struct
 //  2: ERC20
 //    acquire layout
@@ -144,9 +143,8 @@ function parseParamBaseStructure(
   uint offset = 0;
   uint paramBlockOffset;
   {
-    uint8 fastTransferMode_;
-    (fastTransferMode_, offset) = params.asUint8Unchecked(offset);
-    FastTransferMode fastTransferMode = FastTransferMode(fastTransferMode_);
+    FastTransferMode fastTransferMode;
+    (fastTransferMode, offset) = parseFastTransferMode(params, offset);
     paramBlockOffset = offset;
     if (fastTransferMode == FastTransferMode.Enabled)
       offset += FAST_TRANSFER_PARAM_SIZE;
@@ -189,13 +187,11 @@ function parseParamBaseStructure(
       offset += SWAP_PARAM_AMOUNT_SIZE;
       offset = skipAcquire(params, offset);
     }
-    else if (inputTokenType == IoToken.Gas) {
-      offset += BOOL_SIZE; //approveCheck
-      offset = skipSwap(params, offset);
-    }
-    else if (inputTokenType == IoToken.Erc20) {
-      offset = skipAcquire(params, offset);
-      offset += ADDRESS_SIZE + SWAP_PARAM_AMOUNT_SIZE + BOOL_SIZE;
+    else {
+      if (inputTokenType == IoToken.Erc20) {
+        offset = skipAcquire(params, offset);
+        offset += ADDRESS_SIZE + SWAP_PARAM_AMOUNT_SIZE + BOOL_SIZE;
+      }
       offset = skipSwap(params, offset);
     }
 
@@ -203,6 +199,15 @@ function parseParamBaseStructure(
   }
   params.checkLength(offset);
 }}
+
+function parseFastTransferMode(
+  bytes memory params,
+  uint offset
+) pure returns (FastTransferMode, uint) {
+  uint8 value;
+  (value, offset) = params.asUint8Unchecked(offset);
+  return (FastTransferMode(value), offset);
+}
 
 //gas optimization - cheaper than if else branch
 uint constant _ACQUIRE_MODE_SIZES_ARRAY =
@@ -213,7 +218,7 @@ function skipAcquire(
 ) pure returns (uint) { unchecked {
   uint8 acquireMode_;
   (acquireMode_, offset) = params.asUint8Unchecked(offset);
-  AcquireMode acquireMode = AcquireMode(acquireMode_); //checks that the enum value is valid
+  AcquireMode acquireMode = AcquireMode(acquireMode_);
   return offset + uint8(_ACQUIRE_MODE_SIZES_ARRAY >> (uint(acquireMode) * 8));
 }}
 

@@ -7,7 +7,7 @@ ifneq (,$(filter test, $(MAKECMDGOALS)))
 _ := $(shell $(MAKE) -C env build NETWORK=$(word 1,${TEST_FORK}) CHAIN=$(word 2,${TEST_FORK}))
 include env/testing.env
 export
-unexport TEST_FORK	
+unexport TEST_FORK
 endif
 
 .DEFAULT_GOAL = build

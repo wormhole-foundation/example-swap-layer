@@ -38,7 +38,7 @@ library PercentageLib {
   function to(uint value, uint fractionalDigits) internal pure returns (Percentage) { unchecked {
     if (value == 0)
       return Percentage.wrap(0);
-    
+
     if (fractionalDigits > 5)
       revert InvalidArguments(value, fractionalDigits);
 
@@ -46,23 +46,23 @@ library PercentageLib {
       value *= fractionalDigits == 0 ? 100 : 10;
       fractionalDigits = 2;
     }
-    
+
     if (value > MAX_MANTISSA)
       revert InvalidArguments(value, fractionalDigits);
-    
+
     value = (value << EXPONENT_BITS) | (fractionalDigits - 2);
-    
+
     uint16 ret;
     //skip unneccessary cleanup
     assembly ("memory-safe") { ret := value }
-    
+
     return Percentage.wrap(ret);
   }}
 
   function checkedWrap(uint16 percentage) internal pure returns (Percentage) { unchecked {
     if ((percentage >> EXPONENT_BITS) > MAX_MANTISSA)
       revert InvalidPercentage(percentage);
-    
+
     return Percentage.wrap(percentage);
   }}
 

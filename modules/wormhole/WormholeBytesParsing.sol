@@ -5,6 +5,7 @@ library BytesParsing {
   uint256 private constant freeMemoryPtr = 0x40;
   uint256 private constant wordSize = 32;
 
+  error InvalidBoolVal(uint8 value);
   error OutOfBounds(uint256 offset, uint256 length);
   error LengthMismatch(uint256 encodedLength, uint256 expectedLength);
 
@@ -95,7 +96,10 @@ library BytesParsing {
     bytes memory encoded,
     uint offset
   ) internal pure returns (bool, uint) {
-    (uint8 ret, uint nextOffset) = asUint8(encoded, offset);
+    (uint8 ret, uint nextOffset) = asUint8Unchecked(encoded, offset);
+    if (ret & 0xfe != 0)
+      revert InvalidBoolVal(ret);
+
     return (ret != 0, nextOffset);
   }
 
