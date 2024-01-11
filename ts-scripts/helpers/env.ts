@@ -27,6 +27,28 @@ export type Deployment = {
   address: string;
 };
 
+//TODO adjust types, potentially use typescript object
+export type FeeConfig = {
+  chainId: ChainId;
+  baseFee: string;
+  gasPrice: string;
+  gasPriceMargin: string;
+  gasPriceTimestamp: string;
+  gasPriceUpdateThreshold: string;
+  maxGasDropoff: string;
+  gasDropoffMargin: string;
+  gasTokenPrice: string;
+};
+
+export type SwapLayerConfig = {
+  shouldRegisterEndpoints: boolean;
+  shouldUpdateAssistant: boolean;
+  shouldSweepTokens: boolean;
+  shouldUpdateFeeRecipient: boolean;
+  newAssistantAddress: string;
+  newFeeRecipient: string;
+};
+
 const DEFAULT_ENV = "testnet";
 
 export let env = "";
@@ -103,6 +125,8 @@ export function getOperatingChains(): ChainInfo[] {
       output.push(item);
     }
   });
+
+  console.log("Operating chains: " + output.map((x) => x.chainId).join(", "));
 
   return output;
 }
@@ -380,3 +404,25 @@ export const getCreate2Factory = (chain: ChainInfo): Create2Factory =>
     getCreate2FactoryAddress(chain),
     getSigner(chain)
   );
+
+export const loadFeeConfig = (): FeeConfig[] => {
+  const feeConfigFile = fs.readFileSync(
+    `./ts-scripts/config/${env}/configureFees.json`
+  );
+  if (!feeConfigFile) {
+    throw Error("Failed to find fee config file for this process!");
+  }
+  const feeConfig = JSON.parse(feeConfigFile.toString());
+  return feeConfig;
+};
+
+export const loadSwapLayerConfiguration = (): SwapLayerConfig => {
+  const configFile = fs.readFileSync(
+    `./ts-scripts/config/${env}/configureSwapLayer.json`
+  );
+  if (!configFile) {
+    throw Error("Failed to find config file for this process!");
+  }
+  const config = JSON.parse(configFile.toString());
+  return config;
+};
