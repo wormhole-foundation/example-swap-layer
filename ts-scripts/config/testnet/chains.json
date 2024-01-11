@@ -7,60 +7,84 @@
       "evmNetworkId": 5,
       "chainId": 2,
       "rpc": "http://127.0.0.1:8545",
+      "rpcWs": "wss://ethereum-goerli.publicnode.com",
       "wormholeAddress": "0x706abc4E45D419950511e474C7B9Ed348A4a716c",
       "liquidityLayerAddress": "0xD83120e86Df1310F7415C10790ef5b1067eE38a0",
-      "uniswapV3RouterAddress": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+      "uniswapV3RouterAddress": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "usdcAddress": "0x07865c6e87b9f70255377e024ace6630c1eaa37f",
+      "circleMessageTransmitter": "0x26413e8157cd32011e726065a5462e97dd4d03d9",
+      "circleDomain": 0
     },
     {
       "description": "Mumbai",
       "evmNetworkId": 80001,
       "chainId": 5,
       "rpc": "https://polygon-testnet.public.blastapi.io",
+      "rpcWs": "wss://polygon-mumbai-bor.publicnode.com",
       "wormholeAddress": "0x0CBE91CF822c73C2315FB05100C2F714765d5c20",
       "liquidityLayerAddress": "0x27ccA950f7484AF811Cbf9B8f2299aB98ab40B4d",
-      "uniswapV3RouterAddress": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+      "uniswapV3RouterAddress": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "usdcAddress": "0x9999f7fea5938fd3b1e26a12c3f2fb024e194f97",
+      "circleMessageTransmitter": "0xe09A679F56207EF33F5b9d8fb4499Ec00792eA73",
+      "circleDomain": 7
     },
     {
       "description": "Avalanche testnet fuji",
       "evmNetworkId": 43113,
       "chainId": 6,
       "rpc": "https://api.avax-test.network/ext/bc/C/rpc",
+      "rpcWs": "wss://avalanche-fuji-c-chain.publicnode.com",
       "wormholeAddress": "0x7bbcE28e64B3F8b84d876Ab298393c38ad7aac4C",
       "liquidityLayerAddress": "0xB51573D5bEBedbf233B43F7C04b24Ca31E45e16a",
-      "uniswapV3RouterAddress": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+      "uniswapV3RouterAddress": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "usdcAddress": "0x5425890298aed601595a70ab815c96711a31bc65",
+      "circleMessageTransmitter": "0xa9fb1b3009dcb79e2fe346c16a604b8fa8ae0a79",
+      "circleDomain": 1
     },
     {
       "description": "Arbitrum goerli",
       "evmNetworkId": 421613,
       "chainId": 23,
       "rpc": "https://arbitrum-goerli.publicnode.com",
+      "rpcWs": "wss://arbitrum-goerli.publicnode.com",
       "wormholeAddress": "0xC7A204bDBFe983FCD8d8E61D02b475D4073fF97e",
       "liquidityLayerAddress": "0xe26BDB27d199DD757e28B4F2Ae032b62aF7687d2",
-      "uniswapV3RouterAddress": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+      "uniswapV3RouterAddress": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "usdcAddress": "0xfd064A18f3BF249cf1f87FC203E90D8f650f2d63",
+      "circleMessageTransmitter": "0x109bc137cb64eab7c0b1dddd1edf341467dc2d35",
+      "circleDomain": 3
     },
     {
       "description": "Optimism goerli",
       "evmNetworkId": 420,
       "chainId": 24,
       "rpc": "https://optimism-goerli.publicnode.com",
+      "rpcWs": "wss://optimism-goerli.publicnode.com",
       "wormholeAddress": "0x6b9C8671cdDC8dEab9c719bB87cBd3e782bA6a35",
       "liquidityLayerAddress": "0xe26BDB27d199DD757e28B4F2Ae032b62aF7687d2",
-      "uniswapV3RouterAddress": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+      "uniswapV3RouterAddress": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "usdcAddress": "0xe05606174bac4A6364B31bd0eCA4bf4dD368f8C6",
+      "circleMessageTransmitter": "0x9ff9a4da6f2157a9c82ce756f8fd7e0d75be8895",
+      "circleDomain": 2
     },
     {
       "description": "Base Testnet",
       "evmNetworkId": 84531,
       "chainId": 30,
       "rpc": "https://goerli.base.org",
+      "rpcWs": "wss://base-goerli.publicnode.com",
       "wormholeAddress": "0x23908A62110e21C04F3A4e011d24F901F911744A",
       "liquidityLayerAddress": "0x9585c732DBeA83Fd34E84d9678d71F00F58E0a9d",
-      "uniswapV3RouterAddress": "0x2626664c2603336E57B271c5C0b26F421741e481",
-      "permit2Address": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+      "uniswapV3RouterAddress": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "permit2Address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "usdcAddress": "0xf175520c52418dfe19c8098071a252da48cd1c19",
+      "circleMessageTransmitter": "0x9ff9a4da6f2157A9c82CE756f8fD7E0d75be8895",
+      "circleDomain": 6
     }
   ]
 }
