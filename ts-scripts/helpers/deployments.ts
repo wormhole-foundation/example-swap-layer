@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { Create2Factory__factory } from "../../ethers-contracts-external/Create2Factory.sol/Create2Factory__factory";
 import { SwapLayer__factory } from "../../ethers-contracts";
 import { Proxy__factory } from "../../ethers-contracts";
+import { encodeProxyConstructorArgs } from "../../ts-sdk"
 
 export const setupContractSalt = Buffer.from("0xSetup");
 export const proxyContractSalt = Buffer.from("0xGenericRelayer");
@@ -22,10 +23,16 @@ export async function deploySwapLayerImplementation(
     signer
   );
 
+  //TODO these need to be adjusted, at least for the actual contract
+  const majorDelay = 0;
+  const minorDelay = 0;
+
   const contract = await factory.deploy(
     chain.permit2Address,
     chain.uniswapV3RouterAddress,
-    chain.liquidityLayerAddress
+    chain.liquidityLayerAddress,
+    majorDelay,
+    minorDelay
   );
   return await contract.deployed().then((result) => {
     console.log("Successfully deployed contract at " + result.address);
@@ -49,21 +56,24 @@ export async function deploySwapLayerProxy(
     bytecode,
     signer
   );
+  
+  const swapLayerProxyConstructorParams = encodeProxyConstructorArgs({
+    owner: signerAddress,
+    admin: signerAddress,
+    assistant: signerAddress,
+    feeRecipient: signerAddress,
+    adminCanUpgrade: true,
+  });
 
-  // let ABI = ["function setup(address)"];
-  // let iface = new ethers.utils.Interface(ABI);
-  // let encodedData = iface.encodeFunctionData("setup", [
-  //   SwapLayerImplementationAddress,
-  // ]);
+  //TODO if using create2 factory that uses OpenZeppelin's proxy, be sure to include the call
+  //  signature "checkedUpgrade(bytes)" like so:
+  //const swapLayerInterface = SwapLayer__factory.createInterface();
+  //swapLayerInterface.encodeFunctionData("checkedUpgrade", [swapLayerProxyConstructorParams]);
 
-  //TODO use the typescript SDK to do this and accept the additional parameters
-  const abi = ethers.utils.defaultAbiCoder;
-  const params = abi.encode(
-    ["address", "address", "address"], // encode as address array
-    [signerAddress, signerAddress, signerAddress]
+  const contract = await factory.deploy(
+    SwapLayerImplementationAddress,
+    swapLayerProxyConstructorParams
   );
-
-  const contract = await factory.deploy(SwapLayerImplementationAddress, params);
   return await contract.deployed().then((result) => {
     console.log("Successfully deployed contract at " + result.address);
     return { address: result.address, chainId: chain.chainId };

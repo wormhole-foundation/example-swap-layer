@@ -269,7 +269,8 @@ abstract contract SwapLayerGovernance is SwapLayerBase, ProxyBase {
       }
       else if (command == GovernanceCommand.UpgradeContract ||
                command == GovernanceCommand.ProposeContractUpgrade) {
-        if (msg.sender == state.admin.current && !state.adminCanUpgradeContract)
+        //check for != owner instead of == admin in case owner and admin are one and the same
+        if (msg.sender != state.owner.current && !state.adminCanUpgradeContract)
           revert NotAuthorized();
 
         address newImplementation;

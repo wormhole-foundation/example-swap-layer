@@ -13,6 +13,7 @@ using GasDropoffLib for GasDropoff;
 uint constant MODE_SIZE = 1;
 uint constant BOOL_SIZE = 1;
 uint constant ADDRESS_SIZE = 20;
+uint constant UNIVERSAL_ADDRESS_SIZE = 32;
 uint constant UNI_FEE_SIZE = 3;
 uint constant SWAP_PARAM_SWAP_TYPE_SIZE = 1;
 uint constant SWAP_PARAM_AMOUNT_SIZE = 16;
@@ -27,7 +28,7 @@ uint constant RELAY_PARAM_SIZE = RELAY_GAS_DROPOFF_SIZE + RELAY_MAX_RELAYER_FEE_
 enum IoToken {
   Usdc,
   Gas,
-  Erc20
+  Other
 }
 
 enum RedeemMode {

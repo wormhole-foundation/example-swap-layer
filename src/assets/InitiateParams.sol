@@ -92,11 +92,9 @@ uint constant PERMIT2_TRANSFER_SIZE =
 // 1 byte   output token type
 //  0: USDC
 //  1: GAS
-//   16 bytes  input amount
 //    swap struct
-//  2: ERC20
-//   20 bytes  token address
-//   16 bytes  input amount
+//  2: Token
+//   32 bytes  token address
 //    swap struct
 //
 // 1 byte   input token type
@@ -172,8 +170,8 @@ function parseParamBaseStructure(
     paramBlockOffset = offset;
     if (outputTokenType == IoToken.Gas)
       skipSwap(params, offset);
-    else if (outputTokenType == IoToken.Erc20) {
-      offset += ADDRESS_SIZE; //token address
+    else if (outputTokenType == IoToken.Other) {
+      offset += UNIVERSAL_ADDRESS_SIZE; //token address
       skipSwap(params, offset);
     }
 
@@ -188,7 +186,7 @@ function parseParamBaseStructure(
       offset = skipAcquire(params, offset);
     }
     else {
-      if (inputTokenType == IoToken.Erc20) {
+      if (inputTokenType == IoToken.Other) {
         offset = skipAcquire(params, offset);
         offset += ADDRESS_SIZE + SWAP_PARAM_AMOUNT_SIZE + BOOL_SIZE;
       }

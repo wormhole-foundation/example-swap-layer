@@ -48,7 +48,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       uint swapCount = 0;
       if (mos.output.mode != IoToken.Usdc) {
         uint offset = mos.output.offset;
-        if (mos.output.mode == IoToken.Erc20)
+        if (mos.output.mode == IoToken.Other)
           offset += ADDRESS_SIZE;
 
         uint pathLength;
@@ -140,7 +140,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         _weth.deposit{value: inputAmount}();
         inputToken = _weth;
       }
-      else { //must be IoToken.Erc20
+      else { //must be IoToken.Other
         (inputToken,  offset) = parseIERC20(params, offset);
         (inputAmount, offset) = params.asUint128Unchecked(offset);
         offset = _acquireInputTokens(inputAmount, inputToken, params, offset);
