@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "startLocalGoerli": "anvil --fork-url https://rpc.ankr.com/eth_goerli",
+    "startLocalGoerli": "anvil --fork-url https://rpc.ankr.com/eth_goerli --port 8545",
     "startLocalFuji": "anvil --fork-url https://api.avax-test.network/ext/bc/C/rpc --port 8546",
     "startLocalMumbai": "anvil --fork-url https://polygon-testnet.public.blastapi.io --port 8547",
     "startLocalArbitrum": "anvil --fork-url https://arbitrum-goerli.publicnode.com --port 8548",
