@@ -11,6 +11,17 @@
     "gasTokenPrice": "100"
   },
   {
+    "chainId": 5,
+    "baseFee": "1",
+    "gasPrice": "1",
+    "gasPriceMargin": "1",
+    "gasPriceTimestamp": "0",
+    "gasPriceUpdateThreshold": "1",
+    "maxGasDropoff": "1",
+    "gasDropoffMargin": "1",
+    "gasTokenPrice": "100"
+  },
+  {
     "chainId": 6,
     "baseFee": "1",
     "gasPrice": "1",
@@ -20,6 +31,38 @@
     "maxGasDropoff": "1",
     "gasDropoffMargin": "1",
     "gasTokenPrice": "100"
+  },
+  {
+    "chainId": 23,
+    "baseFee": "1",
+    "gasPrice": "1",
+    "gasPriceMargin": "1",
+    "gasPriceTimestamp": "0",
+    "gasPriceUpdateThreshold": "1",
+    "maxGasDropoff": "1",
+    "gasDropoffMargin": "1",
+    "gasTokenPrice": "100"
+  },
+  {
+    "chainId": 24,
+    "baseFee": "1",
+    "gasPrice": "1",
+    "gasPriceMargin": "1",
+    "gasPriceTimestamp": "0",
+    "gasPriceUpdateThreshold": "1",
+    "maxGasDropoff": "1",
+    "gasDropoffMargin": "1",
+    "gasTokenPrice": "100"
+  },
+  {
+    "chainId": 30,
+    "baseFee": "1",
+    "gasPrice": "1",
+    "gasPriceMargin": "1",
+    "gasPriceTimestamp": "0",
+    "gasPriceUpdateThreshold": "1",
+    "maxGasDropoff": "1",
+    "gasDropoffMargin": "1",
+    "gasTokenPrice": "100"
   }
-]
 ]

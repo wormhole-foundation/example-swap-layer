@@ -58,4 +58,11 @@ https://docs.uniswap.org/contracts/v3/reference/deployments
 500, 30_000, 100_000 are the uniswap fee tiers, they can add more though
 
 
---- TODO can't deploy to Fuji using the ankr rpc node because the trie node error indicates the ankr doesn't have archive data on that node. Testnet address is probably wrong, but it's not clear what the correct one is.
+-- NOTE can't deploy to Fuji using the ankr rpc node because the trie node error indicates the ankr doesn't have archive data on that node. Testnet address is probably wrong, but it's not clear what the correct one is.
+-- NOTE also failed on Optimism Goerli with the same error.
+-- NOTE also failed deploying the implementation on arbitrum goerli. Different error, but still failed. Error was not helpful.
+-- NOTE seemed to work once on mumbai but now consistently fails to deploy. Unsure why.
+-- NOTE tried both 0x2626664c2603336E57B271c5C0b26F421741e481 and 0xE592427A0AEce92De3Edee1F18E0157C05861564 for base. both reverted
+-- NOTE tried both 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45 and 0xE592427A0AEce92De3Edee1F18E0157C05861564 for optimism goerli. both reverted wiith failed to get account 0x0
+
+-- TODO everything fails except goerli. failed configurations are in config/localTestnew/temp.json
