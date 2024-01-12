@@ -262,7 +262,7 @@ const gasPriceHackItem = {
   binary: "object",
   layout: [
     { name: "gasPriceTimestamp", ...timestampItem },
-    { name: "gasPrice", ...gasPriceItem },
+    { name: "gasPrice",          ...gasPriceItem  },
   ],
 } as const satisfies LayoutItem;
 
@@ -341,7 +341,7 @@ export const queryLayout = {
     [[0, "FeeParams"],               [{ name: "chain", ...layoutItems.chainItem() }]],
     [[1, "Endpoint"],                [
                                       { name: "subQuery", ...subQueryTypeItem },
-                                      { name: "chain", ...layoutItems.chainItem() }
+                                      { name: "chain",    ...layoutItems.chainItem() }
                                      ]],
     [[2, "Immutable"],               [{ name: "immutable", ...immutableTypeItem }]],
     [[3, "AdminCanUpgradeContract"], []],

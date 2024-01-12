@@ -59,10 +59,7 @@ function createSwapLayerConfiguration(
       }
 
       const swapLayerAddress = getSwapLayerAddress(operatingChain);
-      const universalShim = toNative(
-        "Ethereum",
-        swapLayerAddress
-      ).toUniversalAddress();
+      const universalShim = toNative("Evm", swapLayerAddress).toUniversalAddress();
 
       console.log(
         "Creating registration for chain: " +

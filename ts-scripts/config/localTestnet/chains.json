@@ -3,10 +3,23 @@
   "description": "This file contains the chains against which all the scripts should run.",
   "chains": [
     {
+      "description": "Mumbai",
+      "evmNetworkId": 80001,
+      "chainId": 5,
+      "rpc": "http://127.0.0.1:8547",
+      "rpcWs": "wss://polygon-mumbai-bor.publicnode.com",
+      "wormholeAddress": "0x0CBE91CF822c73C2315FB05100C2F714765d5c20",
+      "liquidityLayerAddress": "0x27ccA950f7484AF811Cbf9B8f2299aB98ab40B4d",
+      "uniswapV3RouterAddress": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "usdcAddress": "0x9999f7fea5938fd3b1e26a12c3f2fb024e194f97",
+      "circleMessageTransmitter": "0xe09A679F56207EF33F5b9d8fb4499Ec00792eA73",
+      "circleDomain": 7
+    },
+    {
       "description": "Goerli",
       "evmNetworkId": 5,
       "chainId": 2,
-      "chainName": "Ethereum",
       "rpc": "http://127.0.0.1:8545",
       "wormholeAddress": "0x706abc4E45D419950511e474C7B9Ed348A4a716c",
       "liquidityLayerAddress": "0xD83120e86Df1310F7415C10790ef5b1067eE38a0",

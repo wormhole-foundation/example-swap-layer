@@ -1,4 +1,4 @@
-import { ChainId } from "@certusone/wormhole-sdk";
+import { ChainId, Chain, chainIdToChain } from "@wormhole-foundation/connect-sdk";
 import { ethers } from "ethers";
 import fs from "fs";
 
@@ -15,43 +15,7 @@ import {
 export type ChainInfo = {
   evmNetworkId: number;
   chainId: ChainId;
-  chainName: //TODO import and use the correct type here
-  | "Ethereum"
-    | "Avalanche"
-    | "Optimism"
-    | "Arbitrum"
-    | "Base"
-    | "Solana"
-    | "Terra"
-    | "Bsc"
-    | "Polygon"
-    | "Oasis"
-    | "Algorand"
-    | "Aurora"
-    | "Fantom"
-    | "Karura"
-    | "Acala"
-    | "Klaytn"
-    | "Celo"
-    | "Near"
-    | "Moonbeam"
-    | "Neon"
-    | "Terra2"
-    | "Injective"
-    | "Osmosis"
-    | "Sui"
-    | "Aptos"
-    | "Gnosis"
-    | "Pythnet"
-    | "Xpla"
-    | "Btc"
-    | "Sei"
-    | "Rootstock"
-    | "Wormchain"
-    | "Cosmoshub"
-    | "Evmos"
-    | "Kujira"
-    | "Sepolia";
+  chainName: Chain;
   rpc: string;
   wormholeAddress: string;
   uniswapV3RouterAddress: string;
@@ -174,6 +138,9 @@ export function loadChains(): ChainInfo[] {
   if (!chains.chains) {
     throw Error("Failed to pull chain config file!");
   }
+  for (const chain of chains.chains)
+    chain.chainName = chainIdToChain(chain.chainId);
+
   return chains.chains;
 }
 

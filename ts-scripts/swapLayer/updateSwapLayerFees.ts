@@ -116,6 +116,8 @@ function createBatchFeeUpdate(operatingChain: ChainInfo): FeeParamUpdate[] {
     output.push(gasPriceMarginUpdate);
     output.push(gasPriceDropoffMarginUpdate);
     output.push(maxGasDropoffUpdate);
+
+    //console.log("FeeUpdates:", currentChain.chainName, output);
   }
 
   return output;

@@ -313,8 +313,10 @@ abstract contract SwapLayerRelayingFees is SwapLayerGovernance {
         uint32 gasPrice;
         (gasPriceTimestamp, offset) = updates.asUint32Unchecked(offset);
         (gasPrice,          offset) = updates.asUint32Unchecked(offset);
-        curParams = curParams.gasPriceTimestamp(gasPriceTimestamp);
-        curParams = curParams.gasPrice(GasPrice.wrap(gasPrice));
+        if (gasPriceTimestamp > curParams.gasPriceTimestamp()) {
+          curParams = curParams.gasPriceTimestamp(gasPriceTimestamp);
+          curParams = curParams.gasPrice(GasPrice.wrap(gasPrice));
+        }
       }
       else if (update == FeeUpdate.GasTokenPrice) {
         uint80 gasTokenPrice;
