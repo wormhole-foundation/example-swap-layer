@@ -1,0 +1,12 @@
+{
+  "fromChain": 2,
+  "toChain": 6,
+  "sendUsdc": false,
+  "sendGas": true,
+  "sendToken": false,
+  "tokenAddress": "",
+  "sendAmount": "1000000000",
+  "limit": "0",
+  "deadline": "0",
+  "firstLegFee": "500"
+}

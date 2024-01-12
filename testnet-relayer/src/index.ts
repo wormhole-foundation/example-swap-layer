@@ -21,7 +21,13 @@ import {
   SwapLayer,
   SwapLayer__factory,
   Proxy,
-} from "../../ethers-contracts"; //TODO typechain
+} from "../../ethers-contracts";
+import {
+  MessageDecoder,
+  LiquidityLayerMessageBody,
+} from "wormhole-liquidity-layer-sdk";
+import { deserializeSwapMessage } from "@xlabs/wh-swap-layer-ts-sdk";
+import { get } from "lodash";
 
 const environment = createEnvironment();
 
@@ -117,23 +123,28 @@ function handleRelayerEvent(
       // create payload buffer
       const payloadArray = Buffer.from(ethers.utils.arrayify(payload));
 
-      //TODO parse the liquidity layer message
+      const llMessage: LiquidityLayerMessageBody =
+        MessageDecoder.decode(payloadArray);
 
-      // if this isn't going a swap layer contract, then simply continue
+      // if this isn't from a swap layer contract, then simply continue
+      if (!isFromSwapLayer(llMessage)) {
+        console.log("Not from swap layer, ignoring event");
+        return;
+      }
 
-      //TODO if it is, parse the payload for a swap layer message
+      const payloadFromLL: Buffer = getPayload(llMessage);
+
+      //If it is, parse the payload for a swap layer message
+      const parsedSwapLayerMessage = deserializeSwapMessage(payloadFromLL);
 
       // if the delivery type is not relay, then just continue
+      if (parsedSwapLayerMessage.redeemMode.mode !== "Relay") {
+        console.log("Not relay delivery type, ignoring event");
+        return;
+      }
 
-      //TODO what's the easiest way to get the fromChain?, could just wrap this function with the chainId when the subscribe happens
-      let fromChain: SupportedChainId = CHAIN_ID_ETH;
-      let toChain: SupportedChainId = CHAIN_ID_AVAX;
+      let fromChain: SupportedChainId = getFromChain(llMessage);
 
-      console.log(
-        `Processing transaction from ${coalesceChainName(
-          fromChain
-        )} to ${coalesceChainName(toChain)}`
-      );
       console.log("Fetching receipt");
       const receipt = await typedEvent.getTransactionReceipt();
 
@@ -156,8 +167,16 @@ function handleRelayerEvent(
         sequence.toString()
       );
 
+      const toChain = getToChain(circleBridgeMessage);
+
       console.log(
         "Successfully retrieved VAA, Circle Message, and Circle Attestion. Submitting redeem transaction..."
+      );
+
+      console.log(
+        `Processing transaction from ${coalesceChainName(
+          fromChain
+        )} to ${coalesceChainName(toChain)}`
       );
 
       // create target contract instance
@@ -168,7 +187,7 @@ function handleRelayerEvent(
 
       // redeem the transfer on the target chain
       const tx: ethers.ContractTransaction = await contract.redeem([], {
-        encodedWormholeMessage: vaaBytes, //TODO these probably need to be encoded differently
+        encodedWormholeMessage: vaaBytes,
         circleBridgeMessage: circleBridgeMessage,
         circleAttestation: circleAttestation,
       });
@@ -181,6 +200,54 @@ function handleRelayerEvent(
       console.error(e);
     }
   })();
+}
+
+function isFromSwapLayer(llMessage: LiquidityLayerMessageBody): boolean {
+  const isFill = !!llMessage.fill;
+  if (!isFill) {
+    return false;
+  }
+  const sourceSender = llMessage.fill?.orderSender;
+  const sourceChain = llMessage.fill?.sourceChain;
+  if (!sourceSender || !sourceChain) {
+    console.log(
+      "No source sender or source chain found in liquidity layer message body"
+    );
+    return false;
+  }
+  if (
+    tryUint8ArrayToNative(sourceSender, "ethereum").toLowerCase() ==
+    getChainInfo(environment, sourceChain as any).swapLayerAddress.toLowerCase()
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function getFromChain(llMessage: LiquidityLayerMessageBody): SupportedChainId {
+  if (!llMessage.fill?.sourceChain) {
+    throw new Error("No source chain found in liquidity layer message body");
+  }
+  return llMessage.fill?.sourceChain as SupportedChainId;
+}
+
+function getToChain(circleMessage: string): SupportedChainId {
+  const toDomain = new Buffer(circleMessage, "hex").readUInt32BE(69);
+  //from all chains, find the one with this domain
+  const toChain = SUPPORTED_CHAINS.find((chain) => {
+    return getChainInfo(environment, chain).circleDomain == toDomain;
+  });
+  return toChain as SupportedChainId;
+}
+
+function getPayload(llMessage: LiquidityLayerMessageBody): Buffer {
+  if (!llMessage.fill?.redeemerMessage) {
+    throw new Error(
+      "No redeemer message found in liquidity layer message body"
+    );
+  }
+  return llMessage.fill?.redeemerMessage;
 }
 
 function subscribeToEvents(

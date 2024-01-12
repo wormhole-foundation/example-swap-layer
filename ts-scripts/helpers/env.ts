@@ -50,6 +50,19 @@ export type SwapLayerConfig = {
   newFeeRecipient: string;
 };
 
+export type TestSendConfig = {
+  fromChain: ChainId;
+  toChain: ChainId;
+  sendUsdc: boolean;
+  sendGas: boolean;
+  sendToken: boolean;
+  tokenAddress: string;
+  sendAmount: string;
+  limit: string;
+  deadline: string;
+  firstLegFee: string;
+};
+
 const DEFAULT_ENV = "testnet";
 
 export let env = "";
@@ -349,47 +362,6 @@ export function getSwapLayerAddress(chain: ChainInfo): string {
   return thisChainsOracle;
 }
 
-const wormholeRelayerAddressesCache: Partial<Record<ChainId, string>> = {};
-export async function getWormholeRelayerAddress(
-  chain: ChainInfo,
-  forceCalculate?: boolean
-): Promise<string> {
-  // See if we are in dev mode (i.e. forge contracts compiled without via-ir)
-  const dev = get_env_var("DEV") == "True" ? true : false;
-
-  const contractsFile = fs.readFileSync(
-    `./ts-scripts/config/${env}/contracts.json`
-  );
-  if (!contractsFile) {
-    throw Error("Failed to find contracts file for this process!");
-  }
-  const contracts = JSON.parse(contractsFile.toString());
-  //If useLastRun is false, then we want to bypass the calculations and just use what the contracts file says.
-  if (!contracts.useLastRun && !lastRunOverride && !forceCalculate) {
-    const thisChainsRelayer = loadWormholeRelayers(dev).find(
-      (x: any) => x.chainId == chain.chainId
-    )?.address;
-    if (thisChainsRelayer) {
-      return thisChainsRelayer;
-    } else {
-      throw Error(
-        "Failed to find a WormholeRelayer contract address on chain " +
-          chain.chainId
-      );
-    }
-  }
-
-  if (!wormholeRelayerAddressesCache[chain.chainId]) {
-    const create2Factory = getCreate2Factory(chain);
-    const signer = getSigner(chain).address;
-
-    wormholeRelayerAddressesCache[chain.chainId] =
-      await create2Factory.computeProxyAddress(signer, proxyContractSalt);
-  }
-
-  return wormholeRelayerAddressesCache[chain.chainId]!;
-}
-
 export function getCreate2FactoryAddress(chain: ChainInfo): string {
   const address = loadCreate2Factories().find(
     (x: any) => x.chainId == chain.chainId
@@ -423,6 +395,17 @@ export const loadFeeConfig = (): FeeConfig[] => {
 export const loadSwapLayerConfiguration = (): SwapLayerConfig => {
   const configFile = fs.readFileSync(
     `./ts-scripts/config/${env}/scriptConfigs/configureSwapLayer.json`
+  );
+  if (!configFile) {
+    throw Error("Failed to find config file for this process!");
+  }
+  const config = JSON.parse(configFile.toString());
+  return config;
+};
+
+export const loadTestSendConfig = (): TestSendConfig => {
+  const configFile = fs.readFileSync(
+    `./ts-scripts/config/${env}/scriptConfigs/testSend.json`
   );
   if (!configFile) {
     throw Error("Failed to find config file for this process!");

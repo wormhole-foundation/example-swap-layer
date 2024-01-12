@@ -1,13 +1,15 @@
 {
   "scripts": {
     "build": "rm -rf ./lib && tsc",
-    "start-relayer": "node ./lib/testnet-relayer/src/index.js"
+    "start-relayer": "node ./lib/testnet-relayer/src/"
   },
   "dependencies": {
     "@certusone/wormhole-sdk": "^0.9.0",
+    "@xlabs/wh-swap-layer-ts-sdk": "file:../ts-sdk",
     "axios": "^1.1.3",
     "dotenv": "^16.0.3",
-    "ethers": "^5.7.2"
+    "ethers": "^5.7.2",
+    "wormhole-liquidity-layer-sdk": "file:../../example-liquidity-layer/evm/ts"
   },
   "devDependencies": {
     "typescript": "^4.8.4"
