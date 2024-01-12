@@ -15,6 +15,43 @@ import {
 export type ChainInfo = {
   evmNetworkId: number;
   chainId: ChainId;
+  chainName: //TODO import and use the correct type here
+  | "Ethereum"
+    | "Avalanche"
+    | "Optimism"
+    | "Arbitrum"
+    | "Base"
+    | "Solana"
+    | "Terra"
+    | "Bsc"
+    | "Polygon"
+    | "Oasis"
+    | "Algorand"
+    | "Aurora"
+    | "Fantom"
+    | "Karura"
+    | "Acala"
+    | "Klaytn"
+    | "Celo"
+    | "Near"
+    | "Moonbeam"
+    | "Neon"
+    | "Terra2"
+    | "Injective"
+    | "Osmosis"
+    | "Sui"
+    | "Aptos"
+    | "Gnosis"
+    | "Pythnet"
+    | "Xpla"
+    | "Btc"
+    | "Sei"
+    | "Rootstock"
+    | "Wormchain"
+    | "Cosmoshub"
+    | "Evmos"
+    | "Kujira"
+    | "Sepolia";
   rpc: string;
   wormholeAddress: string;
   uniswapV3RouterAddress: string;
@@ -407,7 +444,7 @@ export const getCreate2Factory = (chain: ChainInfo): Create2Factory =>
 
 export const loadFeeConfig = (): FeeConfig[] => {
   const feeConfigFile = fs.readFileSync(
-    `./ts-scripts/config/${env}/configureFees.json`
+    `./ts-scripts/config/${env}/scriptConfigs/configureFees.json`
   );
   if (!feeConfigFile) {
     throw Error("Failed to find fee config file for this process!");
@@ -418,7 +455,7 @@ export const loadFeeConfig = (): FeeConfig[] => {
 
 export const loadSwapLayerConfiguration = (): SwapLayerConfig => {
   const configFile = fs.readFileSync(
-    `./ts-scripts/config/${env}/configureSwapLayer.json`
+    `./ts-scripts/config/${env}/scriptConfigs/configureSwapLayer.json`
   );
   if (!configFile) {
     throw Error("Failed to find config file for this process!");

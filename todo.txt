@@ -40,3 +40,22 @@ https://docs.uniswap.org/contracts/v3/reference/deployments
 -- add redis & spy dockers
 -- add relayer engine
 -- relay simple sends with the relayer engine
+
+-- get the registered chains script working
+-- get the update fees script working
+-- parse liquidity layer messages
+-- parse swap layer messages
+-- find CCTP message for relay,
+-- fill struct on liquidity layer matters, because it's the top level struct 
+-- redeemer message is the payload 3, which is the swap layer message
+-- will also have to care about the interface of the token router, 
+-- redeem on the swap layer expects type OrderResponse which is the liquidity layer
+-- use initiate args in order to start a transfer
+- set limit (min out) and deadline (execute time) to zero, first leg fee - 0, (determines a pool)
+- set path empty, because there will be intermediate tokens in going from WETH to USDC. 
+- Leg first fee HAS TO BE CORRECT, which means we need to look up the pool and get the fee from there. Have to grab uniswap pools and read the fees
+- 0.05%, 0.30%, and 1%
+500, 30_000, 100_000 are the uniswap fee tiers, they can add more though
+
+
+--- TODO can't deploy to Fuji using the ankr rpc node because the trie node error indicates the ankr doesn't have archive data on that node. Testnet address is probably wrong, but it's not clear what the correct one is.

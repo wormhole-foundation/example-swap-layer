@@ -12,7 +12,6 @@ import {
 const processName = "deploySwapLayer";
 init();
 const chains = getOperatingChains();
-const privateKey = loadPrivateKey();
 
 async function run() {
   console.log(`Start ${processName}!`);

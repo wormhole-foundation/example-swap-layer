@@ -1,3 +1,4 @@
+import { FeeParamUpdate, encodeFeeParamUpdatesBatch } from "../../ts-sdk";
 import {
   deploySwapLayerImplementation,
   deploySwapLayerProxy,
@@ -8,6 +9,7 @@ import {
   getSwapLayer,
   init,
   loadChains,
+  loadFeeConfig,
   loadPrivateKey,
   loadSwapLayerConfiguration,
   writeOutputFiles,
@@ -21,32 +23,102 @@ async function run() {
   console.log(`Start ${processName}!`);
 
   for (const chain of chains) {
-    console.log(`Updating configuration for chain ${chain.chainId}...`);
+    console.log(`Updating fee information for chain ${chain.chainId}...`);
 
     const swapLayer = getSwapLayer(chain);
-    //TODO call createSwapLayerConfiguration, serialize it using typecript SDK, and then call executeGovernanceActions with that object
-    //swapLayer.executeGovernanceActions(null)
+    const updateObj = createBatchFeeUpdate(chain);
+    const encodedCommands = encodeFeeParamUpdatesBatch(updateObj);
+    try {
+      await swapLayer.updateFeeParams(encodedCommands);
+    } catch (e) {
+      console.error(e);
+      console.log("Failed to update fees for chain " + chain.chainId);
+      process.exit(1);
+    }
   }
 }
 
-//TODO output governance object from typescript sdk
-function createSwapLayerConfiguration(chain: ChainInfo): any {
-  const configurationOptions = loadSwapLayerConfiguration();
+function createBatchFeeUpdate(operatingChain: ChainInfo): FeeParamUpdate[] {
+  const configurationOptions = loadFeeConfig();
   const allChains = loadChains();
-  const output: any = {};
+  const output: FeeParamUpdate[] = [];
 
-  if (configurationOptions.shouldRegisterEndpoints) {
-    //TODO pack these into the output object
+  for (const currentChain of allChains) {
+    if (operatingChain.chainId == currentChain.chainId) {
+      continue; //TODO: decide if we want to register the same chain on itself.
+    }
+    const currentConfig = configurationOptions.find(
+      (config) => config.chainId == currentChain.chainId
+    );
+    if (!currentConfig) {
+      throw new Error(
+        "No configuration found for chain " + currentChain.chainId
+      );
+    }
+
+    const gasPriceUpdate: FeeParamUpdate = {
+      chain: currentChain.chainName,
+      update: {
+        param: "GasPrice",
+        value: {
+          gasPriceTimestamp: parseInt(currentConfig.gasPriceTimestamp),
+          gasPrice: BigInt(currentConfig.gasPrice),
+        },
+      },
+    };
+    const gasTokenPriceUpdate: FeeParamUpdate = {
+      chain: currentChain.chainName,
+      update: {
+        param: "GasTokenPrice",
+        value: BigInt(currentConfig.gasTokenPrice),
+      },
+    };
+    const baseFeeUpdate: FeeParamUpdate = {
+      chain: currentChain.chainName,
+      update: {
+        param: "BaseFee",
+        value: BigInt(currentConfig.baseFee),
+      },
+    };
+    const gasPriceUpdateThresholdUpdate: FeeParamUpdate = {
+      chain: currentChain.chainName,
+      update: {
+        param: "GasPriceUpdateThreshold",
+        value: parseInt(currentConfig.gasPriceUpdateThreshold),
+      },
+    };
+    const gasPriceMarginUpdate: FeeParamUpdate = {
+      chain: currentChain.chainName,
+      update: {
+        param: "GasPriceMargin",
+        value: parseInt(currentConfig.gasPriceMargin),
+      },
+    };
+    const gasPriceDropoffMarginUpdate: FeeParamUpdate = {
+      chain: currentChain.chainName,
+      update: {
+        param: "GasDropoffMargin",
+        value: parseInt(currentConfig.gasDropoffMargin),
+      },
+    };
+    const maxGasDropoffUpdate: FeeParamUpdate = {
+      chain: currentChain.chainName,
+      update: {
+        param: "MaxGasDropoff",
+        value: BigInt(currentConfig.maxGasDropoff),
+      },
+    };
+
+    output.push(gasPriceUpdate);
+    output.push(gasTokenPriceUpdate);
+    output.push(baseFeeUpdate);
+    output.push(gasPriceUpdateThresholdUpdate);
+    output.push(gasPriceMarginUpdate);
+    output.push(gasPriceDropoffMarginUpdate);
+    output.push(maxGasDropoffUpdate);
   }
-  if (configurationOptions.shouldUpdateAssistant) {
-    //TODO pack update assistant command w/ newAssistantAddress
-  }
-  if (configurationOptions.shouldSweepTokens) {
-    //TODO pack sweep tokens command
-  }
-  if (configurationOptions.shouldUpdateFeeRecipient) {
-    //TODO pack update fee recipient command w/ newFeeRecipient
-  }
+
+  return output;
 }
 
 run().then(() => console.log("Done!"));

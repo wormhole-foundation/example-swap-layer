@@ -294,7 +294,7 @@ abstract contract SwapLayerRelayingFees is SwapLayerGovernance {
     uint offset = 0;
     while (offset < updates.length) {
       uint16 updateChain;
-      (updateChain, offset) = updates.asUint8Unchecked(offset);
+      (updateChain, offset) = updates.asUint16Unchecked(offset);
       if (updateChain == 0)
         revert InvalidChainId();
 

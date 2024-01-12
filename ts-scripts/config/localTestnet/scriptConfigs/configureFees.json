@@ -1,13 +1,25 @@
 [
   {
     "chainId": 2,
-    "baseFee": "1000000",
-    "gasPrice": "1000000000",
-    "gasPriceMargin": "25",
+    "baseFee": "1",
+    "gasPrice": "1",
+    "gasPriceMargin": "1",
     "gasPriceTimestamp": "0",
-    "gasPriceUpdateThreshold": "10",
-    "maxGasDropoff": "1000000000000000000",
+    "gasPriceUpdateThreshold": "1",
+    "maxGasDropoff": "1",
     "gasDropoffMargin": "1",
-    "gasTokenPrice": "100000000"
+    "gasTokenPrice": "100"
+  },
+  {
+    "chainId": 6,
+    "baseFee": "1",
+    "gasPrice": "1",
+    "gasPriceMargin": "1",
+    "gasPriceTimestamp": "0",
+    "gasPriceUpdateThreshold": "1",
+    "maxGasDropoff": "1",
+    "gasDropoffMargin": "1",
+    "gasTokenPrice": "100"
   }
+]
 ]

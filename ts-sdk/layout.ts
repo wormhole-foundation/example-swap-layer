@@ -258,12 +258,20 @@ export const feeParamsLayout = [
   { name: "gasTokenPrice",           ...gasTokenPriceItem },
 ] as const satisfies Layout;
 
+const gasPriceHackItem = {
+  binary: "object",
+  layout: [
+    { name: "gasPriceTimestamp", ...timestampItem },
+    { name: "gasPrice", ...gasPriceItem },
+  ],
+} as const satisfies LayoutItem;
+
 export const feeParamUpdateItem = {
   binary: "switch",
   idSize: 1,
   idTag: "param",
   layouts: [
-    [[0, "GasPrice"],                [{ name: "value", ...addressChainItem  }]],
+    [[0, "GasPrice"],                [{ name: "value", ...gasPriceHackItem  }]],
     [[1, "GasTokenPrice"],           [{ name: "value", ...gasTokenPriceItem }]],
     [[2, "BaseFee"],                 [{ name: "value", ...baseFeeItem       }]],
     [[3, "GasPriceUpdateThreshold"], [{ name: "value", ...percentageItem    }]],

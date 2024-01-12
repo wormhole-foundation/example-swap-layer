@@ -7,7 +7,7 @@
       "description": "Goerli",
       "evmNetworkId": 5,
       "chainId": 2,
-      "rpc": "http://127.0.0.1:8545",
+      "rpc": null,
       "rpcWs": "wss://ethereum-goerli.publicnode.com",
       "wormholeAddress": "0x706abc4E45D419950511e474C7B9Ed348A4a716c",
       "liquidityLayerAddress": "0xD83120e86Df1310F7415C10790ef5b1067eE38a0",

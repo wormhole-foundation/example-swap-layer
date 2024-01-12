@@ -3,10 +3,13 @@ import { ethers } from "ethers";
 import { Create2Factory__factory } from "../../ethers-contracts-external/Create2Factory.sol/Create2Factory__factory";
 import { SwapLayer__factory } from "../../ethers-contracts";
 import { Proxy__factory } from "../../ethers-contracts";
-import { encodeProxyConstructorArgs } from "../../ts-sdk"
+import { encodeProxyConstructorArgs } from "../../ts-sdk";
 
 export const setupContractSalt = Buffer.from("0xSetup");
 export const proxyContractSalt = Buffer.from("0xGenericRelayer");
+
+const strip0x = (str: string) =>
+  str.startsWith("0x") ? str.substring(2) : str;
 
 export async function deploySwapLayerImplementation(
   chain: ChainInfo
@@ -24,8 +27,17 @@ export async function deploySwapLayerImplementation(
   );
 
   //TODO these need to be adjusted, at least for the actual contract
-  const majorDelay = 0;
+  const majorDelay = 1;
   const minorDelay = 0;
+
+  console.log(
+    "contracts: " +
+      chain.permit2Address +
+      " " +
+      chain.uniswapV3RouterAddress +
+      " " +
+      chain.liquidityLayerAddress
+  );
 
   const contract = await factory.deploy(
     chain.permit2Address,
@@ -56,7 +68,7 @@ export async function deploySwapLayerProxy(
     bytecode,
     signer
   );
-  
+
   const swapLayerProxyConstructorParams = encodeProxyConstructorArgs({
     owner: signerAddress,
     admin: signerAddress,

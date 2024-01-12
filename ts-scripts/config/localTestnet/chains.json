@@ -6,11 +6,27 @@
       "description": "Goerli",
       "evmNetworkId": 5,
       "chainId": 2,
+      "chainName": "Ethereum",
       "rpc": "http://127.0.0.1:8545",
       "wormholeAddress": "0x706abc4E45D419950511e474C7B9Ed348A4a716c",
       "liquidityLayerAddress": "0xD83120e86Df1310F7415C10790ef5b1067eE38a0",
       "uniswapV3RouterAddress": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
       "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+    },
+    {
+      "description": "Avalanche testnet fuji",
+      "evmNetworkId": 43113,
+      "chainId": 6,
+      "chainName": "Avalanche",
+      "rpc": "http://127.0.0.1:8546",
+      "rpcWs": "",
+      "wormholeAddress": "0x7bbcE28e64B3F8b84d876Ab298393c38ad7aac4C",
+      "liquidityLayerAddress": "0xB51573D5bEBedbf233B43F7C04b24Ca31E45e16a",
+      "uniswapV3RouterAddress": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "usdcAddress": "0x5425890298aed601595a70ab815c96711a31bc65",
+      "circleMessageTransmitter": "0xa9fb1b3009dcb79e2fe346c16a604b8fa8ae0a79",
+      "circleDomain": 1
     }
   ]
 }
