@@ -9,6 +9,7 @@ import {
   getOperatingChains,
   getSwapLayer,
   getSwapLayerAddress,
+  getWhConnectName,
   init,
   loadChains,
   loadFeeConfig,
@@ -21,7 +22,7 @@ import {
   toNative,
 } from "@wormhole-foundation/sdk-definitions";
 import { Wormhole } from "@wormhole-foundation/connect-sdk";
-import { EvmAddress, EvmPlatform } from "@wormhole-foundation/connect-sdk-evm";
+import { EvmPlatform } from "@wormhole-foundation/connect-sdk-evm";
 
 const processName = "configureSwapLayer";
 init();
@@ -60,17 +61,30 @@ function createSwapLayerConfiguration(
         continue; //don't register the same chain on itself
       }
 
-      const swapLayerAddress = getSwapLayerAddress(operatingChain);
-      const universalShim = toNative("Evm", swapLayerAddress).toUniversalAddress();
+      const network = getWhConnectName(); // Or "Testnet"
+      const wh = new Wormhole(network, [EvmPlatform]);
 
-      const feeParams = feeConfig.find((config) => config.chainId == currentChain.chainId);
+      const swapLayerAddress = getSwapLayerAddress(operatingChain);
+      const universalShim: UniversalAddress = toNative<"Evm">(
+        "Evm",
+        swapLayerAddress
+      ).toUniversalAddress();
+
+      const feeParams = feeConfig.find(
+        (config) => config.chainId == currentChain.chainId
+      );
       if (!feeParams)
-        throw new Error("No fee config found for chain " + currentChain.chainId);
+        throw new Error(
+          "No fee config found for chain " + currentChain.chainId
+        );
 
       console.log(
-        "Creating registration for chain:", currentChain.chainName,
-        "with address:", swapLayerAddress,
-        "and fee params:", feeParams,
+        "Creating registration for chain:",
+        currentChain.chainName,
+        "with address:",
+        swapLayerAddress,
+        "and fee params:",
+        feeParams
       );
 
       //TODO why can't the linter deduce the types inside GovernanceCommand?

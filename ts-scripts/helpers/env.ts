@@ -1,4 +1,8 @@
-import { ChainId, Chain, chainIdToChain } from "@wormhole-foundation/connect-sdk";
+import {
+  ChainId,
+  Chain,
+  chainIdToChain,
+} from "@wormhole-foundation/connect-sdk";
 import { ethers } from "ethers";
 import fs from "fs";
 
@@ -107,6 +111,14 @@ export function loadScriptConfig(processName: string): any {
     throw Error("Failed to pull config file!");
   }
   return config;
+}
+
+export function getWhConnectName(): "Mainnet" | "Testnet" | "Devnet" {
+  if (env.toLowerCase() == "mainnet") {
+    return "Mainnet";
+  } else {
+    return "Testnet";
+  }
 }
 
 export function getOperatingChains(): ChainInfo[] {
@@ -389,16 +401,16 @@ export const loadFeeConfig = (): FeeConfig[] => {
     throw Error("Failed to find fee config file for this process!");
   }
   const feeConfig = JSON.parse(feeConfigFile.toString());
-  return feeConfig.map((chainConfig: any) =>({
-    chainId:                            chainConfig.chainId,
-    baseFee:                     BigInt(chainConfig.baseFee),
-    gasPrice:                    BigInt(chainConfig.gasPrice),
-    gasPriceMargin:          parseFloat(chainConfig.gasPriceMargin),
-    gasPriceTimestamp:         parseInt(chainConfig.gasPriceTimestamp),
+  return feeConfig.map((chainConfig: any) => ({
+    chainId: chainConfig.chainId,
+    baseFee: BigInt(chainConfig.baseFee),
+    gasPrice: BigInt(chainConfig.gasPrice),
+    gasPriceMargin: parseFloat(chainConfig.gasPriceMargin),
+    gasPriceTimestamp: parseInt(chainConfig.gasPriceTimestamp),
     gasPriceUpdateThreshold: parseFloat(chainConfig.gasPriceUpdateThreshold),
-    gasPriceDropoff:         parseFloat(chainConfig.gasDropoffMargin),
-    maxGasDropoff:               BigInt(chainConfig.maxGasDropoff),
-    gasTokenPrice:               BigInt(chainConfig.gasTokenPrice),
+    gasPriceDropoff: parseFloat(chainConfig.gasDropoffMargin),
+    maxGasDropoff: BigInt(chainConfig.maxGasDropoff),
+    gasTokenPrice: BigInt(chainConfig.gasTokenPrice),
   }));
 };
 

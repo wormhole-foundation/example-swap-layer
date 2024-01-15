@@ -1,5 +1,5 @@
 {
-  "name": "@xlabs.xyz/relayer-infra-contracts",
+  "name": "@xlabs.xyz/swap-layer",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
