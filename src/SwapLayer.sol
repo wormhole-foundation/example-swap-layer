@@ -15,9 +15,11 @@ import "./assets/SwapLayerInitiate.sol";
 import "./assets/SwapLayerRedeem.sol";
 
 //Inheritance diagram: (SL = SwapLayer)
-//SL -> SL-Query    -> SL-RelayingFees -> SL-Governance -> SL-Base
-// \\-> SL-Initiate ---^                 /             \-> ProxyBase
-//  \-> SL-Redeem   --------------------/
+//  /-> SL-Query -> SL-Governance -\---> ProxyBase
+//SL--> SL-Redeem -/                >--> SL-RelayingFees -> SL-Base
+//  \-> SL-Initiate ---------------/
+
+error InvalidEndpoint();
 
 contract SwapLayer is SwapLayerQuery, SwapLayerInitiate, SwapLayerRedeem {
   using BytesParsing for bytes;
@@ -32,8 +34,9 @@ contract SwapLayer is SwapLayerQuery, SwapLayerInitiate, SwapLayerRedeem {
   ) SwapLayerGovernance(majorDelay, minorDelay)
     SwapLayerBase(permit2, uniV3Router, liquidityLayer) {}
 
-  function _proxyConstructor(bytes calldata data_) internal override {
-    bytes memory data = data_;
+  //constructor of the proxy contract setting storage variables
+  function _proxyConstructor(bytes calldata args_) internal override {
+    bytes memory args = args_;
     uint offset = 0;
 
     address owner;
@@ -41,25 +44,27 @@ contract SwapLayer is SwapLayerQuery, SwapLayerInitiate, SwapLayerRedeem {
     address assistant;
     address feeRecipient;
     bool    adminCanUpgradeContract;
-    (owner,                   offset) = data.asAddressUnchecked(offset);
-    (admin,                   offset) = data.asAddressUnchecked(offset);
-    (assistant,               offset) = data.asAddressUnchecked(offset);
-    (feeRecipient,            offset) = data.asAddressUnchecked(offset);
-    (adminCanUpgradeContract, offset) = data.asBoolUnchecked(offset);
+    (owner,                   offset) = args.asAddressUnchecked(offset);
+    (admin,                   offset) = args.asAddressUnchecked(offset);
+    (assistant,               offset) = args.asAddressUnchecked(offset);
+    (feeRecipient,            offset) = args.asAddressUnchecked(offset);
+    (adminCanUpgradeContract, offset) = args.asBoolUnchecked(offset);
 
     _governanceConstruction(owner, admin, assistant, feeRecipient, adminCanUpgradeContract);
 
-    while (offset < data.length) {
+    while (offset < args.length) {
       uint16 chain;
       bytes32 endpoint;
       uint256 feeParams;
-      (chain,     offset) = data.asUint16Unchecked(offset);
-      (endpoint,  offset) = data.asBytes32Unchecked(offset);
-      (feeParams, offset) = data.asUint256Unchecked(offset);
-      _setEndpoint(chain, endpoint);
-      _setFeeParams(chain, FeeParamsLib.checkedWrap(feeParams));
+      (chain,     offset) = args.asUint16Unchecked(offset);
+      (endpoint,  offset) = args.asBytes32Unchecked(offset);
+      (feeParams, offset) = args.asUint256Unchecked(offset);
+      if (endpoint == bytes32(0))
+        revert InvalidEndpoint();
+
+      _updateEndpoint(chain, bytes32(0), endpoint, FeeParamsLib.checkedWrap(feeParams));
     }
-    data.checkLength(offset);
+    args.checkLength(offset);
 
     _maxApprove(_usdc, address(_liquidityLayer));
     _maxApprove(_usdc, address(_uniV3Router));

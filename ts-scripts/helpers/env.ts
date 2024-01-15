@@ -31,14 +31,14 @@ export type Deployment = {
 //TODO adjust types, potentially use typescript object
 export type FeeConfig = {
   chainId: ChainId;
-  baseFee: string;
-  gasPrice: string;
-  gasPriceMargin: string;
-  gasPriceTimestamp: string;
-  gasPriceUpdateThreshold: string;
-  maxGasDropoff: string;
-  gasDropoffMargin: string;
-  gasTokenPrice: string;
+  baseFee: bigint; //in atomic usdc i.e. with 6 decimals
+  gasPrice: bigint; //in wei
+  gasPriceMargin: number; //percentage
+  gasPriceTimestamp: number; //standard evm unix timestamp
+  gasPriceUpdateThreshold: number; //percentage
+  maxGasDropoff: bigint; //in wei
+  gasDropoffMargin: number; //percentage
+  gasTokenPrice: bigint; //in atomic usdc i.e. with 6 decimals
 };
 
 export type SwapLayerConfig = {
@@ -389,7 +389,17 @@ export const loadFeeConfig = (): FeeConfig[] => {
     throw Error("Failed to find fee config file for this process!");
   }
   const feeConfig = JSON.parse(feeConfigFile.toString());
-  return feeConfig;
+  return feeConfig.map((chainConfig: any) =>({
+    chainId:                            chainConfig.chainId,
+    baseFee:                     BigInt(chainConfig.baseFee),
+    gasPrice:                    BigInt(chainConfig.gasPrice),
+    gasPriceMargin:          parseFloat(chainConfig.gasPriceMargin),
+    gasPriceTimestamp:         parseInt(chainConfig.gasPriceTimestamp),
+    gasPriceUpdateThreshold: parseFloat(chainConfig.gasPriceUpdateThreshold),
+    gasPriceDropoff:         parseFloat(chainConfig.gasDropoffMargin),
+    maxGasDropoff:               BigInt(chainConfig.maxGasDropoff),
+    gasTokenPrice:               BigInt(chainConfig.gasTokenPrice),
+  }));
 };
 
 export const loadSwapLayerConfiguration = (): SwapLayerConfig => {

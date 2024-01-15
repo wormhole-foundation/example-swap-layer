@@ -6,8 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { ProxyBase } from "proxy/ProxyBase.sol";
+import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
 
-import "./SwapLayerBase.sol";
+import { FeeParams, FeeParamsLib, SwapLayerRelayingFees } from "./SwapLayerRelayingFees.sol";
 
 //rationale for different roles (owner, admin, assistant):
 // * owner should be an ultra cold wallet that is only activated in exceptional circumstances.
@@ -135,22 +136,12 @@ enum OwnerIntervention {
   RelinquishOwnership
 }
 
-abstract contract SwapLayerGovernance is SwapLayerBase, ProxyBase {
+abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
   using BytesParsing for bytes;
   using SafeERC20 for IERC20;
 
   uint32 internal immutable _majorDelay;
   uint32 internal immutable _minorDelay;
-
-  modifier onlyAssistantOrUp() {
-    GovernanceState storage state = governanceState();
-    if (msg.sender != state.assistant &&
-        msg.sender != state.admin.current &&
-        msg.sender != state.owner.current)
-      revert NotAuthorized();
-
-    _;
-  }
 
   // ---- construction ----
 
@@ -181,6 +172,17 @@ abstract contract SwapLayerGovernance is SwapLayerBase, ProxyBase {
   }
 
   // ---- externals ----
+
+  //selector: 9efc05ce
+  function batchFeeUpdates(bytes memory updates) external {
+    GovernanceState storage state = governanceState();
+    if (msg.sender != state.assistant &&
+        msg.sender != state.admin.current &&
+        msg.sender != state.owner.current)
+      revert NotAuthorized();
+
+    _batchFeeUpdates(updates);
+  }
 
   //selector: a9bb3dca
   function batchGovernanceCommands(bytes calldata commands) external {
@@ -221,8 +223,13 @@ abstract contract SwapLayerGovernance is SwapLayerBase, ProxyBase {
 
               delete state.endpointProposals[endpointChain];
             }
-            _setEndpoint(endpointChain, newEndpoint);
-            emit EndpointUpdateProcessed(endpointChain, curEndpoint, newEndpoint, block.timestamp);
+
+            uint256 feeParams_;
+            (feeParams_, offset) = commands.asUint256Unchecked(offset);
+            FeeParams feeParams = newEndpoint == bytes32(0)
+              ? FeeParams.wrap(0)
+              : FeeParamsLib.checkedWrap(feeParams_);
+            _updateEndpoint(endpointChain, curEndpoint, newEndpoint, feeParams);
           }
           else { //must be GovernanceCommand.ProposeEndpointUpdate
             if (newEndpoint == bytes32(0))
@@ -382,7 +389,18 @@ abstract contract SwapLayerGovernance is SwapLayerBase, ProxyBase {
     interventions.checkLength(offset);
   }
 
-  // ---- getters ----
+  // ---- internals ----
+
+  function _updateEndpoint(
+    uint16 endpointChain,
+    bytes32 curEndpoint,
+    bytes32 newEndpoint,
+    FeeParams feeParams
+  ) internal {
+    _setEndpoint(endpointChain, newEndpoint);
+    _setFeeParams(endpointChain, feeParams);
+    emit EndpointUpdateProcessed(endpointChain, curEndpoint, newEndpoint, block.timestamp);
+  }
 
   function _getAdmin() internal view returns (address) {
     return governanceState().admin.current;

@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 
 import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
 
-import { InvalidChainId, SwapLayerGovernance } from "./SwapLayerGovernance.sol";
+import { InvalidChainId, SwapLayerBase } from "./SwapLayerBase.sol";
 import { Percentage, PercentageLib } from "./Percentage.sol";
 import { GasPrice, GasPriceLib } from "./GasPrice.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
@@ -251,7 +251,7 @@ enum FeeUpdate {
   // UpdateModeData
 }
 
-abstract contract SwapLayerRelayingFees is SwapLayerGovernance {
+abstract contract SwapLayerRelayingFees is SwapLayerBase {
   using BytesParsing for bytes;
 
   //uint private constant BIT128 = 1 << 128;
@@ -283,12 +283,7 @@ abstract contract SwapLayerRelayingFees is SwapLayerGovernance {
   //   return uniswapGasTokenIsFirst_ ? uniswapPrice : BIT256 / uniswapPrice;
   // }
 
-  //selector: aa327791
-  function updateFeeParams(bytes memory updates) external onlyAssistantOrUp {
-    _updateFeeParams(updates);
-  }
-
-  function _updateFeeParams(bytes memory updates) internal {
+  function _batchFeeUpdates(bytes memory updates) internal {
     uint16 curChain = 0;
     FeeParams curParams;
     uint offset = 0;

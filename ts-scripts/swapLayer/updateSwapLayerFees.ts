@@ -29,7 +29,7 @@ async function run() {
     const updateObj = createBatchFeeUpdate(chain);
     const encodedCommands = encodeFeeParamUpdatesBatch(updateObj);
     try {
-      await swapLayer.updateFeeParams(encodedCommands);
+      await swapLayer.batchFeeUpdates(encodedCommands);
     } catch (e) {
       console.error(e);
       console.log("Failed to update fees for chain " + chain.chainId);
@@ -45,7 +45,7 @@ function createBatchFeeUpdate(operatingChain: ChainInfo): FeeParamUpdate[] {
 
   for (const currentChain of allChains) {
     if (operatingChain.chainId == currentChain.chainId) {
-      continue; //TODO: decide if we want to register the same chain on itself.
+      continue; //don't register the same chain on itself
     }
     const currentConfig = configurationOptions.find(
       (config) => config.chainId == currentChain.chainId
@@ -61,8 +61,8 @@ function createBatchFeeUpdate(operatingChain: ChainInfo): FeeParamUpdate[] {
       update: {
         param: "GasPrice",
         value: {
-          gasPriceTimestamp: parseInt(currentConfig.gasPriceTimestamp),
-          gasPrice: BigInt(currentConfig.gasPrice),
+          gasPriceTimestamp: currentConfig.gasPriceTimestamp,
+          gasPrice: currentConfig.gasPrice,
         },
       },
     };
@@ -70,42 +70,42 @@ function createBatchFeeUpdate(operatingChain: ChainInfo): FeeParamUpdate[] {
       chain: currentChain.chainName,
       update: {
         param: "GasTokenPrice",
-        value: BigInt(currentConfig.gasTokenPrice),
+        value: currentConfig.gasTokenPrice,
       },
     };
     const baseFeeUpdate: FeeParamUpdate = {
       chain: currentChain.chainName,
       update: {
         param: "BaseFee",
-        value: BigInt(currentConfig.baseFee),
+        value: currentConfig.baseFee,
       },
     };
     const gasPriceUpdateThresholdUpdate: FeeParamUpdate = {
       chain: currentChain.chainName,
       update: {
         param: "GasPriceUpdateThreshold",
-        value: parseInt(currentConfig.gasPriceUpdateThreshold),
+        value: currentConfig.gasPriceUpdateThreshold,
       },
     };
     const gasPriceMarginUpdate: FeeParamUpdate = {
       chain: currentChain.chainName,
       update: {
         param: "GasPriceMargin",
-        value: parseInt(currentConfig.gasPriceMargin),
+        value: currentConfig.gasPriceMargin,
       },
     };
     const gasPriceDropoffMarginUpdate: FeeParamUpdate = {
       chain: currentChain.chainName,
       update: {
         param: "GasDropoffMargin",
-        value: parseInt(currentConfig.gasDropoffMargin),
+        value: currentConfig.gasDropoffMargin,
       },
     };
     const maxGasDropoffUpdate: FeeParamUpdate = {
       chain: currentChain.chainName,
       update: {
         param: "MaxGasDropoff",
-        value: BigInt(currentConfig.maxGasDropoff),
+        value: currentConfig.maxGasDropoff,
       },
     };
 

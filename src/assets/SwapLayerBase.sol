@@ -29,7 +29,6 @@ function swapLayerEndpointsState() pure returns (SwapLayerEndpointsState storage
 
 error EthTransferFailed();
 error InvalidChainId();
-error InvalidEndpoint();
 
 abstract contract SwapLayerBase {
   using BytesParsing for bytes;
@@ -64,9 +63,6 @@ abstract contract SwapLayerBase {
   function _setEndpoint(uint16 endpointChain, bytes32 endpoint) internal {
     if (endpointChain == 0 || endpointChain == _chainId)
       revert InvalidChainId();
-
-    if (endpoint == bytes32(0))
-      revert InvalidEndpoint();
 
     swapLayerEndpointsState().endpoints[endpointChain] = endpoint;
   }

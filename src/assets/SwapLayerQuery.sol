@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 
 import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
 
-import "./SwapLayerRelayingFees.sol";
+import { SwapLayerGovernance } from "./SwapLayerGovernance.sol";
 
 enum SubQueryType {
   Current,
@@ -35,7 +35,7 @@ enum QueryType {
   Implementation //has subquery type
 }
 
-abstract contract SwapLayerQuery is SwapLayerRelayingFees {
+abstract contract SwapLayerQuery is SwapLayerGovernance {
   using BytesParsing for bytes;
 
   //selector: 64ee4476

@@ -34,7 +34,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
   ) external payable returns (bytes memory) { unchecked {
     ModesOffsetsSizes memory mos = parseParamBaseStructure(params);
 
-    uint fastTransferFee = 0;
+    uint64 fastTransferFee = 0;
     uint32 fastTransferDeadline = 0;
     if (mos.fastTransfer.mode == FastTransferMode.Enabled) {
       uint offset = mos.fastTransfer.offset;
@@ -70,7 +70,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         mos.redeem.size + MODE_SIZE
       );
 
-    uint usdcAmount = _acquireUsdc(isExactIn, fastTransferFee + relayingFee, mos, params);
+    uint usdcAmount = _acquireUsdc(isExactIn, uint(fastTransferFee) + relayingFee, mos, params);
     bytes32 endpoint = _getEndpoint(targetChain);
     if (endpoint == bytes32(0))
       revert ChainNotSupported(targetChain);

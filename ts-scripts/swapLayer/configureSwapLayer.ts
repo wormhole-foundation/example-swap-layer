@@ -11,6 +11,7 @@ import {
   getSwapLayerAddress,
   init,
   loadChains,
+  loadFeeConfig,
   loadPrivateKey,
   loadSwapLayerConfiguration,
   writeOutputFiles,
@@ -20,7 +21,7 @@ import {
   toNative,
 } from "@wormhole-foundation/sdk-definitions";
 import { Wormhole } from "@wormhole-foundation/connect-sdk";
-import { EvmPlatform } from "@wormhole-foundation/connect-sdk-evm";
+import { EvmAddress, EvmPlatform } from "@wormhole-foundation/connect-sdk-evm";
 
 const processName = "configureSwapLayer";
 init();
@@ -49,27 +50,29 @@ function createSwapLayerConfiguration(
   operatingChain: ChainInfo
 ): GovernanceCommand[] {
   const configurationOptions = loadSwapLayerConfiguration();
+  const feeConfig = loadFeeConfig();
   const allChains = loadChains();
   const output: GovernanceCommand[] = [];
 
   if (configurationOptions.shouldRegisterEndpoints) {
     for (const currentChain of allChains) {
       if (operatingChain.chainId == currentChain.chainId) {
-        continue; //TODO: decide if we want to register the same chain on itself, this currently causes a contract revert if enabled.
+        continue; //don't register the same chain on itself
       }
 
       const swapLayerAddress = getSwapLayerAddress(operatingChain);
       const universalShim = toNative("Evm", swapLayerAddress).toUniversalAddress();
 
+      const feeParams = feeConfig.find((config) => config.chainId == currentChain.chainId);
+      if (!feeParams)
+        throw new Error("No fee config found for chain " + currentChain.chainId);
+
       console.log(
-        "Creating registration for chain: " +
-          currentChain.chainName +
-          " with address: " +
-          swapLayerAddress
+        "Creating registration for chain:", currentChain.chainName,
+        "with address:", swapLayerAddress,
+        "and fee params:", feeParams,
       );
 
-      //TODO how do I declare a variable to be of type ChainName rather than have a huge enum?
-      //TODO how do I go from chainId to chainName in the connect sdk?
       //TODO why can't the linter deduce the types inside GovernanceCommand?
 
       //NOTE: we should detect whether this is an initial registration or an update, because this will eventually be required for update. Not important for now.
@@ -81,6 +84,7 @@ function createSwapLayerConfiguration(
           chain: currentChain.chainName,
           address: universalShim,
         },
+        ...feeParams,
       };
 
       output.push(registerCommand);

@@ -44,32 +44,6 @@ const addressChainItem = {
   ],
 } as const satisfies LayoutItem;
 
-export const proxyConstructorArgsLayout = [
-  { name: "owner", ...evmAddressItem },
-  { name: "admin", ...evmAddressItem },
-  { name: "assistant", ...evmAddressItem },
-  { name: "feeRecipient", ...evmAddressItem },
-  { name: "adminCanUpgrade", ...boolItem },
-] as const satisfies Layout;
-
-export const governanceCommandLayout = {
-  binary: "switch",
-  idSize: 1,
-  idTag: "GovernanceCommand",
-  layouts: [
-    //TODO define remaining GovernanceCommand types
-    [[0, "UpdateEndpoint"], [{ name: "endpoint", ...addressChainItem }]],
-    [[1, "ProposeEndpointUpdate"], [{ name: "endpoint", ...addressChainItem }]],
-    [[6, "UpgradeContract"], [{ name: "implementation", ...evmAddressItem }]],
-    [[7, "ProposeContractUpgrade"], [{ name: "implementation", ...evmAddressItem }]],
-  ],
-} as const satisfies Layout;
-
-export const governanceCommandsBatchLayout = {
-  binary: "array",
-  layout: governanceCommandLayout,
-} as const satisfies Layout;
-
 const timestampItem = { binary: "uint", size:  4 } as const satisfies UintLayoutItem;
 const amountItem    = { binary: "uint", size: 16 } as const satisfies UintLayoutItem;
 
@@ -206,6 +180,7 @@ export const swapMessageLayout = [
   outputTokenItem,
 ] as const satisfies Layout;
 
+//0.0abcd to ab.cd (or 100 %)
 const percentageItem = {
   binary: "uint",
   size: 2,
@@ -214,10 +189,10 @@ const percentageItem = {
     from: (percentage: number): number => {
       if (percentage > 100 || percentage < 0)
         throw new Error("Percentage must be between 0 and 100");
-      
+
       if (percentage < 1e-5)
         return 0;
-      
+
       let negexp = Math.min(3, Math.floor(-Math.log10(percentage)) + 2);
       let mantissa = Math.round(percentage * 10**(2 + negexp));
       while (mantissa % 10 == 0 && negexp > 0) {
@@ -356,4 +331,32 @@ export const queryLayout = {
 export const queriesBatchLayout = {
   binary: "array",
   layout: queryLayout,
+} as const satisfies Layout;
+
+export const proxyConstructorArgsLayout = [
+  { name: "owner", ...evmAddressItem },
+  { name: "admin", ...evmAddressItem },
+  { name: "assistant", ...evmAddressItem },
+  { name: "feeRecipient", ...evmAddressItem },
+  { name: "adminCanUpgrade", ...boolItem },
+] as const satisfies Layout;
+
+export const governanceCommandLayout = {
+  binary: "switch",
+  idSize: 1,
+  idTag: "GovernanceCommand",
+  layouts: [
+    //TODO define remaining GovernanceCommand types
+    [[0, "UpdateEndpoint"],         [{ name: "endpoint", ...addressChainItem },
+                                      ...feeParamsLayout,
+                                    ]],
+    [[1, "ProposeEndpointUpdate"],  [{ name: "endpoint", ...addressChainItem }]],
+    [[6, "UpgradeContract"],        [{ name: "implementation", ...evmAddressItem }]],
+    [[7, "ProposeContractUpgrade"], [{ name: "implementation", ...evmAddressItem }]],
+  ],
+} as const satisfies Layout;
+
+export const governanceCommandsBatchLayout = {
+  binary: "array",
+  layout: governanceCommandLayout,
 } as const satisfies Layout;
