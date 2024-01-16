@@ -2,13 +2,13 @@ import {
   ChainId,
   Chain,
   chainIdToChain,
+  Network,
 } from "@wormhole-foundation/connect-sdk";
 import { ethers } from "ethers";
 import fs from "fs";
 
 import { Create2Factory__factory } from "../../ethers-contracts-external/Create2Factory.sol";
 import { Create2Factory } from "../../ethers-contracts-external/Create2Factory.sol/Create2Factory";
-import { proxyContractSalt, setupContractSalt } from "./deployments";
 import {
   Proxy__factory,
   SwapLayer,
@@ -75,9 +75,7 @@ let lastRunOverride: boolean | undefined;
 export function init(overrides: { lastRunOverride?: boolean } = {}): string {
   env = get_env_var("ENV");
   if (!env) {
-    console.log(
-      "No environment was specified, using default environment files"
-    );
+    console.log("No environment was specified, using default environment files");
     env = DEFAULT_ENV;
   }
   lastRunOverride = overrides?.lastRunOverride;
@@ -89,17 +87,11 @@ export function init(overrides: { lastRunOverride?: boolean } = {}): string {
 }
 
 function get_env_var(env: string): string {
-  const v = process.env[env];
-  return v || "";
+  return process.env[env] || "";
 }
 
 function getContainer(): string | null {
-  const container = get_env_var("CONTAINER");
-  if (!container) {
-    return null;
-  }
-
-  return container;
+  return get_env_var("CONTAINER") || null; //intentionally turn empty string into null
 }
 
 export function loadScriptConfig(processName: string): any {
@@ -113,12 +105,8 @@ export function loadScriptConfig(processName: string): any {
   return config;
 }
 
-export function getWhConnectName(): "Mainnet" | "Testnet" | "Devnet" {
-  if (env.toLowerCase() == "mainnet") {
-    return "Mainnet";
-  } else {
-    return "Testnet";
-  }
+export function getWhConnectName(): Network {
+  return env.toLowerCase() == "mainnet" ? "Mainnet" : "Testnet";
 }
 
 export function getOperatingChains(): ChainInfo[] {
@@ -402,15 +390,15 @@ export const loadFeeConfig = (): FeeConfig[] => {
   }
   const feeConfig = JSON.parse(feeConfigFile.toString());
   return feeConfig.map((chainConfig: any) => ({
-    chainId: chainConfig.chainId,
-    baseFee: BigInt(chainConfig.baseFee),
-    gasPrice: BigInt(chainConfig.gasPrice),
-    gasPriceMargin: parseFloat(chainConfig.gasPriceMargin),
-    gasPriceTimestamp: parseInt(chainConfig.gasPriceTimestamp),
+    chainId:                            chainConfig.chainId,
+    baseFee:                     BigInt(chainConfig.baseFee),
+    gasPrice:                    BigInt(chainConfig.gasPrice),
+    gasPriceMargin:          parseFloat(chainConfig.gasPriceMargin),
+    gasPriceTimestamp:         parseInt(chainConfig.gasPriceTimestamp),
     gasPriceUpdateThreshold: parseFloat(chainConfig.gasPriceUpdateThreshold),
-    gasPriceDropoff: parseFloat(chainConfig.gasDropoffMargin),
-    maxGasDropoff: BigInt(chainConfig.maxGasDropoff),
-    gasTokenPrice: BigInt(chainConfig.gasTokenPrice),
+    gasDropoffMargin:        parseFloat(chainConfig.gasDropoffMargin),
+    maxGasDropoff:               BigInt(chainConfig.maxGasDropoff),
+    gasTokenPrice:               BigInt(chainConfig.gasTokenPrice),
   }));
 };
 

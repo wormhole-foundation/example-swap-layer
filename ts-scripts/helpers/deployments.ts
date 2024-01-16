@@ -8,9 +8,6 @@ import { encodeProxyConstructorArgs } from "../../ts-sdk";
 export const setupContractSalt = Buffer.from("0xSetup");
 export const proxyContractSalt = Buffer.from("0xGenericRelayer");
 
-const strip0x = (str: string) =>
-  str.startsWith("0x") ? str.substring(2) : str;
-
 export async function deploySwapLayerImplementation(
   chain: ChainInfo
 ): Promise<Deployment> {
@@ -20,23 +17,17 @@ export async function deploySwapLayerImplementation(
   const contractInterface = SwapLayer__factory.createInterface();
   const bytecode = SwapLayer__factory.bytecode;
   //@ts-ignore
-  const factory = new ethers.ContractFactory(
-    contractInterface,
-    bytecode,
-    signer
-  );
+  const factory = new ethers.ContractFactory(contractInterface, bytecode, signer);
 
   //TODO these need to be adjusted, at least for the actual contract
   const majorDelay = 1;
   const minorDelay = 0;
 
   console.log(
-    "contracts: " +
-      chain.permit2Address +
-      " " +
-      chain.uniswapV3RouterAddress +
-      " " +
-      chain.liquidityLayerAddress
+    "contracts:" +
+    "\npermit2: " + chain.permit2Address +
+    "\nuniswapV3RouterAddress: " + chain.uniswapV3RouterAddress +
+    "\nliquidityLayerAddress: " + chain.liquidityLayerAddress
   );
 
   const contract = await factory.deploy(

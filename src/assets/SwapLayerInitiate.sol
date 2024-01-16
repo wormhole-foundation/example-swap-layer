@@ -25,11 +25,10 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
   using BytesParsing for bytes;
   using SafeERC20 for IERC20;
 
-  //selector: 22bf2bd8
+  //selector: 0f3376b1
   function initiate(
     uint16 targetChain,
     bytes32 recipient, //= redeemer in case of a payload
-    bool isExactIn,
     bytes memory params
   ) external payable returns (bytes memory) { unchecked {
     ModesOffsetsSizes memory mos = parseParamBaseStructure(params);
@@ -56,8 +55,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         swapCount = pathLength + 1;
       }
 
-      (GasDropoff gasDropoff, uint maxRelayingFee, ) =
-        parseRelayParams(params, mos.redeem.offset);
+      (GasDropoff gasDropoff, uint maxRelayingFee, ) = parseRelayParams(params, mos.redeem.offset);
       relayingFee = _calcRelayingFee(targetChain, gasDropoff, swapCount);
       if (relayingFee > maxRelayingFee)
         revert ExceedsMaxRelayingFee(relayingFee, maxRelayingFee);
@@ -65,12 +63,12 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       redeemPayload = encodeRelayParams(gasDropoff, relayingFee);
     }
     else
-      (redeemPayload, ) = params.slice(
-        mos.redeem.offset - MODE_SIZE,
-        mos.redeem.size + MODE_SIZE
-      );
+      (redeemPayload, ) = params.slice(mos.redeem.offset - MODE_SIZE, mos.redeem.size + MODE_SIZE);
 
-    uint usdcAmount = _acquireUsdc(isExactIn, uint(fastTransferFee) + relayingFee, mos, params);
+    uint128 usdcAmount =
+      //unchecked cast ...
+      //... but if someone manages to withdraw 10^(38-6) USDC then we have other problems regardless
+      uint128(_acquireUsdc(uint(fastTransferFee) + relayingFee, mos, params));
     bytes32 endpoint = _getEndpoint(targetChain);
     if (endpoint == bytes32(0))
       revert ChainNotSupported(targetChain);
@@ -84,18 +82,18 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     if (mos.fastTransfer.mode == FastTransferMode.Enabled) {
       (uint64 vaaSequence, uint64 cctpSequence, uint64 cctpNonce) =
         _liquidityLayer.placeFastMarketOrder(
-          uint128(usdcAmount), //TODO
+          usdcAmount,
           targetChain,
           endpoint,
           swapMessage,
-          uint128(fastTransferFee), //TODO
+          fastTransferFee,
           fastTransferDeadline
         );
       return abi.encode(usdcAmount, vaaSequence, cctpSequence, cctpNonce);
     }
     else {
       (uint64 sequence, uint64 cctpNonce) = _liquidityLayer.placeMarketOrder(
-        uint128(usdcAmount), //TODO
+        usdcAmount,
         targetChain,
         endpoint,
         swapMessage
@@ -105,7 +103,6 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
   }}
 
   function _acquireUsdc(
-    bool isExactIn,
     uint totalFee,
     ModesOffsetsSizes memory mos,
     bytes memory params
@@ -115,7 +112,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     if (inputTokenType == IoToken.Usdc) {
       //we received USDC directly
       (usdcAmount, offset) = params.asUint128Unchecked(offset);
-      if (isExactIn) {
+      if (mos.isExactIn) {
         if (usdcAmount < totalFee)
           revert InsufficientInputAmount(usdcAmount, totalFee);
       }
@@ -155,7 +152,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       outputAmount += totalFee;
 
       uint inOutAmount = _swap(
-        isExactIn,
+        mos.isExactIn,
         inputAmount,
         outputAmount,
         inputToken,
@@ -165,7 +162,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         path
       );
 
-      if (isExactIn)
+      if (mos.isExactIn)
         usdcAmount = inOutAmount;
       else {
         //return unspent tokens

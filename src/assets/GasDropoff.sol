@@ -8,6 +8,7 @@ library GasDropoffLib {
 
   error ExceedsMax(uint256 val);
 
+  //any changes must be reflected in the typescript SDK!
   uint private constant GAS_DROPOFF_UNIT = 1e12 wei; //in microether (i.e. 1e-6 eth)
 
   function to(uint256 val) internal pure returns (GasDropoff) { unchecked {

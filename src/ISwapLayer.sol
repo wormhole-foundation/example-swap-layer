@@ -5,11 +5,10 @@ pragma solidity ^0.8.23;
 import { OrderResponse } from "liquidity-layer/ITokenRouter.sol";
 
 interface ISwapLayer {
-  //selector: 22bf2bd8
+  //selector: 0f3376b1
   function initiate(
     uint16 targetChain,
     bytes32 recipient, //must be the redeemer in case of a custom payload
-    bool isExactIn,
     bytes calldata params
   ) external payable returns (bytes memory);
 

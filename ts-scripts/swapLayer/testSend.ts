@@ -57,7 +57,6 @@ async function run() {
     const testSend = await swapLayer.initiate(
       config.toChain,
       recipient,
-      true,
       encodedCommands
     );
     console.log("Successfully initiated transfer!");
@@ -83,6 +82,7 @@ function createInitiateArgs(config: TestSendConfig): InitiateArgs {
     outputToken: {
       type: "Usdc",
     },
+    isExactIn: true,
     inputToken: {
       type: "Gas",
       swap: {

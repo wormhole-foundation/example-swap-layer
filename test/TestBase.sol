@@ -31,6 +31,12 @@ using PercentageLib for Percentage;
 using GasPriceLib for GasPrice;
 using GasDropoffLib for GasDropoff;
 
+interface IUSDC {
+  function mint(address to, uint256 amount) external;
+  function configureMinter(address minter, uint256 minterAllowedAmount) external;
+  function masterMinter() external view returns (address);
+}
+
 contract SwapLayerTestBase is Test {
   using FeeParamsLib for FeeParams;
 
@@ -44,9 +50,6 @@ contract SwapLayerTestBase is Test {
   uint128 constant FAST_TRANSFER_INIT_AUCTION_FEE = 1e6;
   uint32  constant MAJOR_DELAY                    = 7 days;
   uint32  constant MINOR_DELAY                    = 2 days;
-
-  //workaround for deal on usdc randomly stopping to work - binance 14 address
-  address constant usdcSource = 0x28C6c06298d514Db089934071355E5743bf21d60;
 
   IWormhole immutable wormhole;
   IERC20  immutable usdc;
@@ -153,9 +156,24 @@ contract SwapLayerTestBase is Test {
   }
 
   function _dealUsdc(address to, uint256 amount) internal {
-    //this randomly stopped working:
-    //deal(address(usdc), address(to), amount);
-    vm.prank(usdcSource);
-    usdc.transfer(address(to), amount);
+    //taken from Wormhole circle integration repo, see:
+    // https://github.com/wormhole-foundation/wormhole-circle-integration/blob/evm/optimize/evm/forge/tests/helpers/libraries/UsdcDeal.sol
+    IUSDC usdc_ = IUSDC(address(usdc));
+    vm.prank(usdc_.masterMinter());
+    usdc_.configureMinter(address(this), amount);
+    usdc_.mint(address(to), amount);
   }
+
+  //brittle, Ethereum mainnet only workaround for dealing usdc
+  //  uses binance 14 address which has the highest usdc balance
+  // address constant usdcSource = 0x28C6c06298d514Db089934071355E5743bf21d60;
+  // function _dealUsdc(address to, uint256 amount) internal {
+  //   vm.prank(usdcSource);
+  //   usdc.transfer(address(to), amount);
+  // }
+
+  //this most canonical way of using forge randomly stopped working:
+  // function _dealUsdc(address to, uint256 amount) internal {
+  //   deal(address(usdc), address(to), amount);
+  // }
 }

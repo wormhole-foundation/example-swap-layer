@@ -8,6 +8,7 @@ library GasPriceLib {
 
   error ExceedsMax(uint256 val);
 
+  //any changes must be reflected in the typescript SDK!
   uint private constant GAS_PRICE_UNIT = 1e6 wei;
 
   function to(uint256 val) internal pure returns (GasPrice) { unchecked {

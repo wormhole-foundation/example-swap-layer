@@ -117,7 +117,6 @@ library FeeParamsLib {
   }}
 
   function gasPrice(FeeParams params) internal pure returns (GasPrice) { unchecked {
-
     return GasPrice.wrap(uint32(FeeParams.unwrap(params) >> GAS_PRICE_OFFSET));
   }}
 

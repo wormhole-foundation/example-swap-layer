@@ -86,11 +86,11 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     bytes memory swapReturn = swapLayer.initiate(
       foreignChainId,
       toUniversalAddress(user),
-      true,
       abi.encodePacked(
         false, //fast transfer
         RedeemMode.Direct,
         IoToken.Usdc, //output token
+        true, //isExactIn
         IoToken.Usdc, //input token
         uint128(amount), //input amount
         AcquireMode.Preapproved
@@ -106,11 +106,11 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     bytes memory swapReturn = swapLayer.initiate{value: USER_AMOUNT * 1e18}(
       foreignChainId,
       toUniversalAddress(user),
-      true,
       abi.encodePacked(
         FastTransferMode.Disabled,
         RedeemMode.Direct,
         IoToken.Usdc, //output token
+        true, //isExactIn
         IoToken.Gas, //input token
         SwapType.UniswapV3,
         uint128(0), //minOutputAmount

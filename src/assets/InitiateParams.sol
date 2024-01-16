@@ -86,7 +86,7 @@ uint constant PERMIT2_TRANSFER_SIZE =
 //    4 bytes  length
 //    n bytes  payload (n = length)
 //  2: relay
-//    4 bytes  gas dropoff (in microether, i.e. 1 eth = 10**6)
+//    4 bytes  gas dropoff (in 1e12 wei, i.e. microether, i.e. 1 eth = 10**6)
 //    6 bytes  max relayer fee (in atomic usdc, i.e. 6 decimals -> 1e6 = 1 usdc)
 //
 // 1 byte   output token type
@@ -97,6 +97,7 @@ uint constant PERMIT2_TRANSFER_SIZE =
 //   32 bytes  token address
 //    swap struct
 //
+// 1 byte   isExactIn
 // 1 byte   input token type
 //  0: USDC
 //    acquire layout
@@ -132,6 +133,7 @@ struct ModesOffsetsSizes {
   FastTransferMOS fastTransfer;
   RedeemMOS redeem;
   IoTokenMOS output;
+  bool isExactIn;
   IoTokenMOS input;
 }
 
@@ -178,6 +180,7 @@ function parseParamBaseStructure(
     mos.output = IoTokenMOS(outputTokenType, offset, paramBlockOffset - offset);
   }
   {
+    (mos.isExactIn, offset) = params.asBoolUnchecked(offset);
     IoToken inputTokenType;
     (inputTokenType, offset) = parseIoToken(params, offset);
     paramBlockOffset = offset;
