@@ -11,6 +11,7 @@
     "@types/node": "^20.10.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
-    "@wormhole-foundation/sdk-base": "^0.2.6"
+    "@wormhole-foundation/sdk-base": "^0.2.6",
+    "@xlabs/wh-swap-layer-ts-sdk": "file:../ts-sdk"
   }
 }

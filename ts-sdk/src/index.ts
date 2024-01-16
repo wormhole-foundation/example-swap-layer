@@ -17,6 +17,8 @@ import {
   queriesBatchLayout,
 } from "./layout";
 
+export * from "./constants";
+
 export type ProxyConstructorArgs = LayoutToType<typeof proxyConstructorArgsLayout>;
 export const encodeProxyConstructorArgs = (args: ProxyConstructorArgs): Uint8Array =>
   serializeLayout(proxyConstructorArgsLayout, args);

@@ -1,4 +1,4 @@
-import { constMap, Network, Chain, RoArray } from "@wormhole-foundation/sdk-base";
+import { constMap, Network, Chain, MapLevel } from "@wormhole-foundation/sdk-base";
 
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //!!!!!!!!!!!!!!!!!!!!!!!!! DO NOT TRUST THE UNISWAP DOCS !!!!!!!!!!!!!!!!!!!!!!!!!
@@ -46,6 +46,10 @@ import { constMap, Network, Chain, RoArray } from "@wormhole-foundation/sdk-base
 // of what the docs tell you**.
 //
 // The deployment addresses of the V3-SwapRouter are equally unreliable.
+//
+// One possible reason why there might be multiple deployments of the same bytecode is that the
+//   constructor arguments might differ, i.e. one version of the universal router might have the
+//   address of the UnsupportedProtocol contract, while the redeployed version has a viable version.
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 const uniswapV3NonfungiblePositionManagerContracts = [[
@@ -61,12 +65,35 @@ const uniswapV3NonfungiblePositionManagerContracts = [[
   ]], [
   "Testnet", [
     ["Ethereum",  "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"], //Goerli
+    ["Sepolia",   "0x1238536071E1c677A632429e3655c799b22cDA52"]
   ]],
-] as const satisfies RoArray<readonly [Network, RoArray<readonly [Chain, string]>]>;
-
+] as const satisfies MapLevel<Network, MapLevel<Chain, string>>;
 
 export const uniswapV3PositionManager = constMap(uniswapV3NonfungiblePositionManagerContracts);
 
-//same across all chains/networks
+//same across all chains/networks (does not exist on sepolia)
 export const uniswapV3SwapRouter = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
 export const permit2Contract = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+
+// ---- liquidity layer addresses ----
+
+//only one matching engine per network on the respective hubchain
+const matchingEngineContracts = [
+  ["Testnet", { chain: "Avalanche", address: "0xdf5af760f3093034C7A6580FBd4CE66A8bEDd90A" }],
+] as const satisfies MapLevel<Network, {chain: Chain, address: string}>;
+
+export const matchingEngine = constMap(matchingEngineContracts);
+
+const tokenRouterContracts = [[
+  "Testnet", [
+    ["Polygon",   "0x3Ce8a3aC230Eb4bCE3688f2A1ab21d986a0A0B06"],
+    ["Avalanche", "0x7353B29FDc79435dcC7ECc9Ac9F9b61d83B4E0F4"],
+    ["Sepolia",   "0x603541d1Cf7178C407aA7369b67CB7e0274952e2"],
+    //TODO:
+    // 10003=0xc1Cf3501ef0b26c8A47759F738832563C7cB014A
+    // 10004=0x4452B708C01d6aD7058a7541A3A82f0aD0A1abB1
+    // 10005=0xc1Cf3501ef0b26c8A47759F738832563C7cB014A
+  ]]
+] as const satisfies MapLevel<Network, MapLevel<Chain, string>>;
+
+export const tokenRouter = constMap(tokenRouterContracts);

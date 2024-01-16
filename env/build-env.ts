@@ -1,5 +1,9 @@
 import * as base from "@wormhole-foundation/sdk-base";
-import { uniswapV3SwapRouter, uniswapV3PositionManager, permit2Contract } from "./uniswap";
+import {
+  uniswapV3SwapRouter,
+  uniswapV3PositionManager,
+  permit2Contract
+} from "@xlabs/wh-swap-layer-ts-sdk";
 
 import { writeFileSync } from "fs";
 
