@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {IWormhole} from "wormhole/IWormhole.sol";
+import {IWormhole} from "wormhole/interfaces/IWormhole.sol";
 import {toUniversalAddress} from "wormhole/Utils.sol";
 import {IMessageTransmitter} from "cctp/IMessageTransmitter.sol";
 import {ITokenMessenger} from "cctp/ITokenMessenger.sol";
@@ -24,6 +24,7 @@ import {WormholeCctpMessages} from "./WormholeCctpMessages.sol";
 abstract contract WormholeCctpTokenMessenger {
     using SafeERC20 for IERC20;
     using WormholeCctpMessages for *;
+    using { toUniversalAddress } for address;
 
     /**
      * @dev Parsing and verifying VAA reverted at the Wormhole Core Bridge contract level.
@@ -127,7 +128,7 @@ abstract contract WormholeCctpTokenMessenger {
                 _localCctpDomain, // sourceCctpDomain
                 destinationCctpDomain,
                 cctpNonce,
-                toUniversalAddress(msg.sender), // burnSource
+                msg.sender.toUniversalAddress(), // burnSource
                 mintRecipient,
                 payload
             ),
@@ -253,9 +254,9 @@ abstract contract WormholeCctpTokenMessenger {
         view
         returns (bytes32 localToken)
     {
-        localToken = toUniversalAddress(_tokenMinter.remoteTokensToLocalTokens(
+        localToken = _tokenMinter.remoteTokensToLocalTokens(
             keccak256(abi.encodePacked(remoteDomain, remoteToken))
-        ));
+        ).toUniversalAddress();
     }
 
     // private

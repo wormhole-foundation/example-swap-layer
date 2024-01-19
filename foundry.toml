@@ -15,7 +15,8 @@ remappings = [
     "uniswap/=modules/uniswap/",
     "cctp/=modules/circle/",
     "proxy/=modules/proxy/",
-    "wormhole/=modules/wormhole/",
+    "wormhole/=lib/wormhole-solidity-sdk/src/",
+    "wormhole-local/=modules/wormhole/",
     "liquidity-layer/=modules/liquidity-layer/",
     "swap-layer/=src",
 ]

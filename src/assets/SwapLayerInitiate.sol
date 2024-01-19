@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import { IAllowanceTransfer } from "permit2/IAllowanceTransfer.sol";
 import { ISignatureTransfer } from "permit2/ISignatureTransfer.sol";
 
-import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
+import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 
 import "./SwapLayerRelayingFees.sol";
 import "./InitiateParams.sol";
@@ -79,8 +79,9 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     );
 
     bytes memory swapMessage = encodeSwapMessage(recipient, redeemPayload, outputSwap);
+    bytes memory ret;
     if (mos.fastTransfer.mode == FastTransferMode.Enabled) {
-      (uint64 vaaSequence, uint64 cctpSequence, uint64 cctpNonce) =
+      (uint64 sequence, uint64 fastSequence, uint64 cctpNonce) =
         _liquidityLayer.placeFastMarketOrder(
           usdcAmount,
           targetChain,
@@ -89,7 +90,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
           fastTransferFee,
           fastTransferDeadline
         );
-      return abi.encode(usdcAmount, vaaSequence, cctpSequence, cctpNonce);
+
+      ret = abi.encode(usdcAmount, sequence, cctpNonce, fastSequence);
     }
     else {
       (uint64 sequence, uint64 cctpNonce) = _liquidityLayer.placeMarketOrder(
@@ -98,8 +100,13 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         endpoint,
         swapMessage
       );
-      return abi.encode(usdcAmount, sequence, cctpNonce);
+
+      ret = abi.encode(usdcAmount, sequence, cctpNonce);
     }
+
+    return (mos.redeem.mode == RedeemMode.Relay)
+      ? abi.encodePacked(ret, relayingFee)
+      : ret;
   }}
 
   function _acquireUsdc(
@@ -135,7 +142,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
         inputAmount = msg.value - wormholeFee;
         _weth.deposit{value: inputAmount}();
-        inputToken = _weth;
+        inputToken = IERC20(address(_weth));
       }
       else { //must be IoToken.Other
         (inputToken,  offset) = parseIERC20(params, offset);
@@ -145,7 +152,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       }
 
       (uint outputAmount, uint256 deadline, bytes memory path, ) =
-         parseSwapParams(inputToken, _usdc, params, offset);
+        parseSwapParams(inputToken, _usdc, params, offset);
 
       //adjust outputAmount to ensure that the received usdc amount on the target chain is at least
       //  the specified outputAmount

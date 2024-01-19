@@ -3,7 +3,7 @@
 pragma solidity ^0.8.19;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IWormhole} from "wormhole/IWormhole.sol";
+import {IWormhole} from "wormhole/interfaces/IWormhole.sol";
 
 import "./Errors.sol";
 import {ITokenRouterState} from "liquidity-layer/ITokenRouterState.sol";

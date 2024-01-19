@@ -72,6 +72,8 @@ interface ITokenMessenger {
 
     function remoteTokenMessengers(uint32 domain) external view returns (bytes32);
 
+    function addRemoteTokenMessenger(uint32 domain, bytes32 tokenMessenger) external;
+
     function handleReceiveMessage(uint32 _remoteDomain, bytes32 _sender, bytes memory messageBody)
         external
         view

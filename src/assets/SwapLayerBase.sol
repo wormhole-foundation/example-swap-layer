@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { ISwapRouter } from "uniswap/ISwapRouter.sol";
 import { IPermit2 } from "permit2/IPermit2.sol";
-import { IWormhole } from "wormhole/IWormhole.sol";
-import { IWETH } from "wormhole/IWETH.sol";
-import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
+import { IWormhole } from "wormhole/interfaces/IWormhole.sol";
+import { IWETH } from "wormhole/interfaces/IWETH.sol";
+import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
 
 struct SwapLayerEndpointsState {

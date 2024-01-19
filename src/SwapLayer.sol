@@ -8,7 +8,7 @@ import { IPermit2 } from "permit2/IPermit2.sol";
 import { ISwapRouter } from "uniswap/ISwapRouter.sol";
 import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
 
-import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
+import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 
 import "./assets/SwapLayerQuery.sol";
 import "./assets/SwapLayerInitiate.sol";
@@ -68,7 +68,7 @@ contract SwapLayer is SwapLayerQuery, SwapLayerInitiate, SwapLayerRedeem {
 
     _maxApprove(_usdc, address(_liquidityLayer));
     _maxApprove(_usdc, address(_uniV3Router));
-    _maxApprove(_weth, address(_uniV3Router));
+    _maxApprove(IERC20(address(_weth)), address(_uniV3Router));
   }
 
   //to support weth.withdraw

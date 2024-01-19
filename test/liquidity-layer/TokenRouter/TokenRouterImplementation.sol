@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.19;
 
-import {BytesParsing} from "wormhole/WormholeBytesParsing.sol";
+import {BytesParsing} from "wormhole/libraries/BytesParsing.sol";
 
 import {getOwnerState, getOwnerAssistantState} from "../shared/Admin.sol";
 

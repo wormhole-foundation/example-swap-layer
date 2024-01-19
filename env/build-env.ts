@@ -31,8 +31,6 @@ const chain = (() => {
   return chain;
 })();
 
-const foreignChain = chain === "Ethereum" ? "Avalanche" : "Ethereum";
-
 const rpc = base.rpc.rpcAddress(network, chain);
 if (!rpc)
   errorExit(`No RPC address for ${network} ${chain}`);
@@ -49,11 +47,8 @@ if (!tokenMessenger)
 
 const testVars =
 `TEST_RPC=${rpc}
-TEST_FOREIGN_CHAIN_ID=${base.chainToChainId(foreignChain)}
-TEST_FOREIGN_CIRCLE_DOMAIN=${base.circle.circleChainId(foreignChain)}
 TEST_WORMHOLE_ADDRESS=${base.contracts.coreBridge.get(network, chain)!}
 TEST_USDC_ADDRESS=${base.circle.usdcContract.get(network, chain)!}
-TEST_FOREIGN_USDC_ADDRESS=${base.circle.usdcContract.get(network, foreignChain)!}
 TEST_CCTP_TOKEN_MESSENGER_ADDRESS=${tokenMessenger}
 TEST_UNISWAP_V3_SWAP_ROUTER_ADDRESS=${uniswapV3SwapRouter}
 TEST_UNISWAP_V3_POSITION_MANAGER_ADDRESS=${uniswapV3PositionManager.get(network, chain)!}

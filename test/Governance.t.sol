@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.23;
 
-import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
+import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 
 import { SwapLayerTestBase } from "./TestBase.sol";
 import "./utils/UpgradeTester.sol";

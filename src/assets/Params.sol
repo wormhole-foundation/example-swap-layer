@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
+import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 
 using BytesParsing for bytes;
@@ -72,7 +72,7 @@ function parseSwapParams(
   uint sliceLen;
   sliceLen = pathLength * UNI_PATH_ELEMENT_SIZE;
   bytes memory partialPath;
-  (partialPath, offset) = params.slice(offset, sliceLen);
+  (partialPath, offset) = params.sliceUnchecked(offset, sliceLen);
   bytes memory path = abi.encodePacked(
     address(inputToken),
     legFirstFee,

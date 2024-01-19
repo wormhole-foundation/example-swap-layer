@@ -18,12 +18,13 @@ build: dependencies
 
 test: dependencies
 	forge test --fork-url $$TEST_RPC -vvvv
+#--match-test RedeemEthSwap
 
 clean:
 	forge clean
 	@$(MAKE) -C env clean
 
-dependencies: lib/forge-std lib/openzeppelin-contracts
+dependencies: lib/forge-std lib/openzeppelin-contracts lib/wormhole-solidity-sdk
 
 #TODO nail down version
 lib/forge-std:
@@ -32,3 +33,6 @@ lib/forge-std:
 #TODO nail down version
 lib/openzeppelin-contracts:
 	forge install openzeppelin/openzeppelin-contracts --no-git --no-commit
+
+lib/wormhole-solidity-sdk:
+	forge install wormhole-foundation/wormhole-solidity-sdk --no-git --no-commit

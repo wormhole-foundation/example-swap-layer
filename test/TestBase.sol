@@ -7,11 +7,11 @@ import "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { IWormhole } from "wormhole/IWormhole.sol";
-import { fromUniversalAddress } from "wormhole/Utils.sol";
-import { SigningWormholeSimulator } from "wormhole/WormholeSimulator.sol";
-import { CircleSimulator } from "cctp/CircleSimulator.sol";
-import { ITokenMessenger } from "cctp/ITokenMessenger.sol";
+import { IWormhole } from "wormhole/interfaces/IWormhole.sol";
+import { toUniversalAddress } from "wormhole/Utils.sol";
+import { WormholeOverride } from "wormhole-local/WormholeOverride.sol";
+import { WormholeCctpOverride, FOREIGN_DOMAIN } from "wormhole-local/WormholeCctpOverride.sol";
+import { IUSDC } from "cctp/IUSDC.sol";
 import { Proxy } from "proxy/Proxy.sol";
 import { IPermit2 } from "permit2/IPermit2.sol";
 import { ISwapRouter } from "uniswap/ISwapRouter.sol";
@@ -31,20 +31,17 @@ using PercentageLib for Percentage;
 using GasPriceLib for GasPrice;
 using GasDropoffLib for GasDropoff;
 
-interface IUSDC {
-  function mint(address to, uint256 amount) external;
-  function configureMinter(address minter, uint256 minterAllowedAmount) external;
-  function masterMinter() external view returns (address);
-}
-
 contract SwapLayerTestBase is Test {
+  using WormholeOverride for IWormhole;
   using FeeParamsLib for FeeParams;
+  using { toUniversalAddress } for address;
 
+  uint16  constant FOREIGN_CHAIN_ID               = 0xF00F;
   bytes32 constant FOREIGN_LIQUIDITY_LAYER        = bytes32(uint256(uint160(address(1))));
   bytes32 constant FOREIGN_SWAP_LAYER             = bytes32(uint256(uint160(address(2))));
   bytes32 constant MATCHING_ENGINE_ADDRESS        = bytes32(uint256(uint160(address(3))));
-  uint16  constant MATCHING_ENGINE_CHAIN          = 0xffff;
-  uint32  constant MATCHING_ENGINE_DOMAIN         = 0xffffffff;
+  uint16  constant MATCHING_ENGINE_CHAIN          = 0xFFFF;
+  uint32  constant MATCHING_ENGINE_DOMAIN         = 0xFFFFFFFF;
   uint128 constant FAST_TRANSFER_MAX_AMOUNT       = 1e9;
   uint128 constant FAST_TRANSFER_BASE_FEE         = 1e6;
   uint128 constant FAST_TRANSFER_INIT_AUCTION_FEE = 1e6;
@@ -52,12 +49,9 @@ contract SwapLayerTestBase is Test {
   uint32  constant MINOR_DELAY                    = 2 days;
 
   IWormhole immutable wormhole;
-  IERC20  immutable usdc;
-  address immutable foreignUsdc;
-  address immutable cctpTokenMessenger;
-  uint16  immutable chainId;
-  uint16  immutable foreignChainId;
-  uint32  immutable foreignCircleDomain;
+  IERC20    immutable usdc;
+  address   immutable tokenMessenger;
+  uint16    immutable chainId;
 
   address immutable signer;
   uint256 immutable signerSecret;
@@ -67,20 +61,16 @@ contract SwapLayerTestBase is Test {
   address immutable assistant;
   address immutable feeRecipient;
 
-  ITokenRouter liquidityLayer;
-  SigningWormholeSimulator wormholeSimulator;
-  CircleSimulator circleSimulator;
+  WormholeCctpOverride immutable cctpOverride;
 
+  ITokenRouter liquidityLayer;
   SwapLayer swapLayer;
 
   constructor() {
-    wormhole            = IWormhole(vm.envAddress("TEST_WORMHOLE_ADDRESS"));
-    usdc                = IERC20(vm.envAddress("TEST_USDC_ADDRESS"));
-    foreignUsdc         = vm.envAddress("TEST_FOREIGN_USDC_ADDRESS");
-    cctpTokenMessenger  = vm.envAddress("TEST_CCTP_TOKEN_MESSENGER_ADDRESS");
-    chainId             = wormhole.chainId();
-    foreignChainId      = uint16(vm.envUint("TEST_FOREIGN_CHAIN_ID"));
-    foreignCircleDomain = uint32(vm.envUint("TEST_FOREIGN_CIRCLE_DOMAIN"));
+    wormhole       = IWormhole(vm.envAddress("TEST_WORMHOLE_ADDRESS"));
+    usdc           = IERC20(vm.envAddress("TEST_USDC_ADDRESS"));
+    tokenMessenger = vm.envAddress("TEST_CCTP_TOKEN_MESSENGER_ADDRESS");
+    chainId        = wormhole.chainId();
 
     (signer, signerSecret) = makeAddrAndKey("signer");
     llOwner                = makeAddr("llOwner");
@@ -88,6 +78,16 @@ contract SwapLayerTestBase is Test {
     admin                  = makeAddr("admin");
     assistant              = makeAddr("assistant");
     feeRecipient           = makeAddr("feeRecipient");
+
+    wormhole.setUpOverride(signerSecret);
+    cctpOverride = new WormholeCctpOverride(
+      wormhole,
+      tokenMessenger,
+      FOREIGN_CHAIN_ID,
+      FOREIGN_LIQUIDITY_LAYER,
+      address(0), //update later
+      address(usdc)
+    );
   }
 
   function deployBase() public {
@@ -96,7 +96,7 @@ contract SwapLayerTestBase is Test {
       address(new TokenRouterImplementation(
         address(usdc),
         address(wormhole),
-        cctpTokenMessenger,
+        tokenMessenger,
         MATCHING_ENGINE_CHAIN,
         MATCHING_ENGINE_ADDRESS,
         MATCHING_ENGINE_DOMAIN
@@ -104,9 +104,15 @@ contract SwapLayerTestBase is Test {
       abi.encodeCall(TokenRouterImplementation.initialize, (llOwner, llAssistant))
     )));
 
+    cctpOverride.setBurnRecipient(address(liquidityLayer));
+
     vm.startPrank(llOwner);
     liquidityLayer.setCctpAllowance(type(uint256).max);
-    liquidityLayer.addRouterEndpoint(foreignChainId, FOREIGN_LIQUIDITY_LAYER, foreignCircleDomain);
+    liquidityLayer.addRouterEndpoint(
+      FOREIGN_CHAIN_ID,
+      FOREIGN_LIQUIDITY_LAYER,
+      FOREIGN_DOMAIN
+    );
     liquidityLayer.updateFastTransferParameters(
       FastTransferParameters({
         enabled: true,
@@ -116,13 +122,6 @@ contract SwapLayerTestBase is Test {
       })
     );
     vm.stopPrank();
-
-    wormholeSimulator = new SigningWormholeSimulator(wormhole, signerSecret);
-    circleSimulator = new CircleSimulator(
-      signerSecret,
-      address(ITokenMessenger(cctpTokenMessenger).localMessageTransmitter())
-    );
-    circleSimulator.setupCircleAttester();
 
     FeeParams feeParams;
     feeParams = feeParams.baseFee(1e4); //1 cent
@@ -148,7 +147,7 @@ contract SwapLayerTestBase is Test {
         assistant,
         feeRecipient,
         false, //adminCanUpgradeContract
-        foreignChainId,
+        FOREIGN_CHAIN_ID,
         FOREIGN_SWAP_LAYER,
         feeParams
       )
@@ -162,18 +161,13 @@ contract SwapLayerTestBase is Test {
     vm.prank(usdc_.masterMinter());
     usdc_.configureMinter(address(this), amount);
     usdc_.mint(address(to), amount);
+
+    //this most canonical way of using forge randomly stopped working:
+    // deal(address(usdc), address(to), amount);
+
+    //brittle workaround for dealing usdc (Ethereum mainnet only):
+    //  uses binance 14 address which has the highest usdc balance
+    //vm.prank(0x28C6c06298d514Db089934071355E5743bf21d60);
+    //usdc.transfer(address(to), amount);
   }
-
-  //brittle, Ethereum mainnet only workaround for dealing usdc
-  //  uses binance 14 address which has the highest usdc balance
-  // address constant usdcSource = 0x28C6c06298d514Db089934071355E5743bf21d60;
-  // function _dealUsdc(address to, uint256 amount) internal {
-  //   vm.prank(usdcSource);
-  //   usdc.transfer(address(to), amount);
-  // }
-
-  //this most canonical way of using forge randomly stopped working:
-  // function _dealUsdc(address to, uint256 amount) internal {
-  //   deal(address(usdc), address(to), amount);
-  // }
 }

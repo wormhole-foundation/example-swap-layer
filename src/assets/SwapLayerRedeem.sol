@@ -5,7 +5,7 @@ pragma solidity ^0.8.23;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
+import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 import { OrderResponse as Attestations, RedeemedFill } from "liquidity-layer/ITokenRouter.sol";
 
 import "./SwapLayerGovernance.sol";
@@ -43,12 +43,11 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
     RedeemedFill memory fill = _liquidityLayer.redeemFill(attestations);
     SwapMessageStructure memory sms = parseSwapMessageStructure(fill.message);
 
-    bool overrideMsg =
-      sms.redeemMode == RedeemMode.Direct && msg.sender == sms.recipient && params.length > 0;
-
+    bool senderIsRecipient = msg.sender == sms.recipient;
+    bool overrideMsg = false;
     uint gasDropoff = 0;
     uint usdcAmount;
-    if (sms.redeemMode == RedeemMode.Relay) {
+    if (sms.redeemMode == RedeemMode.Relay && !senderIsRecipient) {
       (GasDropoff gasDropoff_, uint relayingFee, ) =
         parseRelayParams(fill.message, sms.redeemOffset);
       _usdc.safeTransfer(_getFeeRecipient(), relayingFee);
@@ -56,16 +55,21 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       usdcAmount = fill.amount - relayingFee;
 
       //no extra params when relaying
+      //TODO include source chain gas price and parse gas adjustment parameters
       params.checkLength(0);
     }
     else {
       if (sms.redeemMode == RedeemMode.Payload) {
-        if (msg.sender != sms.recipient)
+        if (!senderIsRecipient)
           revert SenderNotRecipient(msg.sender, sms.recipient);
 
         //no extra params when redeeming with payload
         params.checkLength(0);
       }
+      else if (!senderIsRecipient)
+        params.checkLength(0);
+      else
+        overrideMsg = params.length > 0;
 
       usdcAmount = fill.amount;
     }
@@ -88,19 +92,21 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
     }
     else {
       if (outputTokenType == IoToken.Gas)
-        outputToken = _weth;
+        outputToken = IERC20(address(_weth));
       else
         (outputToken, offset) = parseIERC20(swapParams, offset);
 
-      (uint minOutputAmount, uint256 deadline, bytes memory path, ) =
+      (uint minOutputAmount, uint256 deadline, bytes memory path, uint offset_) =
         parseSwapParams(_usdc, outputToken, swapParams, offset);
 
+      offset = offset_;
+
       outputAmount = _swap(
-        true, //only exact input swaps on redeem
+        true, //only exact input swaps on redeem for simplicity
         usdcAmount,
         minOutputAmount,
         _usdc,
-        overrideMsg, //revert on failure if user requested a manual swap
+        false, //never revert on failed swap - worst case, recipient receives usdc
         false, //always skip approve check, we have max approve with the router for usdc
         deadline,
         path

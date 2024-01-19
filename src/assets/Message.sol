@@ -2,12 +2,13 @@
 
 pragma solidity ^0.8.23;
 
-import { BytesParsing } from "wormhole/WormholeBytesParsing.sol";
+import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 import { fromUniversalAddress } from "wormhole/Utils.sol";
 
 import "./Params.sol";
 
 using BytesParsing for bytes;
+using { fromUniversalAddress } for bytes32;
 
 uint8 constant VERSION = 1;
 
@@ -47,7 +48,7 @@ function parseSwapMessageStructure(
 
   bytes32 recipient_;
   (recipient_, offset) = message.asBytes32Unchecked(offset);
-  sms.recipient = fromUniversalAddress(recipient_);
+  sms.recipient = recipient_.fromUniversalAddress();
 
   (sms.redeemMode, offset) = parseRedeemMode(message, offset);
   sms.redeemOffset = offset;

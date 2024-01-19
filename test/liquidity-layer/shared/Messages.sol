@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.19;
 
-import {BytesParsing} from "wormhole/WormholeBytesParsing.sol";
+import {BytesParsing} from "wormhole/libraries/BytesParsing.sol";
 
 library Messages {
     using BytesParsing for bytes;
@@ -19,13 +19,12 @@ library Messages {
 
     // Custom errors.
     error InvalidPayloadId(uint8 parsedPayloadId, uint8 expectedPayloadId);
-    error InvalidPayloadLength(uint256 parsedLength, uint256 expectedLength);
 
     struct Fill {
-        uint16 sourceChain;
+        uint16  sourceChain;
         bytes32 orderSender;
         bytes32 redeemer;
-        bytes redeemerMessage;
+        bytes   redeemerMessage;
     }
 
     struct FastFill {
@@ -36,17 +35,17 @@ library Messages {
     struct FastMarketOrder {
         uint128 amountIn;
         uint128 minAmountOut;
-        uint16 targetChain;
-        uint32 targetDomain;
+        uint16  targetChain;
+        uint32  targetDomain;
         bytes32 redeemer;
         bytes32 sender;
         bytes32 refundAddress;
-        uint64 slowSequence;
+        uint64  slowSequence;
         bytes32 slowEmitter;
         uint128 maxFee;
         uint128 initAuctionFee;
-        uint32 deadline;
-        bytes redeemerMessage;
+        uint32  deadline;
+        bytes   redeemerMessage;
     }
 
     struct SlowOrderResponse {
@@ -66,12 +65,12 @@ library Messages {
     function decodeFill(bytes memory encoded) internal pure returns (Fill memory fill) {
         uint256 offset = _checkPayloadId(encoded, 0, FILL);
 
-        (fill.sourceChain, offset) = encoded.asUint16Unchecked(offset);
-        (fill.orderSender, offset) = encoded.asBytes32Unchecked(offset);
-        (fill.redeemer, offset) = encoded.asBytes32Unchecked(offset);
+        (fill.sourceChain,     offset) = encoded.asUint16Unchecked(offset);
+        (fill.orderSender,     offset) = encoded.asBytes32Unchecked(offset);
+        (fill.redeemer,        offset) = encoded.asBytes32Unchecked(offset);
         (fill.redeemerMessage, offset) = _decodeBytes(encoded, offset);
 
-        _checkLength(encoded, offset);
+        encoded.checkLength(offset);
     }
 
     function encode(FastMarketOrder memory order) internal pure returns (bytes memory encoded) {
@@ -101,21 +100,21 @@ library Messages {
         uint256 offset = _checkPayloadId(encoded, 0, FAST_MARKET_ORDER);
 
         // Parse the encoded message.
-        (order.amountIn, offset) = encoded.asUint128Unchecked(offset);
-        (order.minAmountOut, offset) = encoded.asUint128Unchecked(offset);
-        (order.targetChain, offset) = encoded.asUint16Unchecked(offset);
-        (order.targetDomain, offset) = encoded.asUint32Unchecked(offset);
-        (order.redeemer, offset) = encoded.asBytes32Unchecked(offset);
-        (order.sender, offset) = encoded.asBytes32Unchecked(offset);
-        (order.refundAddress, offset) = encoded.asBytes32Unchecked(offset);
-        (order.slowSequence, offset) = encoded.asUint64(offset);
-        (order.slowEmitter, offset) = encoded.asBytes32Unchecked(offset);
-        (order.maxFee, offset) = encoded.asUint128Unchecked(offset);
-        (order.initAuctionFee, offset) = encoded.asUint128Unchecked(offset);
-        (order.deadline, offset) = encoded.asUint32Unchecked(offset);
+        (order.amountIn,        offset) = encoded.asUint128Unchecked(offset);
+        (order.minAmountOut,    offset) = encoded.asUint128Unchecked(offset);
+        (order.targetChain,     offset) = encoded.asUint16Unchecked(offset);
+        (order.targetDomain,    offset) = encoded.asUint32Unchecked(offset);
+        (order.redeemer,        offset) = encoded.asBytes32Unchecked(offset);
+        (order.sender,          offset) = encoded.asBytes32Unchecked(offset);
+        (order.refundAddress,   offset) = encoded.asBytes32Unchecked(offset);
+        (order.slowSequence,    offset) = encoded.asUint64(offset);
+        (order.slowEmitter,     offset) = encoded.asBytes32Unchecked(offset);
+        (order.maxFee,          offset) = encoded.asUint128Unchecked(offset);
+        (order.initAuctionFee,  offset) = encoded.asUint128Unchecked(offset);
+        (order.deadline,        offset) = encoded.asUint32Unchecked(offset);
         (order.redeemerMessage, offset) = _decodeBytes(encoded, offset);
 
-        _checkLength(encoded, offset);
+        encoded.checkLength(offset);
     }
 
     function encode(FastFill memory fastFill) internal pure returns (bytes memory encoded) {
@@ -137,13 +136,13 @@ library Messages {
         uint256 offset = _checkPayloadId(encoded, 0, FAST_FILL);
 
         // Parse the encoded message.
-        (fastFill.fill.sourceChain, offset) = encoded.asUint16Unchecked(offset);
-        (fastFill.fill.orderSender, offset) = encoded.asBytes32Unchecked(offset);
-        (fastFill.fill.redeemer, offset) = encoded.asBytes32Unchecked(offset);
+        (fastFill.fill.sourceChain,     offset) = encoded.asUint16Unchecked(offset);
+        (fastFill.fill.orderSender,     offset) = encoded.asBytes32Unchecked(offset);
+        (fastFill.fill.redeemer,        offset) = encoded.asBytes32Unchecked(offset);
         (fastFill.fill.redeemerMessage, offset) = _decodeBytes(encoded, offset);
-        (fastFill.fillAmount, offset) = encoded.asUint128Unchecked(offset);
+        (fastFill.fillAmount,           offset) = encoded.asUint128Unchecked(offset);
 
-        _checkLength(encoded, offset);
+        encoded.checkLength(offset);
     }
 
     function encode(SlowOrderResponse memory response)
@@ -164,7 +163,7 @@ library Messages {
         // Parse the encoded message.
         (response.baseFee, offset) = encoded.asUint128Unchecked(offset);
 
-        _checkLength(encoded, offset);
+        encoded.checkLength(offset);
     }
 
     // ---------------------------------------- private -------------------------------------------
@@ -183,12 +182,6 @@ library Messages {
         // Casting payload.length to uint32 is safe because you'll be hard-pressed
         // to allocate 4 GB of EVM memory in a single transaction.
         encoded = abi.encodePacked(uint32(payload.length), payload);
-    }
-
-    function _checkLength(bytes memory encoded, uint256 expected) private pure {
-        if (encoded.length != expected) {
-            revert InvalidPayloadLength(encoded.length, expected);
-        }
     }
 
     function _checkPayloadId(bytes memory encoded, uint256 startOffset, uint8 expectedPayloadId)
