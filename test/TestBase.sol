@@ -104,7 +104,8 @@ contract SwapLayerTestBase is Test {
       abi.encodeCall(TokenRouterImplementation.initialize, (llOwner, llAssistant))
     )));
 
-    cctpOverride.setBurnRecipient(address(liquidityLayer));
+    cctpOverride.setMintRecipient(address(liquidityLayer));
+    cctpOverride.setDestinationCaller(address(liquidityLayer));
 
     vm.startPrank(llOwner);
     liquidityLayer.setCctpAllowance(type(uint256).max);

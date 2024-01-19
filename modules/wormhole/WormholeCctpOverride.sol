@@ -28,7 +28,7 @@ import {WormholeOverride} from "./WormholeOverride.sol";
 //To provide a similar restriction like the TokenBridge's redeemWithPayload() function which can
 //  only be called by the recipient of the TokenBridge transferWithPayload message, Circle provides
 //  an additional, optional field named destinationCaller which must be the caller of
-//  receiveMessage() when a destinationCaller has been specified (i.e. the field is != 0).
+//  receiveMessage() when it has been specified (i.e. the field is != 0).
 struct CctpHeader {
   //uint32 headerVersion;
   uint32 sourceDomain;
@@ -38,7 +38,6 @@ struct CctpHeader {
   bytes32 sender;
   //caller of the Circle Message Transmitter -> for us always the local TokenMessenger
   bytes32 recipient;
-  //always our local WormholeCctpTokenMessenger contract (e.g. CircleIntegration, TokenRouter)
   bytes32 destinationCaller;
 }
 
@@ -47,7 +46,7 @@ struct CctpTokenBurnMessage {
   //uint32 bodyVersion;
   //the address of the USDC contract on the foreign domain whose tokens were burned
   bytes32 burnToken;
-  //always our local WormholeCctpTokenMessenger contract (e.g. CircleIntegration, TokenRouter)
+  //always our local WormholeCctpTokenMessenger contract (e.g. CircleIntegration, TokenRouter)a
   bytes32 mintRecipient;
   uint256 amount;
   //address of caller of depositAndBurn on the foreign chain - for us always foreignCaller
@@ -62,10 +61,10 @@ struct CctpTokenBurnMessage {
 //                     emits WormholeCctpMessages.Deposit VAA with a RedeemFill payload
 
 //local call chain using faked vaa and circle attestation:
-//  test -> intermediate contract(s) -> burnRecipient -> MessageTransmitter -> TokenMessenger
+//  test -> intermediate contract(s) -> mintRecipient -> MessageTransmitter -> TokenMessenger
 //example:
 //  intermediate contract = swap layer
-//  burnRecipient = liquidity layer
+//  mintRecipient = liquidity layer
 
 //using values that are easily recognizable in an encoded payload
 uint32  constant FOREIGN_DOMAIN = 0xDDDDDDDD;
@@ -86,29 +85,31 @@ contract WormholeCctpOverride {
 
   IWormhole           immutable wormhole;
   IMessageTransmitter immutable messageTransmitter;
-  ITokenMessenger     public immutable tokenMessenger;
+  ITokenMessenger     immutable tokenMessenger;
   uint16              immutable foreignChain;
-  bytes32             immutable foreignSender;
   uint256             immutable attesterPrivateKey;
 
   uint64 foreignNonce;
   uint64 foreignSequence;
   bytes32 foreignCaller; //address that calls foreignSender to burn their tokens and emit a message
-  address burnRecipient; //recipient of cctp messages (both mintRecipient and destinationCaller)
+  bytes32 foreignSender; //address that sends tokens by calling TokenMessenger.depositForBurn
+  address mintRecipient; //recipient of cctp messages
+  address destinationCaller; //by default mintRecipient
 
   constructor(
     IWormhole wormhole_,
     address tokenMessenger_,
     uint16 foreignChain_,
     bytes32 foreignSender_, //contract that invokes the core bridge and calls depositForBurn
-    address burnRecipient_,
+    address mintRecipient_,
     address usdc
   ) {
     wormhole = wormhole_;
     tokenMessenger = ITokenMessenger(tokenMessenger_);
     foreignChain = foreignChain_;
     foreignSender = foreignSender_;
-    burnRecipient = burnRecipient_;
+    mintRecipient = mintRecipient_;
+    destinationCaller = mintRecipient;
     messageTransmitter = tokenMessenger.localMessageTransmitter();
     attesterPrivateKey = wormhole.guardianPrivateKey();
     require(attesterPrivateKey != 0, "setup wormhole override first");
@@ -142,14 +143,35 @@ contract WormholeCctpOverride {
     localMinter.linkTokenPair(usdc, FOREIGN_DOMAIN, FOREIGN_USDC);
   }
 
-  function setBurnRecipient(address burnRecipient_) external {
-    burnRecipient = burnRecipient_;
+  //to reduce boilerplate, we use setters to avoid arguments that are likely the same
+  function setMintRecipient(address mintRecipient_) external {
+    mintRecipient = mintRecipient_;
+  }
+
+  //setting address(0) disables the check in MessageTransmitter
+  function setDestinationCaller(address destinationCaller_) external {
+    destinationCaller = destinationCaller_;
   }
 
   function setForeignCaller(bytes32 foreignCaller_) external {
     foreignCaller = foreignCaller_;
   }
 
+  function setForeignSender(bytes32 foreignSender_) external {
+    foreignSender = foreignSender_;
+  }
+
+  //for creating "pure" cctp transfers (no associated Wormhole vaa)
+  function craftCctpCctpTokenBurnMessage(
+    uint256 amount
+  ) external returns (
+    bytes memory encodedCctpMessage,
+    bytes memory cctpAttestation
+  ) {
+    (, encodedCctpMessage, cctpAttestation) = _craftCctpCctpTokenBurnMessage(amount);
+  }
+
+  //for creating cctp + associated vaa transfers
   function craftWormholeCctpRedeemParams(
     uint256 amount,
     bytes memory payload
@@ -158,23 +180,8 @@ contract WormholeCctpOverride {
     bytes memory encodedCctpMessage,
     bytes memory cctpAttestation
   ) {
-    //compose the cctp burn msg
     CctpTokenBurnMessage memory burnMsg;
-    burnMsg.header.sourceDomain      = FOREIGN_DOMAIN;
-    burnMsg.header.destinationDomain = messageTransmitter.localDomain();
-    burnMsg.header.nonce             = foreignNonce++;
-    burnMsg.header.sender            = FOREIGN_TOKEN_MESSENGER;
-    burnMsg.header.recipient         = address(tokenMessenger).toUniversalAddress();
-    burnMsg.header.destinationCaller = burnRecipient.toUniversalAddress();
-    burnMsg.burnToken     = FOREIGN_USDC;
-    burnMsg.mintRecipient = burnRecipient.toUniversalAddress();
-    burnMsg.amount        = amount;
-    burnMsg.messageSender = foreignSender;
-
-    //encode and sign it
-    encodedCctpMessage = encodeCctpTokenBurnMessage(burnMsg);
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(attesterPrivateKey, keccak256(encodedCctpMessage));
-    cctpAttestation = abi.encodePacked(r, s, v);
+    (burnMsg, encodedCctpMessage, cctpAttestation) = _craftCctpCctpTokenBurnMessage(amount);
 
     //craft the associated VAA
     (, encodedVaa) = wormhole.craftVaa(
@@ -191,6 +198,31 @@ contract WormholeCctpOverride {
         payload
       )
     );
+  }
+
+  function _craftCctpCctpTokenBurnMessage(
+    uint256 amount
+  ) internal returns (
+    CctpTokenBurnMessage memory burnMsg,
+    bytes memory encodedCctpMessage,
+    bytes memory cctpAttestation
+  ) {
+    //compose the cctp burn msg
+    burnMsg.header.sourceDomain      = FOREIGN_DOMAIN;
+    burnMsg.header.destinationDomain = messageTransmitter.localDomain();
+    burnMsg.header.nonce             = foreignNonce++;
+    burnMsg.header.sender            = FOREIGN_TOKEN_MESSENGER;
+    burnMsg.header.recipient         = address(tokenMessenger).toUniversalAddress();
+    burnMsg.header.destinationCaller = destinationCaller.toUniversalAddress();
+    burnMsg.burnToken     = FOREIGN_USDC;
+    burnMsg.mintRecipient = mintRecipient.toUniversalAddress();
+    burnMsg.amount        = amount;
+    burnMsg.messageSender = foreignSender;
+
+    //encode and sign it
+    encodedCctpMessage = encodeCctpTokenBurnMessage(burnMsg);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(attesterPrivateKey, keccak256(encodedCctpMessage));
+    cctpAttestation = abi.encodePacked(r, s, v);
   }
 
   function encodeCctpTokenBurnMessage(
