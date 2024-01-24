@@ -6,25 +6,31 @@
       "description": "Mumbai",
       "evmNetworkId": 80001,
       "chainId": 5,
-      "rpc": "http://127.0.0.1:8547",
+      "rpc": "http://127.0.0.1:8546",
       "rpcWs": "wss://polygon-mumbai-bor.publicnode.com",
       "wormholeAddress": "0x0CBE91CF822c73C2315FB05100C2F714765d5c20",
-      "liquidityLayerAddress": "0x27ccA950f7484AF811Cbf9B8f2299aB98ab40B4d",
-      "uniswapV3RouterAddress": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+      "liquidityLayerAddress": "0x3Ce8a3aC230Eb4bCE3688f2A1ab21d986a0A0B06",
+      "universalRouterAddress": "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD",
       "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
       "usdcAddress": "0x9999f7fea5938fd3b1e26a12c3f2fb024e194f97",
       "circleMessageTransmitter": "0xe09A679F56207EF33F5b9d8fb4499Ec00792eA73",
-      "circleDomain": 7
+      "circleDomain": 7,
+      "wethAddress": "0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889"
     },
     {
-      "description": "Goerli",
-      "evmNetworkId": 5,
-      "chainId": 2,
-      "rpc": "http://127.0.0.1:8545",
-      "wormholeAddress": "0x706abc4E45D419950511e474C7B9Ed348A4a716c",
-      "liquidityLayerAddress": "0xD83120e86Df1310F7415C10790ef5b1067eE38a0",
-      "uniswapV3RouterAddress": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+      "description": "Sepolia",
+      "evmNetworkId": 11155111,
+      "chainId": 10002,
+      "rpc": "http://127.0.0.1:8547",
+      "rpcWs": "wss://sepolia.gateway.tenderly.co",
+      "wormholeAddress": "0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78",
+      "liquidityLayerAddress": "0x603541d1Cf7178C407aA7369b67CB7e0274952e2",
+      "universalRouterAddress": "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD",
+      "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "usdcAddress": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+      "circleMessageTransmitter": "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD",
+      "circleDomain": 0,
+      "wethAddress": "0x7b79995e5f793a07bc00c21412e50ecae098e7f9"
     }
   ]
 }

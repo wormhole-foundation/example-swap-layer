@@ -17,7 +17,11 @@ export async function deploySwapLayerImplementation(
   const contractInterface = SwapLayer__factory.createInterface();
   const bytecode = SwapLayer__factory.bytecode;
   //@ts-ignore
-  const factory = new ethers.ContractFactory(contractInterface, bytecode, signer);
+  const factory = new ethers.ContractFactory(
+    contractInterface,
+    bytecode,
+    signer
+  );
 
   //TODO these need to be adjusted, at least for the actual contract
   const majorDelay = 1;
@@ -25,14 +29,20 @@ export async function deploySwapLayerImplementation(
 
   console.log(
     "contracts:" +
-    "\npermit2: " + chain.permit2Address +
-    "\nuniswapV3RouterAddress: " + chain.uniswapV3RouterAddress +
-    "\nliquidityLayerAddress: " + chain.liquidityLayerAddress
+      "\nwethAddress: " +
+      chain.wethAddress +
+      "\npermit2: " +
+      chain.permit2Address +
+      "\nuniversalRouterAddress: " +
+      chain.universalRouterAddress +
+      "\nliquidityLayerAddress: " +
+      chain.liquidityLayerAddress
   );
 
   const contract = await factory.deploy(
+    chain.wethAddress,
     chain.permit2Address,
-    chain.uniswapV3RouterAddress,
+    chain.universalRouterAddress,
     chain.liquidityLayerAddress,
     majorDelay,
     minorDelay

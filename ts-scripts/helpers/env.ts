@@ -22,9 +22,10 @@ export type ChainInfo = {
   chainName: Chain;
   rpc: string;
   wormholeAddress: string;
-  uniswapV3RouterAddress: string;
+  universalRouterAddress: string;
   permit2Address: string;
   liquidityLayerAddress: string;
+  wethAddress: string;
 };
 
 export type Deployment = {
@@ -75,7 +76,9 @@ let lastRunOverride: boolean | undefined;
 export function init(overrides: { lastRunOverride?: boolean } = {}): string {
   env = get_env_var("ENV");
   if (!env) {
-    console.log("No environment was specified, using default environment files");
+    console.log(
+      "No environment was specified, using default environment files"
+    );
     env = DEFAULT_ENV;
   }
   lastRunOverride = overrides?.lastRunOverride;
@@ -390,15 +393,15 @@ export const loadFeeConfig = (): FeeConfig[] => {
   }
   const feeConfig = JSON.parse(feeConfigFile.toString());
   return feeConfig.map((chainConfig: any) => ({
-    chainId:                            chainConfig.chainId,
-    baseFee:                     BigInt(chainConfig.baseFee),
-    gasPrice:                    BigInt(chainConfig.gasPrice),
-    gasPriceMargin:          parseFloat(chainConfig.gasPriceMargin),
-    gasPriceTimestamp:         parseInt(chainConfig.gasPriceTimestamp),
+    chainId: chainConfig.chainId,
+    baseFee: BigInt(chainConfig.baseFee),
+    gasPrice: BigInt(chainConfig.gasPrice),
+    gasPriceMargin: parseFloat(chainConfig.gasPriceMargin),
+    gasPriceTimestamp: parseInt(chainConfig.gasPriceTimestamp),
     gasPriceUpdateThreshold: parseFloat(chainConfig.gasPriceUpdateThreshold),
-    gasDropoffMargin:        parseFloat(chainConfig.gasDropoffMargin),
-    maxGasDropoff:               BigInt(chainConfig.maxGasDropoff),
-    gasTokenPrice:               BigInt(chainConfig.gasTokenPrice),
+    gasDropoffMargin: parseFloat(chainConfig.gasDropoffMargin),
+    maxGasDropoff: BigInt(chainConfig.maxGasDropoff),
+    gasTokenPrice: BigInt(chainConfig.gasTokenPrice),
   }));
 };
 

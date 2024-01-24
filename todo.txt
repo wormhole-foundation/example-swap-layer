@@ -27,42 +27,15 @@ there also is a payload item on the layout
 
 https://github.com/wormhole-foundation/connect-sdk/blob/main/core/base/__tests__/layout.ts
 
-basically just make a layout based off this file and then use that to byte pack for the deployment
-
 https://docs.uniswap.org/contracts/v3/reference/deployments
 
--- write deployment script
--- add layout items needed for deployment
--- write configuration script
--- add layout items needed for configuration
--- add remaining layout items
--- add simple send thing / check thing script
--- add redis & spy dockers
--- add relayer engine
--- relay simple sends with the relayer engine
+MatchingEngine 
+6=0xdf5af760f3093034C7A6580FBd4CE66A8bEDd90A
 
--- get the registered chains script working
--- get the update fees script working
--- parse liquidity layer messages
--- parse swap layer messages
--- find CCTP message for relay,
--- fill struct on liquidity layer matters, because it's the top level struct
--- redeemer message is the payload 3, which is the swap layer message
--- will also have to care about the interface of the token router,
--- redeem on the swap layer expects type OrderResponse which is the liquidity layer
--- use initiate args in order to start a transfer
-- set limit (min out) and deadline (execute time) to zero, first leg fee - 0, (determines a pool)
-- set path empty, because there will be intermediate tokens in going from WETH to USDC.
-- Leg first fee HAS TO BE CORRECT, which means we need to look up the pool and get the fee from there. Have to grab uniswap pools and read the fees
-- 0.05%, 0.30%, and 1%
-500, 30_000, 100_000 are the uniswap fee tiers, they can add more though
-
-
--- NOTE can't deploy to Fuji using the ankr rpc node because the trie node error indicates the ankr doesn't have archive data on that node. Testnet address is probably wrong, but it's not clear what the correct one is.
--- NOTE also failed on Optimism Goerli with the same error.
--- NOTE also failed deploying the implementation on arbitrum goerli. Different error, but still failed. Error was not helpful.
--- NOTE seemed to work once on mumbai but now consistently fails to deploy. Unsure why.
--- NOTE tried both 0x2626664c2603336E57B271c5C0b26F421741e481 and 0xE592427A0AEce92De3Edee1F18E0157C05861564 for base. both reverted
--- NOTE tried both 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45 and 0xE592427A0AEce92De3Edee1F18E0157C05861564 for optimism goerli. both reverted wiith failed to get account 0x0
-
--- TODO everything fails except goerli. failed configurations are in config/localTestnew/temp.json
+TokenRouter
+5=0x3Ce8a3aC230Eb4bCE3688f2A1ab21d986a0A0B06
+6=0x7353B29FDc79435dcC7ECc9Ac9F9b61d83B4E0F4
+10002=0x603541d1Cf7178C407aA7369b67CB7e0274952e2
+10003=0xc1Cf3501ef0b26c8A47759F738832563C7cB014A
+10004=0x4452B708C01d6aD7058a7541A3A82f0aD0A1abB1
+10005=0xc1Cf3501ef0b26c8A47759F738832563C7cB014A
