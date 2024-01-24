@@ -163,6 +163,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         inputAmount,
         outputAmount,
         inputToken,
+        _usdc,
         true, //revert on failure
         approveCheck,
         deadline,

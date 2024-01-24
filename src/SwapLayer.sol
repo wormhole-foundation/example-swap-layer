@@ -4,10 +4,6 @@ pragma solidity ^0.8.23;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { IPermit2 } from "permit2/IPermit2.sol";
-import { ISwapRouter } from "uniswap/ISwapRouter.sol";
-import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
-
 import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 
 import "./assets/SwapLayerQuery.sol";
@@ -26,13 +22,15 @@ contract SwapLayer is SwapLayerQuery, SwapLayerInitiate, SwapLayerRedeem {
 
   //constructor of the logic contract setting immutables
   constructor(
-    IPermit2 permit2,
-    ISwapRouter uniV3Router,
-    ITokenRouter liquidityLayer,
+    address weth,
+    address permit2,
+    //address uniV3Router,
+    address universalRouter,
+    address liquidityLayer,
     uint32 majorDelay,
     uint32 minorDelay
   ) SwapLayerGovernance(majorDelay, minorDelay)
-    SwapLayerBase(permit2, uniV3Router, liquidityLayer) {}
+    SwapLayerBase(weth, permit2, universalRouter, liquidityLayer) {}
 
   //constructor of the proxy contract setting storage variables
   function _proxyConstructor(bytes calldata args_) internal override {
@@ -67,8 +65,13 @@ contract SwapLayer is SwapLayerQuery, SwapLayerInitiate, SwapLayerRedeem {
     args.checkLength(offset);
 
     _maxApprove(_usdc, address(_liquidityLayer));
-    _maxApprove(_usdc, address(_uniV3Router));
-    _maxApprove(IERC20(address(_weth)), address(_uniV3Router));
+    //universalRouter always uses permit2 for transfers...
+    _maxApprove(_usdc, address(_permit2));
+    _maxApprove(IERC20(address(_weth)), address(_permit2));
+    _permit2MaxApprove(address(_usdc));
+    _permit2MaxApprove(address(_weth));
+    // _maxApprove(_usdc, address(_universalRouter));
+    // _maxApprove(IERC20(address(_weth)), address(_universalRouter));
   }
 
   //to support weth.withdraw

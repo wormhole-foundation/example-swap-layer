@@ -1,4 +1,4 @@
-import { constMap, Network, Chain, MapLevel } from "@wormhole-foundation/sdk-base";
+import { constMap, Network, Chain, MapLevel, MapLevels } from "@wormhole-foundation/sdk-base";
 
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //!!!!!!!!!!!!!!!!!!!!!!!!! DO NOT TRUST THE UNISWAP DOCS !!!!!!!!!!!!!!!!!!!!!!!!!
@@ -54,25 +54,53 @@ import { constMap, Network, Chain, MapLevel } from "@wormhole-foundation/sdk-bas
 
 const uniswapV3NonfungiblePositionManagerContracts = [[
   "Mainnet", [
-    ["Ethereum",  "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
-    ["Arbitrum",  "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
-    ["Optimism",  "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
-    ["Polygon",   "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
-    ["Avalanche", "0x655C406EBFa14EE2006250925e54ec43AD184f8B"],
-    ["Base",      "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1"],
-    ["Bsc",       "0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613"],
-    ["Celo",      "0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A"],
+    ["Ethereum",        "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
+    ["Arbitrum",        "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
+    ["Optimism",        "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
+    ["Polygon",         "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
+    ["Avalanche",       "0x655C406EBFa14EE2006250925e54ec43AD184f8B"],
+    ["Base",            "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1"],
+    ["Bsc",             "0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613"],
+    ["Celo",            "0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A"],
   ]], [
   "Testnet", [
-    ["Ethereum",  "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"], //Goerli
-    ["Sepolia",   "0x1238536071E1c677A632429e3655c799b22cDA52"]
+    ["Sepolia",         "0x1238536071E1c677A632429e3655c799b22cDA52"],
+    ["Polygon",         "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
+    // ["Avalanche",       ""],
+    // ["ArbitrumSepolia", ""],
+    // ["BaseSepolia",     ""],
+    // ["OptimismSepolia", ""],
   ]],
-] as const satisfies MapLevel<Network, MapLevel<Chain, string>>;
+] as const satisfies MapLevels<[Network, Chain, string]>;
 
 export const uniswapV3PositionManager = constMap(uniswapV3NonfungiblePositionManagerContracts);
 
-//same across all chains/networks (does not exist on sepolia)
-export const uniswapV3SwapRouter = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
+// //same across all chains/networks (does not exist on sepolia)
+// export const uniswapV3SwapRouter = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
+
+const uniswapUniversalRouterContracts = [[
+  "Mainnet", [
+    ["Ethereum",        "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD"],
+    ["Arbitrum",        "0x5E325eDA8064b456f4781070C0738d849c824258"],
+    ["Optimism",        "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
+    ["Polygon",         "0xec7BE89e9d109e7e3Fec59c222CF297125FEFda2"],
+    ["Avalanche",       "0x4Dae2f939ACf50408e13d58534Ff8c2776d45265"],
+    ["Base",            "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD"],
+    ["Bsc",             "0x4Dae2f939ACf50408e13d58534Ff8c2776d45265"],
+    ["Celo",            "0x643770e279d5d0733f21d6dc03a8efbabf3255b4"],
+  ]], [
+  "Testnet", [
+    ["Sepolia",         "0x1238536071E1c677A632429e3655c799b22cDA52"],
+    ["Polygon",         "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD"],
+    ["Avalanche",       "0x7353B29FDc79435dcC7ECc9Ac9F9b61d83B4E0F4"],
+    // ["ArbitrumSepolia", ""],
+    // ["BaseSepolia",     ""],
+    // ["OptimismSepolia", ""],
+  ]],
+] as const satisfies MapLevels<[Network, Chain, string]>;
+
+export const uniswapUniversalRouter = constMap(uniswapUniversalRouterContracts);
+
 export const permit2Contract = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
 
 // ---- liquidity layer addresses ----
@@ -86,14 +114,13 @@ export const matchingEngine = constMap(matchingEngineContracts);
 
 const tokenRouterContracts = [[
   "Testnet", [
-    ["Polygon",   "0x3Ce8a3aC230Eb4bCE3688f2A1ab21d986a0A0B06"],
-    ["Avalanche", "0x7353B29FDc79435dcC7ECc9Ac9F9b61d83B4E0F4"],
-    ["Sepolia",   "0x603541d1Cf7178C407aA7369b67CB7e0274952e2"],
-    //TODO:
-    // 10003=0xc1Cf3501ef0b26c8A47759F738832563C7cB014A
-    // 10004=0x4452B708C01d6aD7058a7541A3A82f0aD0A1abB1
-    // 10005=0xc1Cf3501ef0b26c8A47759F738832563C7cB014A
+    ["Polygon",         "0x3Ce8a3aC230Eb4bCE3688f2A1ab21d986a0A0B06"],
+    ["Avalanche",       "0x7353B29FDc79435dcC7ECc9Ac9F9b61d83B4E0F4"],
+    ["Sepolia",         "0x603541d1Cf7178C407aA7369b67CB7e0274952e2"],
+    ["ArbitrumSepolia", "0xc1Cf3501ef0b26c8A47759F738832563C7cB014A"],
+    ["BaseSepolia",     "0x4452B708C01d6aD7058a7541A3A82f0aD0A1abB1"],
+    ["OptimismSepolia", "0xc1Cf3501ef0b26c8A47759F738832563C7cB014A"],
   ]]
-] as const satisfies MapLevel<Network, MapLevel<Chain, string>>;
+] as const satisfies MapLevels<[Network, Chain, string]>;
 
 export const tokenRouter = constMap(tokenRouterContracts);

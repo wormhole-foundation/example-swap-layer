@@ -252,7 +252,7 @@ const immutableTypes = [
   "Usdc",
   "Weth",
   "Permit2",
-  "UniswapV3Router",
+  "UniswapUniversalRouter",
   "LiquidityLayer",
   "MajorDelay",
   "MinorDelay"

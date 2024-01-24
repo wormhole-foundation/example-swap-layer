@@ -1,6 +1,6 @@
 import * as base from "@wormhole-foundation/sdk-base";
 import {
-  uniswapV3SwapRouter,
+  uniswapUniversalRouter,
   uniswapV3PositionManager,
   permit2Contract
 } from "@xlabs/wh-swap-layer-ts-sdk";
@@ -49,8 +49,9 @@ const testVars =
 `TEST_RPC=${rpc}
 TEST_WORMHOLE_ADDRESS=${base.contracts.coreBridge.get(network, chain)!}
 TEST_USDC_ADDRESS=${base.circle.usdcContract.get(network, chain)!}
+TEST_WETH_ADDRESS=${base.tokens.getTokenByKey(network, chain, "WETH")!.address}
 TEST_CCTP_TOKEN_MESSENGER_ADDRESS=${tokenMessenger}
-TEST_UNISWAP_V3_SWAP_ROUTER_ADDRESS=${uniswapV3SwapRouter}
+TEST_UNISWAP_UNIVERSAL_ROUTER_ADDRESS=${uniswapUniversalRouter.get(network, chain)!}
 TEST_UNISWAP_V3_POSITION_MANAGER_ADDRESS=${uniswapV3PositionManager.get(network, chain)!}
 TEST_PERMIT2_ADDRESS=${permit2Contract}
 `;

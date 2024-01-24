@@ -106,6 +106,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
         usdcAmount,
         minOutputAmount,
         _usdc,
+        outputToken,
         false, //never revert on failed swap - worst case, recipient receives usdc
         false, //always skip approve check, we have max approve with the router for usdc
         deadline,

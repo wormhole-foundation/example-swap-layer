@@ -136,9 +136,10 @@ contract SwapLayerTestBase is Test {
 
     swapLayer = SwapLayer(payable(address(new Proxy(
       address(new SwapLayer(
-        IPermit2(vm.envAddress("TEST_PERMIT2_ADDRESS")),
-        ISwapRouter(vm.envAddress("TEST_UNISWAP_V3_SWAP_ROUTER_ADDRESS")),
-        liquidityLayer,
+        vm.envAddress("TEST_WETH_ADDRESS"),
+        vm.envAddress("TEST_PERMIT2_ADDRESS"),
+        vm.envAddress("TEST_UNISWAP_UNIVERSAL_ROUTER_ADDRESS"),
+        address(liquidityLayer),
         MAJOR_DELAY,
         MINOR_DELAY
       )),

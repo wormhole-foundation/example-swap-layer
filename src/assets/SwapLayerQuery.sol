@@ -17,7 +17,7 @@ enum ImmutableType {
   Usdc,
   Weth,
   Permit2,
-  UniswapV3Router,
+  UniswapUniversalRouter,
   LiquidityLayer,
   MajorDelay,
   MinorDelay
@@ -90,8 +90,8 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
             addr = address(_weth);
           else if (immutableType == ImmutableType.Permit2)
             addr = address(_permit2);
-          else if (immutableType == ImmutableType.UniswapV3Router)
-            addr = address(_uniV3Router);
+          else if (immutableType == ImmutableType.UniswapUniversalRouter)
+            addr = address(_universalRouter);
           else //must be ImmutableType.LiquidityLayer
             addr = address(_liquidityLayer);
           ret = abi.encodePacked(ret, addr);
