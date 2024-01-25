@@ -11,8 +11,7 @@ endif
 
 FORK = $(NETWORK) $(CHAIN)
 
-build: node_modules fork_changed
-	npm run build -- $(FORK)
+build: node_modules testing.env
 
 clean:
 	rm -rf node_modules fork_changed testing.env
@@ -26,3 +25,6 @@ fork_changed:
 
 node_modules:
 	npm ci
+
+testing.env: fork_changed
+	npm run build -- $(FORK)
