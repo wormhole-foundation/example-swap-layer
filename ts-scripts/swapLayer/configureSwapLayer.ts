@@ -96,7 +96,7 @@ function createSwapLayerConfiguration(
         GovernanceCommand: "UpdateEndpoint",
         endpoint: {
           chain: currentChain.chainName,
-          address: universalShim,
+          address: universalShim as any,
         },
         ...feeParams,
       };

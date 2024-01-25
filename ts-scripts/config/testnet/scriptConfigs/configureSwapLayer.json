@@ -1,0 +1,8 @@
+{
+  "shouldRegisterEndpoints": true,
+  "shouldUpdateAssistant": false,
+  "shouldSweepTokens": false,
+  "shouldUpdateFeeRecipient": false,
+  "newAssistantAddress": "0x0000000",
+  "newFeeRecipient": "0x0000000"
+}

@@ -57,7 +57,10 @@ async function run() {
     const testSend = await swapLayer.initiate(
       config.toChain,
       recipient,
-      encodedCommands
+      encodedCommands,
+      {
+        value: config.sendGas ? BigInt(config.sendAmount) : 0n,
+      }
     );
     console.log("Successfully initiated transfer!");
 

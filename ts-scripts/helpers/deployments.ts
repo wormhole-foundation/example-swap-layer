@@ -39,6 +39,8 @@ export async function deploySwapLayerImplementation(
       chain.liquidityLayerAddress
   );
 
+  //TODO use the ones off the ts-sdk instead
+
   const contract = await factory.deploy(
     chain.wethAddress,
     chain.permit2Address,
