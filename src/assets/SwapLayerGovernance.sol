@@ -230,7 +230,7 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
             : FeeParamsLib.checkedWrap(feeParams_);
           _updateEndpoint(endpointChain, curEndpoint, newEndpoint, feeParams);
         }
-        else (newEndpoint != curEndpoint) { //must be GovernanceCommand.ProposeEndpointUpdate
+        else if (newEndpoint != curEndpoint) { //must be GovernanceCommand.ProposeEndpointUpdate
           if (newEndpoint == bytes32(0))
             revert EndpointProposalShouldBeUpdate(endpointChain);
 

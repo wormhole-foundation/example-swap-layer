@@ -64,7 +64,7 @@ function createSwapLayerConfiguration(
       const network = getWhConnectName(); // Or "Testnet"
       const wh = new Wormhole(network, [EvmPlatform]);
 
-      const swapLayerAddress = getSwapLayerAddress(operatingChain);
+      const swapLayerAddress = getSwapLayerAddress(currentChain);
       const universalShim: UniversalAddress = toNative<"Evm">(
         "Evm",
         swapLayerAddress
@@ -89,19 +89,32 @@ function createSwapLayerConfiguration(
 
       //TODO why can't the linter deduce the types inside GovernanceCommand?
 
+      if (configurationOptions.shouldProposeUpdateEndpoints) {
+        const proposedCommand: GovernanceCommand = {
+          GovernanceCommand: "ProposeEndpointUpdate",
+          endpoint: {
+            chain: currentChain.chainName,
+            address: universalShim as any,
+          },
+        };
+        output.push(proposedCommand);
+      }
+
       //NOTE: we should detect whether this is an initial registration or an update, because this will eventually be required for update. Not important for now.
       //NOTE: the linter couldn't interpret the type of GovernanceCommand.
       //It said it was non-compliant until i explicitly declared it.
-      const registerCommand: GovernanceCommand = {
-        GovernanceCommand: "UpdateEndpoint",
-        endpoint: {
-          chain: currentChain.chainName,
-          address: universalShim as any,
-        },
-        ...feeParams,
-      };
+      else {
+        const registerCommand: GovernanceCommand = {
+          GovernanceCommand: "UpdateEndpoint",
+          endpoint: {
+            chain: currentChain.chainName,
+            address: universalShim as any,
+          },
+          ...feeParams,
+        };
 
-      output.push(registerCommand);
+        output.push(registerCommand);
+      }
     }
   }
   // if (configurationOptions.shouldUpdateAssistant) {

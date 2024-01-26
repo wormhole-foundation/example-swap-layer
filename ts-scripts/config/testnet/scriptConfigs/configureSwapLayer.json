@@ -1,5 +1,6 @@
 {
   "shouldRegisterEndpoints": true,
+  "shouldProposeUpdateEndpoints": false,
   "shouldUpdateAssistant": false,
   "shouldSweepTokens": false,
   "shouldUpdateFeeRecipient": false,

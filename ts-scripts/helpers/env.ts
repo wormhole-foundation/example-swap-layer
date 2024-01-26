@@ -47,6 +47,7 @@ export type FeeConfig = {
 };
 
 export type SwapLayerConfig = {
+  shouldProposeUpdateEndpoints: boolean;
   shouldRegisterEndpoints: boolean;
   shouldUpdateAssistant: boolean;
   shouldSweepTokens: boolean;
