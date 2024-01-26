@@ -207,39 +207,37 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
         (newEndpoint,   offset) = commands.asBytes32Unchecked(offset);
 
         bytes32 curEndpoint = _getEndpoint(endpointChain);
-        if (newEndpoint != curEndpoint) {
-          if (command == GovernanceCommand.UpdateEndpoint) {
-            if (curEndpoint != bytes32(0)) {
-              EndpointProposal storage proposal = state.endpointProposals[endpointChain];
-              uint32 unlockTime = proposal.unlockTime;
-              if (unlockTime == 0)
-                revert EndpointProposalMissing(endpointChain);
-
-              if (block.timestamp < unlockTime)
-                revert EndpointProposalNotYetUnlocked(endpointChain, block.timestamp, unlockTime);
-
-              if (newEndpoint != proposal.endpoint)
-                revert EndpointProposalMismatch(endpointChain, newEndpoint, proposal.endpoint);
-
-              delete state.endpointProposals[endpointChain];
-            }
-
-            uint256 feeParams_;
-            (feeParams_, offset) = commands.asUint256Unchecked(offset);
-            FeeParams feeParams = newEndpoint == bytes32(0)
-              ? FeeParams.wrap(0)
-              : FeeParamsLib.checkedWrap(feeParams_);
-            _updateEndpoint(endpointChain, curEndpoint, newEndpoint, feeParams);
-          }
-          else { //must be GovernanceCommand.ProposeEndpointUpdate
-            if (newEndpoint == bytes32(0))
-              revert EndpointProposalShouldBeUpdate(endpointChain);
-
+        if (command == GovernanceCommand.UpdateEndpoint) {
+          if (curEndpoint != bytes32(0) && newEndpoint != curEndpoint) {
             EndpointProposal storage proposal = state.endpointProposals[endpointChain];
-            proposal.endpoint = newEndpoint;
-            proposal.unlockTime = uint32(block.timestamp + _majorDelay);
-            emit EndpointProposalSubmitted(endpointChain, newEndpoint, proposal.unlockTime);
+            uint32 unlockTime = proposal.unlockTime;
+            if (unlockTime == 0)
+              revert EndpointProposalMissing(endpointChain);
+
+            if (block.timestamp < unlockTime)
+              revert EndpointProposalNotYetUnlocked(endpointChain, block.timestamp, unlockTime);
+
+            if (newEndpoint != proposal.endpoint)
+              revert EndpointProposalMismatch(endpointChain, newEndpoint, proposal.endpoint);
+
+            delete state.endpointProposals[endpointChain];
           }
+
+          uint256 feeParams_;
+          (feeParams_, offset) = commands.asUint256Unchecked(offset);
+          FeeParams feeParams = newEndpoint == bytes32(0)
+            ? FeeParams.wrap(0)
+            : FeeParamsLib.checkedWrap(feeParams_);
+          _updateEndpoint(endpointChain, curEndpoint, newEndpoint, feeParams);
+        }
+        else (newEndpoint != curEndpoint) { //must be GovernanceCommand.ProposeEndpointUpdate
+          if (newEndpoint == bytes32(0))
+            revert EndpointProposalShouldBeUpdate(endpointChain);
+
+          EndpointProposal storage proposal = state.endpointProposals[endpointChain];
+          proposal.endpoint = newEndpoint;
+          proposal.unlockTime = uint32(block.timestamp + _majorDelay);
+          emit EndpointProposalSubmitted(endpointChain, newEndpoint, proposal.unlockTime);
         }
       }
       else if (command == GovernanceCommand.SweepTokens) {
