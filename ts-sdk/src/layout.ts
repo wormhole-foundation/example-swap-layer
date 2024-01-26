@@ -179,10 +179,10 @@ const swapItem = {
   name: "swap",
   binary: "object",
   layout: [
+    { name: "deadline", ...timestampItem },
+    { name: "limitAmount", ...amountItem },
     //this will eventually be a switch - but for now we only have one type - uniswap
     { name: "type", binary: "uint", size: 1, custom: { to: "Uniswap", from: 0 }},
-    { name: "limitAmount", ...amountItem },
-    { name: "deadline", ...timestampItem },
     { name: "legFirstFee", binary: "uint", size: 3 },
     { name: "path", binary: "array", lengthSize: 1, layout: [
       { name: "address", ...evmAddressItem },
@@ -252,7 +252,7 @@ const immutableTypes = [
   "Usdc",
   "Weth",
   "Permit2",
-  "UniswapUniversalRouter",
+  "UniswapRouter",
   "LiquidityLayer",
   "MajorDelay",
   "MinorDelay"

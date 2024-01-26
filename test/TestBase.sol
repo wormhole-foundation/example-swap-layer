@@ -14,7 +14,6 @@ import { WormholeCctpOverride, FOREIGN_DOMAIN } from "wormhole-local/WormholeCct
 import { IUSDC } from "cctp/IUSDC.sol";
 import { Proxy } from "proxy/Proxy.sol";
 import { IPermit2 } from "permit2/IPermit2.sol";
-import { ISwapRouter } from "uniswap/ISwapRouter.sol";
 
 import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
 import { FastTransferParameters } from "liquidity-layer/ITokenRouterTypes.sol";
@@ -132,16 +131,17 @@ contract SwapLayerTestBase is Test {
     feeParams = feeParams.gasPriceUpdateThreshold(PercentageLib.to(10, 0));
     feeParams = feeParams.maxGasDropoff(GasDropoffLib.to(1 ether));
     feeParams = feeParams.gasDropoffMargin(PercentageLib.to(1, 0)); //1 % volatility margin
-    feeParams = feeParams.gasTokenPrice(1e7); //10 USD per fictional gas token
+    feeParams = feeParams.gasTokenPrice(1e5); //10 cent per fictional gas token
 
     swapLayer = SwapLayer(payable(address(new Proxy(
       address(new SwapLayer(
-        vm.envAddress("TEST_WETH_ADDRESS"),
-        vm.envAddress("TEST_PERMIT2_ADDRESS"),
-        vm.envAddress("TEST_UNISWAP_UNIVERSAL_ROUTER_ADDRESS"),
-        address(liquidityLayer),
         MAJOR_DELAY,
-        MINOR_DELAY
+        MINOR_DELAY,
+        address(liquidityLayer),
+        vm.envAddress("TEST_PERMIT2_ADDRESS"),
+        vm.envAddress("TEST_WETH_ADDRESS"),
+        vm.envAddress("TEST_UNISWAP_UNIVERSAL_ROUTER_ADDRESS"),
+        address(0)
       )),
       abi.encodePacked(
         owner,

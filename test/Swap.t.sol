@@ -92,7 +92,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     }));
   }
 
-  function testDirectUsdc() public {
+  function testInitiateDirectUsdc() public {
     uint amount = USER_AMOUNT * 1e6;
     _dealUsdc(user, amount);
     vm.startPrank(user);
@@ -115,7 +115,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     vm.stopPrank();
   }
 
-  function testEthSwap() public {
+  function testInitiateEthSwap() public {
     hoax(user);
     bytes memory swapReturn = swapLayer.initiate{value: USER_AMOUNT * 1e18}(
       FOREIGN_CHAIN_ID,
@@ -126,9 +126,35 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
         IoToken.Usdc, //output token
         true,         //isExactIn
         IoToken.Gas,  //input token
-        SwapType.UniswapV3,
-        uint128(0),   //minOutputAmount
         uint32(block.timestamp + 1800), //deadline
+        uint128(0),   //minOutputAmount
+        SwapType.UniswapV3,
+        UNISWAP_FEE,
+        uint8(1),     //pathLength
+        address(mockToken),
+        UNISWAP_FEE
+      )
+    );
+    (uint256 amountOut, ) = swapReturn.asUint256Unchecked(0);
+    assertTrue(amountOut > 0);
+  }
+
+  function testInitiateRelayedEthSwap() public {
+    hoax(user);
+    bytes memory swapReturn = swapLayer.initiate{value: USER_AMOUNT * 1e18}(
+      FOREIGN_CHAIN_ID,
+      user.toUniversalAddress(),
+      abi.encodePacked(
+        FastTransferMode.Disabled,
+        RedeemMode.Relay,
+        uint32(0),    //gas dropoff
+        uint48(1e9),  //max relayer fee
+        IoToken.Usdc, //output token
+        true,         //isExactIn
+        IoToken.Gas,  //input token
+        uint32(block.timestamp + 1800), //deadline
+        uint128(0),   //minOutputAmount
+        SwapType.UniswapV3,
         UNISWAP_FEE,
         uint8(1),     //pathLength
         address(mockToken),
@@ -147,7 +173,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
       abi.encodePacked(RedeemMode.Direct),
       abi.encodePacked(IoToken.Usdc)
     );
-    bytes memory redeemReturn = redeem(usdcAmount, redeemParams, swapMessage);
+    bytes memory redeemReturn = _redeem(usdcAmount, redeemParams, swapMessage);
     (address outputToken, uint outputAmount) = abi.decode(redeemReturn, (address, uint));
     assertEq(outputToken, address(usdc));
     assertEq(outputAmount, usdcAmount);
@@ -161,9 +187,9 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
       abi.encodePacked(RedeemMode.Direct),
       abi.encodePacked(
         IoToken.Gas,
-        SwapType.UniswapV3,
-        uint128(0), //minOutputAmount
         uint32(0),  //deadline
+        uint128(0), //minOutputAmount
+        SwapType.UniswapV3,
         UNISWAP_FEE,
         uint8(1),   //pathLength
         address(mockToken),
@@ -172,7 +198,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     );
 
     uint balanceBefore = user.balance;
-    bytes memory redeemReturn = redeem(usdcAmount, redeemParams, swapMessage);
+    bytes memory redeemReturn = _redeem(usdcAmount, redeemParams, swapMessage);
     uint ethReceived = user.balance - balanceBefore;
 
     (address outputToken, uint outputAmount) = abi.decode(redeemReturn, (address, uint));
@@ -181,7 +207,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     assertTrue(ethReceived > 0);
   }
 
-  function redeem(
+  function _redeem(
     uint amount,
     bytes memory redeemParams,
     bytes memory swapMessage

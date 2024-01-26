@@ -18,7 +18,7 @@ import { FeeParams, FeeParamsLib, SwapLayerRelayingFees } from "./SwapLayerRelay
 // * assistant is a hot wallet that is used to update fee parameters and the like.
 
 //rationale for lock periods:
-// * ownership transfer: _majorDelay
+// * ownership transfer: majorDelay
 //     While leaking the owner secret is a devastating and likely irrecoverable plunder, having an
 //       ownership transfer lock period nevertheless allows the legitimate owner to duke things out
 //       in the form of a gas war over nonce-cancels with the attacker. By setting up the rest of
@@ -29,12 +29,12 @@ import { FeeParams, FeeParamsLib, SwapLayerRelayingFees } from "./SwapLayerRelay
 //     This in turn opens the door for the legitimate owner (whose vested interest in keeping
 //       control of the contract should be bigger than the attacker's) to eventually regain control
 //       with an ownership transfer to a new, secure secret.
-// * contract upgrade: _majorDelay
+// * contract upgrade: majorDelay
 //     A lock period for contract upgrades ensures that users of the protocol can't get rugged out
 //       of nowhere, even when the owner becomes compromised.
 //     The contract upgrade lock period must always be at least as long as the ownership transfer
 //       lock period, since contract upgrades can also be used to change ownership.
-// * fee recipient transfer: _minorDelay
+// * fee recipient transfer: minorDelay
 //     As mentioned in the ownership transfer rationale, having a lock period on the fee recipient
 //       transfer prevents an attacker from capturing any benefits from capturing the contract in
 //       the short term.

@@ -103,72 +103,114 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
     );
   }
 
-  // function testOwnershipTransfer() public {
-  //   address newOwner = makeAddr("newOwner");
+  function testOwnershipTransfer() public {
+    address newOwner = makeAddr("newOwner");
 
-  //   vm.expectRevert(NotAuthorized.selector);
-  //   swapLayer.batchOwnerInterventions(
-  //     abi.encodePacked(OwnerIntervention.ProposeOwnershipTransfer, newOwner)
-  //   );
+    vm.expectRevert(NotAuthorized.selector);
+    swapLayer.batchOwnerInterventions(
+      abi.encodePacked(OwnerIntervention.ProposeOwnershipTransfer, newOwner)
+    );
 
-  //   vm.prank(owner);
-  //   swapLayer.batchOwnerInterventions(
-  //     abi.encodePacked(OwnerIntervention.ProposeOwnershipTransfer, newOwner)
-  //   );
+    vm.prank(owner);
+    swapLayer.batchOwnerInterventions(
+      abi.encodePacked(OwnerIntervention.ProposeOwnershipTransfer, newOwner)
+    );
 
-  //   bytes memory getRes = swapLayer.batchGet(abi.encodePacked(
-  //     QueryType.Owner, SubQueryType.Current,
-  //     QueryType.Owner, SubQueryType.Proposed
-  //   ));
-  //   (address owner_, ) = getRes.asAddressUnchecked(0);
-  //   (address pendingOwner_, ) = getRes.asAddressUnchecked(20);
+    bytes memory getRes = swapLayer.batchQueries(abi.encodePacked(
+      QueryType.Owner, SubQueryType.Current,
+      QueryType.Owner, SubQueryType.Proposed
+    ));
+    (address owner_, ) = getRes.asAddressUnchecked(0);
+    (address pendingOwner_, ) = getRes.asAddressUnchecked(20);
 
-  //   assertEq(owner_, owner);
-  //   assertEq(pendingOwner_, newOwner);
+    assertEq(owner_, owner);
+    assertEq(pendingOwner_, newOwner);
 
-  //   vm.prank(newOwner);
-  //   swapLayer.batchOwnerInterventions(new bytes(0));
+    vm.startPrank(newOwner);
+    if (MAJOR_DELAY > 0) {
+      //should revert with ProposalLockPeriodNotOver but we can't enforce the exact timestamps
+      vm.expectRevert();
+      swapLayer.batchOwnerInterventions(new bytes(0));
 
-  //   getRes = swapLayer.batchGet(abi.encodePacked(
-  //     QueryType.Owner, QueryType.PendingOwner
-  //   ));
+      skip(MAJOR_DELAY);
+    }
 
-  //   (owner_, ) = getRes.asAddressUnchecked(0);
-  //   (pendingOwner_, ) = getRes.asAddressUnchecked(20);
+    swapLayer.batchOwnerInterventions(new bytes(0));
 
-  //   assertEq(owner_, newOwner);
-  //   assertEq(pendingOwner_, address(0));
-  // }
+    getRes = swapLayer.batchQueries(abi.encodePacked(
+      QueryType.Owner, SubQueryType.Current,
+      QueryType.Owner, SubQueryType.Proposed
+    ));
 
-  // function testUpdateAssistant() public {
-  //   address newAssistant = makeAddr("newAssistant");
+    (owner_, ) = getRes.asAddressUnchecked(0);
+    (pendingOwner_, ) = getRes.asAddressUnchecked(20);
 
-  //   vm.prank(owner);
-  //   swapLayer.batchGovernanceCommands(
-  //     abi.encodePacked(GovernanceCommand.UpdateAssistant, newAssistant)
-  //   );
+    assertEq(owner_, newOwner);
+    assertEq(pendingOwner_, address(0));
+  }
 
-  //   (address newAssistant_, ) = swapLayer.batchGet(abi.encodePacked(
-  //     QueryType.Assistant
-  //   )).asAddressUnchecked(0);
+  function testUpdateAssistant() public {
+    address newAssistant = makeAddr("newAssistant");
 
-  //   assertEq(newAssistant_, newAssistant);
-  // }
+    vm.prank(owner);
+    swapLayer.batchGovernanceCommands(
+      abi.encodePacked(GovernanceCommand.UpdateAssistant, newAssistant)
+    );
 
-  // function testUpdateFeeRecipient() public {
-  //   address newFeeRecipient = makeAddr("newFeeRecipient");
+    (address newAssistant_, ) = swapLayer.batchQueries(abi.encodePacked(
+      QueryType.Assistant
+    )).asAddressUnchecked(0);
 
-  //   vm.prank(owner);
-  //   swapLayer.batchGovernanceCommands(
-  //     abi.encodePacked(GovernanceCommand.UpdateFeeRecipient, newFeeRecipient)
-  //   );
+    assertEq(newAssistant_, newAssistant);
+  }
 
-  //   (address newFeeRecipient_, ) = swapLayer.batchGet(abi.encodePacked(
-  //     QueryType.FeeRecipient
-  //   )).asAddressUnchecked(0);
+  function testUpdateFeeRecipient() public {
+    address newFeeRecipient = makeAddr("newFeeRecipient");
 
-  //   assertEq(newFeeRecipient_, newFeeRecipient);
-  // }
+    vm.expectRevert(NotAuthorized.selector);
+    swapLayer.batchGovernanceCommands(
+      abi.encodePacked(GovernanceCommand.ProposeFeeRecipientUpdate, newFeeRecipient)
+    );
+
+    vm.startPrank(admin);
+    swapLayer.batchGovernanceCommands(
+      abi.encodePacked(GovernanceCommand.ProposeFeeRecipientUpdate, newFeeRecipient)
+    );
+
+    bytes memory getRes = swapLayer.batchQueries(abi.encodePacked(
+      QueryType.FeeRecipient, SubQueryType.Current,
+      QueryType.FeeRecipient, SubQueryType.Proposed
+    ));
+    (address feeRecipient_, ) = getRes.asAddressUnchecked(0);
+    (address pendingFeeRecipient_, ) = getRes.asAddressUnchecked(20);
+
+    assertEq(feeRecipient_, feeRecipient);
+    assertEq(pendingFeeRecipient_, newFeeRecipient);
+
+    if (MINOR_DELAY > 0) {
+      //should revert with ProposalLockPeriodNotOver but we can't enforce the exact timestamps
+      vm.expectRevert();
+      swapLayer.batchGovernanceCommands(
+        abi.encodePacked(GovernanceCommand.UpdateFeeRecipient, newFeeRecipient)
+      );
+
+      skip(MINOR_DELAY);
+    }
+
+    swapLayer.batchGovernanceCommands(
+      abi.encodePacked(GovernanceCommand.UpdateFeeRecipient, newFeeRecipient)
+    );
+
+    getRes = swapLayer.batchQueries(abi.encodePacked(
+      QueryType.FeeRecipient, SubQueryType.Current,
+      QueryType.FeeRecipient, SubQueryType.Proposed
+    ));
+    (feeRecipient_, ) = getRes.asAddressUnchecked(0);
+    (pendingFeeRecipient_, ) = getRes.asAddressUnchecked(20);
+
+    assertEq(feeRecipient_, newFeeRecipient);
+    assertEq(pendingFeeRecipient_, address(0));
+  }
 
   // function testRegisterEndpoint() public {
   //   bytes32 endpoint = bytes32(uint256(1));
@@ -179,7 +221,7 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
   //     GovernanceCommand.RegisterEndpoint, chain, endpoint
   //   ));
 
-  //   (bytes32 endpoint_, ) = swapLayer.batchGet(abi.encodePacked(
+  //   (bytes32 endpoint_, ) = swapLayer.batchQueries(abi.encodePacked(
   //     QueryType.Endpoint, chain
   //   )).asBytes32Unchecked(0);
 

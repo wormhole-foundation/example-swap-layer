@@ -96,12 +96,13 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       else
         (outputToken, offset) = parseIERC20(swapParams, offset);
 
-      (uint minOutputAmount, uint256 deadline, bytes memory path, uint offset_) =
+      (uint256 deadline, uint minOutputAmount, SwapType swapType, bytes memory path, uint offset_) =
         parseSwapParams(_usdc, outputToken, swapParams, offset);
 
       offset = offset_;
 
       outputAmount = _swap(
+        swapType,
         true, //only exact input swaps on redeem for simplicity
         usdcAmount,
         minOutputAmount,

@@ -14,12 +14,20 @@ uint constant MODE_SIZE = 1;
 uint constant BOOL_SIZE = 1;
 uint constant ADDRESS_SIZE = 20;
 uint constant UNIVERSAL_ADDRESS_SIZE = 32;
-uint constant UNI_FEE_SIZE = 3;
-uint constant SWAP_PARAM_SWAP_TYPE_SIZE = 1;
-uint constant SWAP_PARAM_AMOUNT_SIZE = 16;
 uint constant SWAP_PARAM_DEADLINE_SIZE = 4;
+uint constant SWAP_PARAM_AMOUNT_SIZE = 16;
+uint constant SWAP_PARAM_SWAP_TYPE_SIZE = 1;
 
-uint constant UNI_PATH_ELEMENT_SIZE = ADDRESS_SIZE + UNI_FEE_SIZE;
+uint constant UNISWAP_FEE_SIZE = 3;
+
+uint constant TRADERJOE_VERSION_SIZE = 1;
+//binsteps in the router interface are coded as uint256, but the true underlying datatype is uint16:
+//https://github.com/traderjoe-xyz/joe-v2/blob/31e31f65c6e6e183d42dec8029aca5443fa2a2c3/src/LBPair.sol#L150
+uint constant TRADERJOE_BINSTEP_SIZE = 2;
+
+//serendipitously, we require 3 bytes for uniswapV3 and traderJoe so we can combine the code
+uint constant SHARED_POOL_ID_SIZE = 3;
+uint constant SHARED_PATH_ELEMENT_SIZE = ADDRESS_SIZE + SHARED_POOL_ID_SIZE;
 
 uint constant RELAY_GAS_DROPOFF_SIZE     = 4;
 uint constant RELAY_MAX_RELAYER_FEE_SIZE = 6;
@@ -37,16 +45,16 @@ enum RedeemMode {
   Relay
 }
 
-//future-proofing to potentially support other AMMs in the future
 enum SwapType {
-  UniswapV3
+  UniswapV3,
+  TraderJoe
 }
 
 //swap layout:
-// 1 byte   swapType
+// 4 bytes  deadline (unix timestamp, 0 = no deadline)
 //16 bytes  limitAmount
-// 4 bytes  deadline (unix timestamp)
-// 3 bytes  legFirstFee
+// 1 byte   swapType
+// 3 bytes  firstPoolId
 // 1 byte   pathLength
 // n bytes  swap path (n = pathLength * (20+3) (token address + uni fee))
 
@@ -55,32 +63,30 @@ function parseSwapParams(
   IERC20 outputToken,
   bytes memory params,
   uint offset
-) pure returns (uint, uint256, bytes memory, uint) { unchecked {
-  uint8 swapType_;
-  uint limitAmount;
+) pure returns (uint, uint256, SwapType, bytes memory, uint) { unchecked {
   uint256 deadline;
-  uint24 legFirstFee;
+  uint limitAmount;
+  SwapType swapType;
+  uint24 firstPoolId;
   uint pathLength; //total number of swaps = pathLength + 1
-  (swapType_,    offset) = params.asUint8Unchecked(offset);
-  (limitAmount,  offset) = params.asUint128Unchecked(offset);
-  (deadline,     offset) = params.asUint32Unchecked(offset);
-  (legFirstFee,  offset) = params.asUint24Unchecked(offset);
-  (pathLength,   offset) = params.asUint8Unchecked(offset);
-
-  SwapType(swapType_); //check that swapType is valid
+  (deadline,    offset) = params.asUint32Unchecked(offset);
+  (limitAmount, offset) = params.asUint128Unchecked(offset);
+  (swapType,    offset) = parseSwapType(params, offset);
+  (firstPoolId, offset) = params.asUint24Unchecked(offset);
+  (pathLength,  offset) = params.asUint8Unchecked(offset);
 
   uint sliceLen;
-  sliceLen = pathLength * UNI_PATH_ELEMENT_SIZE;
+  sliceLen = pathLength * SHARED_PATH_ELEMENT_SIZE;
   bytes memory partialPath;
   (partialPath, offset) = params.sliceUnchecked(offset, sliceLen);
   bytes memory path = abi.encodePacked(
     address(inputToken),
-    legFirstFee,
+    firstPoolId,
     partialPath,
     address(outputToken)
   );
 
-  return (limitAmount, deadline, path, offset);
+  return (deadline, limitAmount, swapType, path, offset);
 }}
 
 //total number of swaps = pathLength + 1
@@ -88,8 +94,8 @@ function parseSwapLength(
   bytes memory params,
   uint offset
 ) pure returns (uint /*pathLength*/, uint) { unchecked {
-  offset +=
-    SWAP_PARAM_SWAP_TYPE_SIZE + SWAP_PARAM_AMOUNT_SIZE + SWAP_PARAM_DEADLINE_SIZE + UNI_FEE_SIZE;
+  offset += SWAP_PARAM_DEADLINE_SIZE  + SWAP_PARAM_AMOUNT_SIZE +
+            SWAP_PARAM_SWAP_TYPE_SIZE + SHARED_POOL_ID_SIZE;
   return params.asUint8Unchecked(offset);
 }}
 
@@ -99,9 +105,18 @@ function skipSwap(
 ) pure returns (uint) { unchecked {
   uint pathLength; //total number of swaps = pathLength + 1
   (pathLength, offset) = parseSwapLength(params, offset);
-  offset += pathLength * UNI_PATH_ELEMENT_SIZE;
+  offset += pathLength * SHARED_PATH_ELEMENT_SIZE;
   return offset;
 }}
+
+function parseSwapType(
+  bytes memory params,
+  uint offset
+) pure returns (SwapType, uint) {
+  uint8 swapType;
+  (swapType, offset) = params.asUint8Unchecked(offset);
+  return (SwapType(swapType), offset);
+}
 
 function parseIoToken(
   bytes memory params,
