@@ -29,7 +29,7 @@ using GasDropoffLib for GasDropoff;
 type FeeParams is uint256;
 library FeeParamsLib {
   // layout (low to high bits - i.e. in packed struct order) - unit:
-  //  4 bytes baseFee                 - atomic usdc (i.e. 6 decimals -> 1e6 = 1 usdc)
+  //  4 bytes baseFee                 - atomic usdc (i.e. 6 decimals -> 1e6 = 1 usdc), max=disabled
   //  4 bytes gasPrice                - wei/gas (see GasPrice)
   //  2 bytes gasPriceMargin          - scalar (see Percentage)
   //  4 bytes gasPriceTimestamp       - unix timestamp (seconds, like block.timestamp)
@@ -234,6 +234,7 @@ function feeParamsState() pure returns (FeeParamsState storage state) {
 }
 
 error MaxGasDropoffExceeded(uint requested, uint maximum);
+error RelayingDisabledForChain();
 
 //TODO: do we actually want/need this?
 event FeeParamsUpdated(uint16 indexed chainId, FeeParams params);
@@ -357,6 +358,13 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
     uint swaps
   ) internal view returns (uint relayerFee) { unchecked {
     FeeParams feeParams = _getFeeParams(targetChain);
+
+    //setting the base fee to uint32 max disables relaying
+    if (feeParams.baseFee() == type(int32).max)
+      revert RelayingDisabledForChain();
+
+    relayerFee = feeParams.baseFee();
+
     uint totalGas = GAS_OVERHEAD;
     uint gasDropoff = gasDropoff_.from();
     if (gasDropoff > 0) {
@@ -377,8 +385,6 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
     relayerFee += feeParams.gasPriceMargin().compound(
       totalGas * feeParams.gasPrice().from() * feeParams.gasTokenPrice()
     ) / 1 ether;
-
-    return relayerFee;
   }}
 
   function _getFeeParams(uint16 chainId) internal view returns (FeeParams) {
