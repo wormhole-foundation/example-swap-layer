@@ -360,7 +360,7 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
     FeeParams feeParams = _getFeeParams(targetChain);
 
     //setting the base fee to uint32 max disables relaying
-    if (feeParams.baseFee() == type(int32).max)
+    if (feeParams.baseFee() == type(uint32).max)
       revert RelayingDisabledForChain();
 
     relayerFee = feeParams.baseFee();
