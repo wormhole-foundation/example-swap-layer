@@ -16,7 +16,6 @@ import { IUSDC } from "cctp/IUSDC.sol";
 import { Proxy } from "proxy/Proxy.sol";
 import { IPermit2 } from "permit2/IPermit2.sol";
 
-
 import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
 import { FastTransferParameters } from "liquidity-layer/ITokenRouterTypes.sol";
 import { TokenRouterImplementation }
@@ -53,6 +52,7 @@ contract SwapLayerTestBase is Test {
   IWETH     immutable wnative;
   IERC20    immutable usdc;
   address   immutable tokenMessenger;
+  address   immutable traderJoeRouter;
   uint16    immutable chainId;
 
   address immutable signer;
@@ -69,11 +69,12 @@ contract SwapLayerTestBase is Test {
   SwapLayer swapLayer;
 
   constructor() {
-    wormhole       = IWormhole(vm.envAddress("TEST_WORMHOLE_ADDRESS"));
-    wnative        = IWETH(vm.envAddress("TEST_WNATIVE_ADDRESS"));
-    usdc           = IERC20(vm.envAddress("TEST_USDC_ADDRESS"));
-    tokenMessenger = vm.envAddress("TEST_CCTP_TOKEN_MESSENGER_ADDRESS");
-    chainId        = wormhole.chainId();
+    wormhole        = IWormhole(vm.envAddress("TEST_WORMHOLE_ADDRESS"));
+    wnative         = IWETH(vm.envAddress("TEST_WNATIVE_ADDRESS"));
+    usdc            = IERC20(vm.envAddress("TEST_USDC_ADDRESS"));
+    tokenMessenger  = vm.envAddress("TEST_CCTP_TOKEN_MESSENGER_ADDRESS");
+    traderJoeRouter = vm.envAddress("TEST_TRADERJOE_ROUTER_ADDRESS");
+    chainId         = wormhole.chainId();
 
     (signer, signerSecret) = makeAddrAndKey("signer");
     llOwner                = makeAddr("llOwner");
@@ -145,7 +146,7 @@ contract SwapLayerTestBase is Test {
         vm.envAddress("TEST_PERMIT2_ADDRESS"),
         address(wnative),
         vm.envAddress("TEST_UNISWAP_ROUTER_ADDRESS"),
-        vm.envAddress("TEST_TRADERJOE_ROUTER_ADDRESS")
+        traderJoeRouter
       )),
       abi.encodePacked(
         owner,

@@ -53,7 +53,7 @@ abstract contract SwapLayerTraderJoe is SwapLayerBase {
          inputToken.allowance(address(this), _traderJoeRouter) < inputAmount)
       _maxApprove(inputToken, _traderJoeRouter);
 
-    uint pathLength = ((path.length - ADDRESS_SIZE) / SHARED_PATH_ELEMENT_SIZE) - 1;
+    uint pathLength = (path.length - ADDRESS_SIZE) / SHARED_PATH_ELEMENT_SIZE;
     Path memory tjPath = Path(
       new uint256[](pathLength),
       new uint8[](pathLength),

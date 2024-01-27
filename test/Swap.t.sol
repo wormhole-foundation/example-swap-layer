@@ -11,7 +11,9 @@ import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 import { toUniversalAddress } from "wormhole/Utils.sol";
 
 import { SwapLayerTestBase } from "./TestBase.sol";
-import { INonfungiblePositionManager } from "./external/INonfungiblePositionManager.sol";
+import { INonfungiblePositionManager } from "./external/IUniswap.sol";
+import { ITJLBRouter, ITJLBFactory } from "./external/ITraderJoe.sol";
+import { PriceHelper as TJMath } from "./external/TJMath/PriceHelper.sol";
 
 import { Messages } from "./liquidity-layer/shared/Messages.sol";
 
@@ -29,6 +31,11 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
   int24 constant UNISWAP_MAX_TICK = 887270;
   //chose so that with additional 18 decimals it still fits in a uint64, which allows us to
   //  calculate the  price via uint160(Math.sqrt((amount1 << 192) / amount0));
+  uint8 constant TRADERJOE_VERSION = 2;
+  //only 25, 50, and 100 are open on Mainnet Ethereum
+  //  see here: https://etherscan.io/address/0xDC8d77b69155c7E68A95a4fb0f06a71FF90B943a#readContract#F12
+  uint16 constant TRADERJOE_BIN_STEP = 25; //size of a bin = 1 + .0001*binStep
+
   uint constant BASE_AMOUNT = 10;
   uint constant USER_AMOUNT = 1;
 
@@ -45,11 +52,24 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     (user, userSecret) = makeAddrAndKey("user");
   }
 
-  struct Pool {
+  struct PoolParams {
     address token0;
     uint amount0;
     address token1;
     uint amount1;
+  }
+
+  function _makePoolParams(
+    address tokenA,
+    uint amountA,
+    address tokenB,
+    uint amountB
+  ) internal pure returns (PoolParams memory) {
+    (address token0, uint amount0, address token1, uint amount1) = tokenA < tokenB
+      ? (tokenA, amountA, tokenB, amountB)
+      : (tokenB, amountB, tokenA, amountA);
+
+    return PoolParams(token0, amount0, token1, amount1);
   }
 
   function setUp() public {
@@ -57,22 +77,31 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
 
     mockToken = StdUtils.deployMockERC20("MockToken", "MOCK", 18);
 
-    Pool[] memory pools = new Pool[](2);
-      //.5 eth = 1 mockToken
-    pools[0] = Pool(address(wnative),   BASE_AMOUNT * 5e17, address(mockToken), BASE_AMOUNT * 1e18);
-      //1 mockToken = 5 usdc => 1 eth = 10 usdc
-    pools[1] = Pool(address(mockToken), BASE_AMOUNT * 1e18, address(usdc),      BASE_AMOUNT * 5e6);
+    PoolParams[] memory pools = new PoolParams[](2);
+    //.5 eth = 1 mockToken
+    pools[0] = _makePoolParams(
+      address(wnative),
+      BASE_AMOUNT * 5e17,
+      address(mockToken),
+      BASE_AMOUNT * 1e18
+    );
+    //1 mockToken = 5 usdc => 1 eth = 10 usdc
+    pools[1] = _makePoolParams(
+      address(mockToken),
+      BASE_AMOUNT * 1e18,
+      address(usdc),
+      BASE_AMOUNT * 5e6
+    );
 
-    for (uint i = 0; i < pools.length; ++i)
+    for (uint i = 0; i < pools.length; ++i) {
+      _dealOverride(pools[i].token0, address(this), 2 * pools[i].amount0);
+      _dealOverride(pools[i].token1, address(this), 2 * pools[i].amount1);
       _deployUniswapPool(pools[i].token0, pools[i].amount0, pools[i].token1, pools[i].amount1);
+      _deployTJLBPool(pools[i].token0, pools[i].amount0, pools[i].token1, pools[i].amount1);
+    }
   }
 
-  function _deployUniswapPool(address tokenA, uint amountA, address tokenB, uint amountB) internal {
-    (address token0, uint amount0, address token1, uint amount1) = tokenA < tokenB
-      ? (tokenA, amountA, tokenB, amountB)
-      : (tokenB, amountB, tokenA, amountA);
-    _dealOverride(token0, address(this), amount0);
-    _dealOverride(token1, address(this), amount1);
+  function _deployUniswapPool(address token0, uint amount0, address token1, uint amount1) internal {
     uint160 sqrtPriceX96 = uint160(Math.sqrt((amount1 << 192) / amount0));
     uniswapPosMan.createAndInitializePoolIfNecessary(token0, token1, UNISWAP_FEE, sqrtPriceX96);
     IERC20(token0).approve(address(uniswapPosMan), amount0);
@@ -92,8 +121,59 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     }));
   }
 
-  function _deployTJLBPool(address tokenA, uint amountA, address tokenB, uint amountB) internal {
+  function _deployTJLBPool(address token0, uint amount0, address token1, uint amount1) internal {
+    uint256 price128x128 = (amount1 << 128) / amount0;
+    uint24 activeId = TJMath.getIdFromPrice(price128x128, TRADERJOE_BIN_STEP);
 
+    ITJLBFactory factory = ITJLBRouter(traderJoeRouter).getFactory();
+
+    if (!factory.isQuoteAsset(token0)) {
+      vm.prank(factory.owner());
+      factory.addQuoteAsset(token0);
+    }
+
+    if (!factory.isQuoteAsset(token1)) {
+      vm.prank(factory.owner());
+      factory.addQuoteAsset(token1);
+    }
+
+    ITJLBRouter(traderJoeRouter).createLBPair(token0, token1, activeId, TRADERJOE_BIN_STEP);
+
+    uint tailWidth = 2;
+    uint binCount = tailWidth*2 + 1; //2 tails + center bin -> 5 bins
+    int256[] memory deltaIds = new int256[](binCount);
+    uint256[] memory distributionX = new uint256[](binCount);
+    uint256[] memory distributionY = new uint256[](binCount);
+    distributionY[0] = 40e16;
+    distributionY[1] = 40e16;
+    distributionY[2] = 20e16; distributionX[2] = 20e16;
+    distributionX[3] = 40e16;
+    distributionX[4] = 40e16;
+
+    IERC20(token0).approve(traderJoeRouter, amount0);
+    IERC20(token1).approve(traderJoeRouter, amount1);
+
+    (uint amount0Added, uint amount1Added,,,,) =
+      ITJLBRouter(traderJoeRouter).addLiquidity(ITJLBRouter.LiquidityParameters({
+        tokenX: token0,
+        tokenY: token1,
+        binStep: TRADERJOE_BIN_STEP,
+        amountX: amount0,
+        amountY: amount1,
+        amountXMin: 0,
+        amountYMin: 0,
+        activeIdDesired: activeId,
+        idSlippage: 1,
+        deltaIds: deltaIds,
+        distributionX: distributionX,
+        distributionY: distributionY,
+        to: address(this),
+        refundTo: address(this),
+        deadline: block.timestamp + 1800
+      }));
+
+    assertEq(amount0Added, amount0);
+    assertEq(amount1Added, amount1);
   }
 
   // ---------------- Tests ----------------
@@ -121,7 +201,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     vm.stopPrank();
   }
 
-  function testInitiateEthSwap() public {
+  function testInitiateUniswapEthSwap() public {
     hoax(user);
     bytes memory swapReturn = swapLayer.initiate{value: USER_AMOUNT * 1e18}(
       FOREIGN_CHAIN_ID,
@@ -145,7 +225,33 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     assertTrue(amountOut > 0);
   }
 
-  function testInitiateRelayedEthSwap() public {
+  function testInitiateTraderJoeEthSwap() public {
+    hoax(user);
+    bytes memory swapReturn = swapLayer.initiate{value: USER_AMOUNT * 1e18}(
+      FOREIGN_CHAIN_ID,
+      user.toUniversalAddress(),
+      abi.encodePacked(
+        FastTransferMode.Disabled,
+        RedeemMode.Direct,
+        IoToken.Usdc, //output token
+        true,         //isExactIn
+        IoToken.Gas,  //input token
+        uint32(block.timestamp + 1800), //deadline
+        uint128(0),   //minOutputAmount
+        SwapType.TraderJoe,
+        TRADERJOE_VERSION,
+        TRADERJOE_BIN_STEP,
+        uint8(1),     //pathLength
+        address(mockToken),
+        TRADERJOE_VERSION,
+        TRADERJOE_BIN_STEP
+      )
+    );
+    (uint256 amountOut, ) = swapReturn.asUint256Unchecked(0);
+    assertTrue(amountOut > 0);
+  }
+
+  function testInitiateUniswapEthSwapRelayed() public {
     hoax(user);
     bytes memory swapReturn = swapLayer.initiate{value: USER_AMOUNT * 1e18}(
       FOREIGN_CHAIN_ID,
@@ -171,7 +277,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     assertTrue(amountOut > 0);
   }
 
-  function testBasicRedeem() public {
+  function testDirectRedeem() public {
     uint usdcAmount = USER_AMOUNT * 1e6;
     bytes memory redeemParams;
     bytes memory swapMessage = encodeSwapMessage(
@@ -185,7 +291,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     assertEq(outputAmount, usdcAmount);
   }
 
-  function testRedeemEthSwap() public {
+  function testRedeemUniswapEthSwap() public {
     uint usdcAmount = USER_AMOUNT * 1e6;
     bytes memory redeemParams;
     bytes memory swapMessage = encodeSwapMessage(

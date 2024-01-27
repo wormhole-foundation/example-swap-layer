@@ -2,9 +2,18 @@
 pragma solidity ^0.8.23;
 
 //from here:
+//https://github.com/traderjoe-xyz/joe-v2/blob/main/src/interfaces/ILBFactory.sol
+
+interface ITJLBFactory {
+  function owner() external view returns (address);
+  function isQuoteAsset(address token) external view returns (bool);
+  function addQuoteAsset(address quoteAsset) external;
+}
+
+//from here:
 //https://github.com/traderjoe-xyz/joe-v2/blob/main/src/interfaces/ILBRouter.sol
 
-interface ILBRouter {
+interface ITJLBRouter {
   /**
    * @dev The liquidity parameters, such as:
    * - tokenX: The address of token X
@@ -17,8 +26,8 @@ interface ILBRouter {
    * - activeIdDesired: The active id that user wants to add liquidity from
    * - idSlippage: The number of id that are allowed to slip
    * - deltaIds: The list of delta ids to add liquidity (`deltaId = activeId - desiredId`)
-   * - distributionX: The distribution of tokenX with sum(distributionX) = 100e18 (100%) or 0 (0%)
-   * - distributionY: The distribution of tokenY with sum(distributionY) = 100e18 (100%) or 0 (0%)
+   * - distributionX: The distribution of tokenX with sum(distributionX) = 1e18 (100%) or 0 (0%)
+   * - distributionY: The distribution of tokenY with sum(distributionY) = 1e18 (100%) or 0 (0%)
    * - to: The address of the recipient
    * - refundTo: The address of the recipient of the refunded tokens if too much tokens are sent
    * - deadline: The deadline of the transaction
@@ -40,6 +49,8 @@ interface ILBRouter {
     address refundTo;
     uint256 deadline;
   }
+
+  function getFactory() external view returns (ITJLBFactory);
 
   function createLBPair(address tokenX, address tokenY, uint24 activeId, uint16 binStep)
     external returns (address pair);
