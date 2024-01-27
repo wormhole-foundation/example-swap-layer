@@ -7,12 +7,11 @@ import { StdUtils } from "forge-std/StdUtils.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { IWETH } from "wormhole/interfaces/IWETH.sol";
 import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
 import { toUniversalAddress } from "wormhole/Utils.sol";
 
 import { SwapLayerTestBase } from "./TestBase.sol";
-import { INonfungiblePositionManager } from "./INonfungiblePositionManager.sol";
+import { INonfungiblePositionManager } from "./external/INonfungiblePositionManager.sol";
 
 import { Messages } from "./liquidity-layer/shared/Messages.sol";
 
@@ -28,14 +27,15 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
   uint24 constant UNISWAP_FEE = 500;
   //int24 constant UNISWAP_MAX_TICK = 887272;
   int24 constant UNISWAP_MAX_TICK = 887270;
-  uint constant BASE_AMOUNT = 10; //with additional 18 decimals fits in a uint64
+  //chose so that with additional 18 decimals it still fits in a uint64, which allows us to
+  //  calculate the  price via uint160(Math.sqrt((amount1 << 192) / amount0));
+  uint constant BASE_AMOUNT = 10;
   uint constant USER_AMOUNT = 1;
 
   INonfungiblePositionManager immutable uniswapPosMan;
   address immutable user;
   uint256 immutable userSecret;
 
-  IWETH weth;
   MockERC20 mockToken;
 
   constructor() {
@@ -45,34 +45,34 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     (user, userSecret) = makeAddrAndKey("user");
   }
 
+  struct Pool {
+    address token0;
+    uint amount0;
+    address token1;
+    uint amount1;
+  }
+
   function setUp() public {
     deployBase();
 
-    (address weth_, ) = swapLayer.batchQueries(abi.encodePacked(
-      QueryType.Immutable, ImmutableType.Weth
-    )).asAddressUnchecked(0);
-    weth = IWETH(weth_);
     mockToken = StdUtils.deployMockERC20("MockToken", "MOCK", 18);
 
-    //.5 eth = 1 mockToken
-    uint pool0wethAmount      = BASE_AMOUNT * 5e17;
-    uint pool0mockTokenAmount = BASE_AMOUNT * 1e18;
-    //1 mockToken = 5 usdc => 1 eth = 10 usdc
-    uint pool1mockTokenAmount = BASE_AMOUNT * 1e18;
-    uint pool1usdcAmount      = BASE_AMOUNT * 5e6;
+    Pool[] memory pools = new Pool[](2);
+      //.5 eth = 1 mockToken
+    pools[0] = Pool(address(wnative),   BASE_AMOUNT * 5e17, address(mockToken), BASE_AMOUNT * 1e18);
+      //1 mockToken = 5 usdc => 1 eth = 10 usdc
+    pools[1] = Pool(address(mockToken), BASE_AMOUNT * 1e18, address(usdc),      BASE_AMOUNT * 5e6);
 
-    _dealUsdc(address(this), pool1usdcAmount);
-    deal(address(mockToken), address(this), pool0mockTokenAmount + pool1mockTokenAmount);
-    weth.deposit{value: pool0wethAmount}();
-
-    _createPool(address(weth),      pool0wethAmount,      address(mockToken), pool0mockTokenAmount);
-    _createPool(address(mockToken), pool1mockTokenAmount, address(usdc),      pool1usdcAmount);
+    for (uint i = 0; i < pools.length; ++i)
+      _deployUniswapPool(pools[i].token0, pools[i].amount0, pools[i].token1, pools[i].amount1);
   }
 
-  function _createPool(address tokenA, uint amountA, address tokenB,  uint amountB) internal {
+  function _deployUniswapPool(address tokenA, uint amountA, address tokenB, uint amountB) internal {
     (address token0, uint amount0, address token1, uint amount1) = tokenA < tokenB
       ? (tokenA, amountA, tokenB, amountB)
       : (tokenB, amountB, tokenA, amountA);
+    _dealOverride(token0, address(this), amount0);
+    _dealOverride(token1, address(this), amount1);
     uint160 sqrtPriceX96 = uint160(Math.sqrt((amount1 << 192) / amount0));
     uniswapPosMan.createAndInitializePoolIfNecessary(token0, token1, UNISWAP_FEE, sqrtPriceX96);
     IERC20(token0).approve(address(uniswapPosMan), amount0);
@@ -92,9 +92,15 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     }));
   }
 
+  function _deployTJLBPool(address tokenA, uint amountA, address tokenB, uint amountB) internal {
+
+  }
+
+  // ---------------- Tests ----------------
+
   function testInitiateDirectUsdc() public {
     uint amount = USER_AMOUNT * 1e6;
-    _dealUsdc(user, amount);
+    _dealOverride(address(usdc), user, amount);
     vm.startPrank(user);
     usdc.approve(address(swapLayer), amount);
     bytes memory swapReturn = swapLayer.initiate(

@@ -28,9 +28,9 @@ abstract contract SwapLayerUniswapUR is SwapLayerBase {
 
   function _uniswapInitialApprove() internal override {
     _maxApprove(_usdc, address(_permit2));
-    _maxApprove(IERC20(address(_weth)), address(_permit2));
+    _maxApprove(IERC20(address(_wnative)), address(_permit2));
     _permit2MaxApprove(address(_usdc));
-    _permit2MaxApprove(address(_weth));
+    _permit2MaxApprove(address(_wnative));
   }
 
   function _uniswapSwap(
@@ -47,12 +47,12 @@ abstract contract SwapLayerUniswapUR is SwapLayerBase {
       //universal router always uses permit2 for transfers...
       //see here: https://github.com/Uniswap/universal-router/blob/41183d6eb154f0ab0e74a0e911a5ef9ea51fc4bd/contracts/modules/uniswap/v3/V3SwapRouter.sol#L65
       //and here: https://github.com/Uniswap/universal-router/blob/41183d6eb154f0ab0e74a0e911a5ef9ea51fc4bd/contracts/modules/Permit2Payments.sol#L41
-      (uint allowance,, ) = 
+      (uint allowance,, ) =
         _permit2.allowance(address(this), address(inputToken), _uniswapRouter);
       if (allowance < inputAmount)
         _permit2MaxApprove(address(inputToken));
     }
-    
+
     if (isExactIn) {
       (uint balanceBefore, uint balanceAfter) = _universalRouterSwap(
         UNIVERSAL_ROUTER_EXACT_IN,
@@ -99,6 +99,6 @@ abstract contract SwapLayerUniswapUR is SwapLayerBase {
         balanceBefore = 0; //return (0,0)
     }
     else
-      balanceAfter = unknownBalanceToken.balanceOf(address(this)); 
+      balanceAfter = unknownBalanceToken.balanceOf(address(this));
   }
 }

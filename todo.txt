@@ -4,24 +4,25 @@ target a create2?
 look at test/TestBase
 
 swapLayer = SwapLayer(payable(address(new Proxy(
-      address(new SwapLayer(
-        IPermit2(vm.envAddress("TEST_PERMIT2_ADDRESS")),
-        ISwapRouter(vm.envAddress("TEST_UNISWAP_V3_ROUTER_ADDRESS")),
-        liquidityLayer
-      )),
-      abi.encodePacked(
-        owner,
-        assistant,
-        feeRecipient,
-        foreignChainId,
-        FOREIGN_SWAP_LAYER,
-        feeParams
-      )
-    ))));
-  }
+    address(new SwapLayer(
+      IPermit2(vm.envAddress("TEST_PERMIT2_ADDRESS")),
+      ISwapRouter(vm.envAddress("TEST_UNISWAP_V3_ROUTER_ADDRESS")),
+      liquidityLayer
+    )),
+    abi.encodePacked(
+      owner,
+      assistant,
+      feeRecipient,
+      foreignChainId,
+      FOREIGN_SWAP_LAYER,
+      feeParams
+    )
+  ))));
 
 deploy a swap layer via the normal constructor,
-but then deploy a Proxy.sol with the address of the first one (the real implementation), but with all the contructor params packed as the second arg, which will get passed to the implementation's proxyConstructor when called via the ProxyBase.sol when it invokes upgradeChecked()
+but then deploy a Proxy.sol with the address of the first one (the real implementation), but with
+ all the contructor params packed as the second arg, which will get passed to the implementation's
+ proxyConstructor when called via the ProxyBase.sol when it invokes upgradeChecked()
 
 there also is a payload item on the layout
 
@@ -29,7 +30,7 @@ https://github.com/wormhole-foundation/connect-sdk/blob/main/core/base/__tests__
 
 https://docs.uniswap.org/contracts/v3/reference/deployments
 
-MatchingEngine 
+MatchingEngine
 6=0xdf5af760f3093034C7A6580FBd4CE66A8bEDd90A
 
 TokenRouter
@@ -39,3 +40,36 @@ TokenRouter
 10003=0xc1Cf3501ef0b26c8A47759F738832563C7cB014A
 10004=0x4452B708C01d6aD7058a7541A3A82f0aD0A1abB1
 10005=0xc1Cf3501ef0b26c8A47759F738832563C7cB014A
+
+---- Contract TODOs ----
+
+* trustless/limited trust gas price updates:
+  For relayed transfers, include the current gas price of the current chain along with the current
+    block timestamp in the payload. On the target chain, compare if the timestamp is more recent
+    than the last recorded timestamp for that chain, and if so, check if the change in the gas price
+    is more than the gas price update threshold percentage (to avoid unnecessary storage writes for
+    small changes).
+  Potentially allow a relayer to also add an additional adjustment to the gas price when actually
+    submitting the redeem transaction. Since relays are ultimately permissionless (though funds
+    always go to the fee recipient, so attacks through this mechanism are not free), care must be
+    taken that a malicious relayer cannot perturb the gas price too much (this should probably
+    be coupled to the gas price margin).
+  Check that this mechanism makes sense for all EVM chains or restrict it to only those that
+    actually profit from this approach.
+* trustless gas token (=native) price updates
+  Similar to gas price updates, but instead of fetching the gas price information from the current
+    block, on oracle could be used to determine the cost of the native token in usdc terms.
+  This is trickier than and lower payoff than gas price updates (since gas prices tend to be a lot
+    more volatile than native token prices) but it would further reduce the need for external 
+    updates.
+
+!! Both of these mechanisms require bi-directional traffic to keep the respective foreign chain
+   appraised. An off-chain updater will be necessary to update fee params regardless to prevent
+   params to go to far out of whack during extended periods of no transactions between two chain
+   pairs !!
+
+* should the contract be pausable?
+  Pausability for individual endpoints could be implemented via a second special endpoint value
+  (besides 0 which means not registered) + a proposal which a 0 lock period that allows reinstating 
+  the old endpoint address. (This is purely to save gas from a separate, necessarily cold storage
+  slot)

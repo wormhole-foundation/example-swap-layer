@@ -36,7 +36,7 @@ abstract contract SwapLayerTraderJoe is SwapLayerBase {
 
   function _traderJoeInitialApprove() internal override {
     _maxApprove(_usdc, _traderJoeRouter);
-    _maxApprove(IERC20(address(_weth)), _traderJoeRouter);
+    _maxApprove(IERC20(address(_wnative)), _traderJoeRouter);
   }
 
   function _traderJoeSwap(
@@ -49,7 +49,7 @@ abstract contract SwapLayerTraderJoe is SwapLayerBase {
     bool approveCheck,
     bytes memory path
   ) internal override returns (uint /*inOutAmount*/) { unchecked {
-    if ( approveCheck && 
+    if ( approveCheck &&
          inputToken.allowance(address(this), _traderJoeRouter) < inputAmount)
       _maxApprove(inputToken, _traderJoeRouter);
 
@@ -69,7 +69,7 @@ abstract contract SwapLayerTraderJoe is SwapLayerBase {
     (tjPath.tokenPath[pathLength],) = path.asAddressUnchecked(offset);
     //we already checked the correctness of the length of path upon the initial parse
 
-    bytes memory funcCall = 
+    bytes memory funcCall =
       isExactIn
       ? abi.encodeCall(
         TraderJoeLBRouter.swapExactTokensForTokens,
@@ -79,7 +79,7 @@ abstract contract SwapLayerTraderJoe is SwapLayerBase {
         TraderJoeLBRouter.swapTokensForExactTokens,
         (outputAmount, inputAmount, tjPath, address(this), block.timestamp)
       );
-    
+
     (bool success, bytes memory result) = _traderJoeRouter.call(funcCall);
     if (!success) {
       if (revertOnFailure)

@@ -8,12 +8,14 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IWormhole } from "wormhole/interfaces/IWormhole.sol";
+import { IWETH } from "wormhole/interfaces/IWETH.sol";
 import { toUniversalAddress } from "wormhole/Utils.sol";
 import { WormholeOverride } from "wormhole-local/WormholeOverride.sol";
 import { WormholeCctpOverride, FOREIGN_DOMAIN } from "wormhole-local/WormholeCctpOverride.sol";
 import { IUSDC } from "cctp/IUSDC.sol";
 import { Proxy } from "proxy/Proxy.sol";
 import { IPermit2 } from "permit2/IPermit2.sol";
+
 
 import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
 import { FastTransferParameters } from "liquidity-layer/ITokenRouterTypes.sol";
@@ -48,6 +50,7 @@ contract SwapLayerTestBase is Test {
   uint32  constant MINOR_DELAY                    = 2 days;
 
   IWormhole immutable wormhole;
+  IWETH     immutable wnative;
   IERC20    immutable usdc;
   address   immutable tokenMessenger;
   uint16    immutable chainId;
@@ -67,6 +70,7 @@ contract SwapLayerTestBase is Test {
 
   constructor() {
     wormhole       = IWormhole(vm.envAddress("TEST_WORMHOLE_ADDRESS"));
+    wnative        = IWETH(vm.envAddress("TEST_WNATIVE_ADDRESS"));
     usdc           = IERC20(vm.envAddress("TEST_USDC_ADDRESS"));
     tokenMessenger = vm.envAddress("TEST_CCTP_TOKEN_MESSENGER_ADDRESS");
     chainId        = wormhole.chainId();
@@ -84,7 +88,7 @@ contract SwapLayerTestBase is Test {
       tokenMessenger,
       FOREIGN_CHAIN_ID,
       FOREIGN_LIQUIDITY_LAYER,
-      address(0), //update later
+      address(0), //default mint recipient/destination caller - updated later
       address(usdc)
     );
   }
@@ -139,9 +143,9 @@ contract SwapLayerTestBase is Test {
         MINOR_DELAY,
         address(liquidityLayer),
         vm.envAddress("TEST_PERMIT2_ADDRESS"),
-        vm.envAddress("TEST_WETH_ADDRESS"),
-        vm.envAddress("TEST_UNISWAP_UNIVERSAL_ROUTER_ADDRESS"),
-        address(0)
+        address(wnative),
+        vm.envAddress("TEST_UNISWAP_ROUTER_ADDRESS"),
+        vm.envAddress("TEST_TRADERJOE_ROUTER_ADDRESS")
       )),
       abi.encodePacked(
         owner,
@@ -156,7 +160,14 @@ contract SwapLayerTestBase is Test {
     ))));
   }
 
-  function _dealUsdc(address to, uint256 amount) internal {
+  function _dealOverride(address token, address to, uint amount) internal {
+    if (token == address(usdc))
+      _dealUsdc(to, amount);
+    else
+      deal(token, to, amount);
+  }
+
+  function _dealUsdc(address to, uint256 amount) private {
     //taken from Wormhole circle integration repo, see:
     // https://github.com/wormhole-foundation/wormhole-circle-integration/blob/evm/optimize/evm/forge/tests/helpers/libraries/UsdcDeal.sol
     IUSDC usdc_ = IUSDC(address(usdc));

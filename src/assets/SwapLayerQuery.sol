@@ -15,7 +15,7 @@ enum SubQueryType {
 enum ImmutableType {
   Wormhole,
   Usdc,
-  Weth,
+  WrappedNative,
   Permit2,
   UniswapRouter,
   TraderJoeRouter,
@@ -87,8 +87,8 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
             addr = address(_wormhole);
           else if (immutableType == ImmutableType.Usdc)
             addr = address(_usdc);
-          else if (immutableType == ImmutableType.Weth)
-            addr = address(_weth);
+          else if (immutableType == ImmutableType.WrappedNative)
+            addr = address(_wnative);
           else if (immutableType == ImmutableType.Permit2)
             addr = address(_permit2);
           else if (immutableType == ImmutableType.UniswapRouter)

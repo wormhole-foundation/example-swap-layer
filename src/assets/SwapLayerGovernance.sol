@@ -14,7 +14,8 @@ import { FeeParams, FeeParamsLib, SwapLayerRelayingFees } from "./SwapLayerRelay
 // * owner should be an ultra cold wallet that is only activated in exceptional circumstances.
 // * admin should also be either a cold wallet or admin contract. In either case, the expectation
 //     is that multiple, slightly less trustworthy parties than the owner will have access to
-//     it. Admins perform rare but not exceptional operations like registering new endpoints, etc.
+//     it, lowering trust assumptions and increasing attack surface. Admins perform rare but not
+//     exceptional operations like registering new endpoints, etc.
 // * assistant is a hot wallet that is used to update fee parameters and the like.
 
 //rationale for lock periods:
@@ -34,13 +35,33 @@ import { FeeParams, FeeParamsLib, SwapLayerRelayingFees } from "./SwapLayerRelay
 //       of nowhere, even when the owner becomes compromised.
 //     The contract upgrade lock period must always be at least as long as the ownership transfer
 //       lock period, since contract upgrades can also be used to change ownership.
+// * endpoint updates: majorDelay
+//     While local contract upgrades can be used to steal user's funds on the local chain, endpoint
+//       updates can be used to accomplish the same end on remote chains by registering an endpoint
+//       that is under an attacker's control. Therefore, endpoint upgrades use the same lock period
+//       as contract upgrades and ownership transfers.
+//     An important exception is the registration of a new endpoint, which can be done without any
+//       lock duration. The rationale for this exception is that there can't be any valid, pending
+//       transfers to a previously unregistered endpoint, hence the risk of loss of funds due to a
+//       malicous registration is much lower. Additionally, there are naturally more eyes on the
+//       contract when a new ecosystem is being onboarded (work being double-checked, etc.),
+//       making it harder for an attacker to slip in a malicious registration.
 // * fee recipient transfer: minorDelay
 //     As mentioned in the ownership transfer rationale, having a lock period on the fee recipient
 //       transfer prevents an attacker from capturing any benefits from capturing the contract in
 //       the short term.
 //     A lack of short term incentive (such as siphoning off fees) should put a damper on any
 //       attackers enthusiasm to keep fighting over control of the contract.
+//     The downside of having a lock period is that, if control of the fee recipient is lost, one
+//       will incur a loss for the duration of minorDelay. However, worst case, relayers can simply
+//       suspend operations for this time perid, or can be selective about which relays they
+//       process to keep losses to a knowable maximum.
 // * admin transfer: _minorDelay
+//     Same logic as for ownership transfer. The owner can always intervene to hard change the
+//       admin address, but since it's expected that activating the owner wallet will take some
+//       time due to its restricted nature, allowing the admin to fight over the contract in the
+//       meantime is preferable to losing control immediately via the normal 2 step admin transfer
+//       process.
 
 struct EndpointProposal {
   bytes32 endpoint;

@@ -231,7 +231,7 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
   function testSweepTokens() public {
     uint usdcAmount = 1e6;
     uint ethAmount = 1 ether;
-    _dealUsdc(address(swapLayer), usdcAmount);
+    _dealOverride(address(usdc), address(swapLayer), usdcAmount);
     vm.deal(address(swapLayer), ethAmount);
     assertEq(usdc.balanceOf(owner), 0);
     uint ownerEthBalance = address(owner).balance;

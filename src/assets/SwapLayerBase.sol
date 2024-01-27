@@ -37,7 +37,7 @@ abstract contract SwapLayerBase {
 
   ITokenRouter     internal immutable _liquidityLayer;
   IPermit2         internal immutable _permit2;
-  IWETH            internal immutable _weth;
+  IWETH            internal immutable _wnative;
   IWormhole        internal immutable _wormhole;
   IERC20           internal immutable _usdc;
   uint16           internal immutable _chainId;
@@ -47,13 +47,13 @@ abstract contract SwapLayerBase {
   constructor(
     address liquidityLayer,
     address permit2,
-    address weth,
+    address wnative,
     address uniswapRouter,
     address traderJoeRouter
   ) {
     _liquidityLayer  = ITokenRouter(liquidityLayer);
     _permit2         = IPermit2(permit2);
-    _weth            = IWETH(weth);
+    _wnative         = IWETH(wnative);
     _wormhole        = IWormhole(_liquidityLayer.wormhole());
     _usdc            = IERC20(_liquidityLayer.orderToken());
     _chainId         = _wormhole.chainId();
@@ -104,7 +104,7 @@ abstract contract SwapLayerBase {
 
     function(bool,uint,uint,IERC20,IERC20,bool,bool,bytes memory) internal returns (uint) swapFunc =
       swapType == SwapType.UniswapV3 ? _uniswapSwap : _traderJoeSwap;
-  
+
     return swapFunc(
       isExactIn,
       inputAmount,

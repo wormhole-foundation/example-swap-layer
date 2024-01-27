@@ -397,22 +397,23 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
 //   0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
 
 // contract SwapLayerRelayingFees is SwapLayerBase {
-//   //true if the gas token (=weth) is the first token in the (token0, token1) pair, otherwise false
+//   //true if the gas token (=wnative) is the first token in the (token0, token1) pair
+//   //  otherwise false
 //   //uniswap V3 represents prices as token1 per token0
 //   //so if the gas token is token0, we need to invert the price
 //   bool    private immutable uniswapGasTokenIsFirst_;
 //   address private immutable uniswapFactory_;
 
-//   constructor(IERC20 usdc, IWETH weth, address uniswapFactory) {
-//     uniswapGasTokenIsFirst_ = address(weth) < address(usdc);
+//   constructor(IERC20 usdc, IWETH wnative, address uniswapFactory) {
+//     uniswapGasTokenIsFirst_ = address(wnative) < address(usdc);
 //     uniswapFactory_ = uniswapFactory;
 //   }
 
 //   function uniswapGasTokenPriceOracle(uint24 uniswapFee) private view returns (IUniswapV3Pool) {
 //     (address token0, address token1) =
 //       uniswapGasTokenIsFirst_
-//       ? (address(weth_), address(usdc_))
-//       : (address(usdc_), address(weth_));
+//       ? (address(wnative_), address(usdc_))
+//       : (address(usdc_), address(wnative_));
 
 //     return IUniswapV3Pool(address(uint160(uint256(
 //       keccak256( //calculate CREATE2 address

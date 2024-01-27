@@ -141,8 +141,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
           revert InsufficientMsgValue();
 
         inputAmount = msg.value - wormholeFee;
-        _weth.deposit{value: inputAmount}();
-        inputToken = IERC20(address(_weth));
+        _wnative.deposit{value: inputAmount}();
+        inputToken = IERC20(address(_wnative));
       }
       else { //must be IoToken.Other
         (inputToken,  offset) = parseIERC20(params, offset);
@@ -178,7 +178,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         if (inOutAmount < inputAmount) {
           uint refundAmount = inputAmount - inOutAmount;
           if (inputTokenType == IoToken.Gas) {
-            _weth.withdraw(refundAmount);
+            _wnative.withdraw(refundAmount);
             _transferEth(msg.sender, refundAmount);
           }
           else

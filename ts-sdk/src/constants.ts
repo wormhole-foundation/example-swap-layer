@@ -1,5 +1,7 @@
 import { constMap, Network, Chain, MapLevel, MapLevels } from "@wormhole-foundation/sdk-base";
 
+// ---- Uniswap addresses ----
+
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //!!!!!!!!!!!!!!!!!!!!!!!!! DO NOT TRUST THE UNISWAP DOCS !!!!!!!!!!!!!!!!!!!!!!!!!
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -60,8 +62,6 @@ const uniswapV3NonfungiblePositionManagerContracts = [[
     ["Polygon",         "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
     ["Avalanche",       "0x655C406EBFa14EE2006250925e54ec43AD184f8B"],
     ["Base",            "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1"],
-    ["Bsc",             "0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613"],
-    ["Celo",            "0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A"],
   ]], [
   "Testnet", [
     ["Sepolia",         "0x1238536071E1c677A632429e3655c799b22cDA52"],
@@ -86,8 +86,6 @@ const uniswapUniversalRouterContracts = [[
     ["Polygon",         "0xec7BE89e9d109e7e3Fec59c222CF297125FEFda2"],
     ["Avalanche",       "0x4Dae2f939ACf50408e13d58534Ff8c2776d45265"],
     ["Base",            "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD"],
-    ["Bsc",             "0x4Dae2f939ACf50408e13d58534Ff8c2776d45265"],
-    ["Celo",            "0x643770e279d5d0733f21d6dc03a8efbabf3255b4"],
   ]], [
   "Testnet", [
     ["Sepolia",         "0x1238536071E1c677A632429e3655c799b22cDA52"],
@@ -100,6 +98,25 @@ const uniswapUniversalRouterContracts = [[
 ] as const satisfies MapLevels<[Network, Chain, string]>;
 
 export const uniswapUniversalRouter = constMap(uniswapUniversalRouterContracts);
+
+// ---- TraderJoe addresses ----
+
+//see here: https://docs.traderjoexyz.com/deployment-addresses/avalanche
+
+const traderJoeRouterContracts = [[
+  "Mainnet", [
+    ["Ethereum",  "0x9A93a421b74F1c5755b83dD2C211614dC419C44b"],
+    ["Arbitrum",  "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30"],
+    ["Avalanche", "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30"],
+  ]], [
+  "Testnet", [
+    ["Avalanche", "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30"],
+  ]],
+] as const satisfies MapLevels<[Network, Chain, string]>;
+
+export const traderJoeRouter = constMap(traderJoeRouterContracts);
+
+// ---- Permit2 address ----
 
 export const permit2Contract = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
 

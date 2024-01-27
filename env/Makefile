@@ -1,4 +1,4 @@
-.PHONY: build clean
+.PHONY: build clean FORCE
 
 ifndef NETWORK
   $(info No NETWORK specified, defaulting to Mainnet)
@@ -16,9 +16,11 @@ build: node_modules testing.env
 clean:
 	rm -rf node_modules fork_changed testing.env
 
+FORCE:
+
 ifneq ($(FORK), $(shell cat fork_changed 2>/dev/null))
 #if a different chain/network was supplied last time then force an update
-.PHONY: fork_changed
+fork_changed: FORCE
 endif
 fork_changed:
 	@echo $(FORK) > fork_changed

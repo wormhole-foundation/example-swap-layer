@@ -24,11 +24,11 @@ abstract contract SwapLayerSansRouterImpls is SwapLayerQuery, SwapLayerInitiate,
     uint32 minorDelay,
     address liquidityLayer,
     address permit2,
-    address weth,
+    address wnative,
     address uniswapRouter,
     address traderJoeRouter
   ) SwapLayerGovernance(majorDelay, minorDelay)
-    SwapLayerBase(liquidityLayer, permit2, weth, uniswapRouter, traderJoeRouter) {}
+    SwapLayerBase(liquidityLayer, permit2, wnative, uniswapRouter, traderJoeRouter) {}
 
   //constructor of the proxy contract setting storage variables
   function _proxyConstructor(bytes calldata args_) internal override {
@@ -67,6 +67,6 @@ abstract contract SwapLayerSansRouterImpls is SwapLayerQuery, SwapLayerInitiate,
     _traderJoeInitialApprove();
   }
 
-  //to support weth.withdraw
+  //to support wnative.withdraw
   receive() external payable {}
 }

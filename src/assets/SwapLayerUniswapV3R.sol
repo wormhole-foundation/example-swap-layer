@@ -20,7 +20,7 @@ interface IUniswapV3SwapRouter {
 abstract contract SwapLayerUniswapV3R is SwapLayerBase {
   function _uniswapInitialApprove() internal override {
     _maxApprove(_usdc, _uniswapRouter);
-    _maxApprove(IERC20(address(_weth)), _uniswapRouter);
+    _maxApprove(IERC20(address(_wnative)), _uniswapRouter);
   }
 
   function _uniswapSwap(
@@ -33,17 +33,17 @@ abstract contract SwapLayerUniswapV3R is SwapLayerBase {
     bool approveCheck,
     bytes memory path
   ) internal override returns (uint /*inOutAmount*/) {
-    if ( approveCheck && 
+    if ( approveCheck &&
          inputToken.allowance(address(this), _uniswapRouter) < inputAmount)
       _maxApprove(inputToken, _uniswapRouter);
-    
+
     SwapParams memory swapParams =
       SwapParams(path, address(this), block.timestamp, inputAmount, outputAmount);
 
     bytes memory funcCall = isExactIn
       ? abi.encodeCall(IUniswapV3SwapRouter.exactInput, (swapParams))
       : abi.encodeCall(IUniswapV3SwapRouter.exactOutput, (swapParams));
-    
+
     (bool success, bytes memory result) = _uniswapRouter.call(funcCall);
     if (!success) {
       if (revertOnFailure)

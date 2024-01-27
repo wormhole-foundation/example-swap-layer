@@ -33,6 +33,6 @@ interface ISwapLayer {
   //selector: f4189c473 - can't actually be called externally except by the contract itself
   function checkedUpgrade(bytes calldata data) external payable;
 
-  //required for weth.withdraw
+  //required for _wnative.withdraw (= IWETH.withdraw)
   receive() external payable;
 }

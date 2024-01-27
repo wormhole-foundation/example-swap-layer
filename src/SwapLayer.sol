@@ -7,8 +7,9 @@ import "./assets/SwapLayerUniswapUR.sol";
 import "./assets/SwapLayerTraderJoe.sol";
 
 contract SwapLayer is SwapLayerSansRouterImpls
+  //comment in/out inheritance and functions below to enable/disable support for a given router
   , SwapLayerUniswapUR
-  //, SwapLayerTraderJoe
+  , SwapLayerTraderJoe
   {
   //constructor of the logic contract setting immutables
   constructor(
@@ -16,7 +17,7 @@ contract SwapLayer is SwapLayerSansRouterImpls
     uint32 minorDelay,
     address liquidityLayer,
     address permit2,
-    address weth,
+    address wnative,
     address uniswapRouter,
     address traderJoeRouter
   )
@@ -25,19 +26,19 @@ contract SwapLayer is SwapLayerSansRouterImpls
     minorDelay,
     liquidityLayer,
     permit2,
-    weth,
+    wnative,
     uniswapRouter,
     traderJoeRouter
   ) {}
 
   //uncomment and comment out inheritance to disable support for a given router
-  error NotSupported();
+  // error NotSupported();
   //
   // function _uniswapInitialApprove() internal override pure {}
   // function _uniswapSwap(bool, uint, uint, IERC20, IERC20, bool, bool, bytes memory)
   //   internal override pure returns (uint) { revert NotSupported(); }
   //
-  function _traderJoeInitialApprove() internal override pure {}
-  function _traderJoeSwap(bool, uint, uint, IERC20, IERC20, bool, bool, bytes memory)
-    internal override pure returns (uint) { revert NotSupported(); }
+  // function _traderJoeInitialApprove() internal override pure {}
+  // function _traderJoeSwap(bool, uint, uint, IERC20, IERC20, bool, bool, bytes memory)
+  //   internal override pure returns (uint) { revert NotSupported(); }
 }
