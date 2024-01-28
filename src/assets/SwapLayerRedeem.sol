@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
+import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
 import { OrderResponse as Attestations, RedeemedFill } from "liquidity-layer/ITokenRouter.sol";
 
 import "./SwapLayerGovernance.sol";
@@ -19,7 +19,6 @@ error InvalidMsgValue(uint256 value, uint256 expected);
 abstract contract SwapLayerRedeem is SwapLayerGovernance {
   using BytesParsing for bytes;
   using SafeERC20 for IERC20;
-  using GasDropoffLib for GasDropoff;
 
   //params structure:
   //  redeemMode direct:

@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
-import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
+import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
 
 import { InvalidChainId, SwapLayerBase } from "./SwapLayerBase.sol";
 import { Percentage, PercentageLib } from "./Percentage.sol";
 import { GasPrice, GasPriceLib } from "./GasPrice.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
-
-using PercentageLib for Percentage;
-using GasPriceLib for GasPrice;
-using GasDropoffLib for GasDropoff;
 
 // interface IUniswapV3Pool {
 //   function slot0() external view returns (
@@ -216,7 +212,7 @@ library FeeParamsLib {
     );
   }}
 }
-using FeeParamsLib for FeeParams;
+using FeeParamsLib for FeeParams global;
 
 struct FeeParamsState {
   // chainId => fee parameters of that chain

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
-import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
-import { fromUniversalAddress } from "wormhole/Utils.sol";
+import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
+import { fromUniversalAddress } from "wormhole-sdk/Utils.sol";
 
 import "./Params.sol";
 

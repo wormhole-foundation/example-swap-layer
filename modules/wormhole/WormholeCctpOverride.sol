@@ -6,9 +6,9 @@ import {Vm} from "forge-std/Vm.sol";
 
 import "cctp/ITokenMessenger.sol";
 
-import {IWormhole} from "wormhole/interfaces/IWormhole.sol";
-import {BytesParsing} from "wormhole/libraries/BytesParsing.sol";
-import {toUniversalAddress} from "wormhole/Utils.sol";
+import {IWormhole} from "wormhole-sdk/interfaces/IWormhole.sol";
+import {BytesParsing} from "wormhole-sdk/libraries/BytesParsing.sol";
+import {toUniversalAddress} from "wormhole-sdk/Utils.sol";
 
 import {WormholeCctpMessages} from "./WormholeCctpMessages.sol";
 import {WormholeOverride} from "./WormholeOverride.sol";

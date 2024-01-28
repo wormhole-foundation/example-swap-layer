@@ -1,5 +1,6 @@
 [profile.default]
-solc_version = "0.8.23"
+solc_version = "0.8.24"
+evm_version = 'paris' # prevent use of PUSH0 opcode until it is widely supported
 optimizer = true
 via_ir = true
 extra_output = ["metadata", "storageLayout", "evm.deployedBytecode.immutableReferences"]
@@ -15,7 +16,7 @@ remappings = [
     "uniswap/=modules/uniswap/",
     "cctp/=modules/circle/",
     "proxy/=modules/proxy/",
-    "wormhole/=lib/wormhole-solidity-sdk/src/",
+    "wormhole-sdk/=lib/wormhole-solidity-sdk/src/",
     "wormhole-local/=modules/wormhole/",
     "liquidity-layer/=modules/liquidity-layer/",
     "swap-layer/=src",

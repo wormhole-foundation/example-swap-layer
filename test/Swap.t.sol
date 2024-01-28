@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 import { MockERC20 } from "forge-std/mocks/MockERC20.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
-import { toUniversalAddress } from "wormhole/Utils.sol";
+import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
+import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 
 import { SwapLayerTestBase } from "./TestBase.sol";
 import { INonfungiblePositionManager } from "./external/IUniswap.sol";

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 //Solidity order of precedence:
 //https://docs.soliditylang.org/en/latest/cheatsheet.html#order-of-precedence-of-operators
@@ -79,3 +79,4 @@ library PercentageLib {
     return value + numerator/denominator;
   }}
 }
+using PercentageLib for Percentage global;

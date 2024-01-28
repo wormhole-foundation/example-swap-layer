@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
-import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
+import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
 
 import { SwapLayerTestBase } from "./TestBase.sol";
 import "./utils/UpgradeTester.sol";

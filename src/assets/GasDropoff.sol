@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 type GasDropoff is uint32;
 library GasDropoffLib {
@@ -27,3 +27,4 @@ library GasDropoffLib {
     return uint256(GasDropoff.unwrap(val)) * GAS_DROPOFF_UNIT;
   }
 }}
+using GasDropoffLib for GasDropoff global;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 type GasPrice is uint32;
 library GasPriceLib {
@@ -27,3 +27,4 @@ library GasPriceLib {
     return uint256(GasPrice.unwrap(val)) * GAS_PRICE_UNIT;
   }
 }}
+using GasPriceLib for GasPrice global;

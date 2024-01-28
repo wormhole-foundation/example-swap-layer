@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { IWormhole } from "wormhole/interfaces/IWormhole.sol";
-import { IWETH } from "wormhole/interfaces/IWETH.sol";
-import { toUniversalAddress } from "wormhole/Utils.sol";
+import { IWormhole } from "wormhole-sdk/interfaces/IWormhole.sol";
+import { IWETH } from "wormhole-sdk/interfaces/IWETH.sol";
+import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 import { WormholeOverride } from "wormhole-local/WormholeOverride.sol";
 import { WormholeCctpOverride, FOREIGN_DOMAIN } from "wormhole-local/WormholeCctpOverride.sol";
 import { IUSDC } from "cctp/IUSDC.sol";
@@ -22,18 +22,13 @@ import { TokenRouterImplementation }
   from "./liquidity-layer/TokenRouter/TokenRouterImplementation.sol";
 
 import { SwapLayer } from "swap-layer/SwapLayer.sol";
-import { FeeParams, FeeParamsLib } from "swap-layer/assets/SwapLayerRelayingFees.sol";
-import { Percentage, PercentageLib } from "swap-layer/assets/Percentage.sol";
-import { GasPrice, GasPriceLib } from "swap-layer/assets/GasPrice.sol";
-import { GasDropoff, GasDropoffLib } from "swap-layer/assets/GasDropoff.sol";
-
-using PercentageLib for Percentage;
-using GasPriceLib for GasPrice;
-using GasDropoffLib for GasDropoff;
+import "swap-layer/assets/SwapLayerRelayingFees.sol";
+import "swap-layer/assets/Percentage.sol";
+import "swap-layer/assets/GasPrice.sol";
+import "swap-layer/assets/GasDropoff.sol";
 
 contract SwapLayerTestBase is Test {
   using WormholeOverride for IWormhole;
-  using FeeParamsLib for FeeParams;
   using { toUniversalAddress } for address;
 
   uint16  constant FOREIGN_CHAIN_ID               = 0xF00F;

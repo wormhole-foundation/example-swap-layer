@@ -3,8 +3,8 @@
 pragma solidity ^0.8.19;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {BytesParsing} from "wormhole/libraries/BytesParsing.sol";
-import {toUniversalAddress} from "wormhole/Utils.sol";
+import {BytesParsing} from "wormhole-sdk/libraries/BytesParsing.sol";
+import {toUniversalAddress} from "wormhole-sdk/Utils.sol";
 
 import {Admin} from "../../shared/Admin.sol";
 import {Messages} from "../../shared/Messages.sol";

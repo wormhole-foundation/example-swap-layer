@@ -4,8 +4,8 @@ pragma solidity ^0.8.19;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {IWormhole} from "wormhole/interfaces/IWormhole.sol";
-import {toUniversalAddress} from "wormhole/Utils.sol";
+import {IWormhole} from "wormhole-sdk/interfaces/IWormhole.sol";
+import {toUniversalAddress} from "wormhole-sdk/Utils.sol";
 import {IMessageTransmitter} from "cctp/IMessageTransmitter.sol";
 import {ITokenMessenger} from "cctp/ITokenMessenger.sol";
 import {ITokenMinter} from "cctp/ITokenMinter.sol";

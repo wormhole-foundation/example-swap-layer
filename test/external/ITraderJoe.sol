@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 //from here:
 //https://github.com/traderjoe-xyz/joe-v2/blob/main/src/interfaces/ILBFactory.sol

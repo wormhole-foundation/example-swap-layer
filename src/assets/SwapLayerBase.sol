@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IPermit2 } from "permit2/IPermit2.sol";
-import { IWormhole } from "wormhole/interfaces/IWormhole.sol";
-import { IWETH } from "wormhole/interfaces/IWETH.sol";
-import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
+import { IWormhole } from "wormhole-sdk/interfaces/IWormhole.sol";
+import { IWETH } from "wormhole-sdk/interfaces/IWETH.sol";
+import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
 import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
 import { SwapType } from "./Params.sol";
 

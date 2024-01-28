@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache 2
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { BytesParsing } from "wormhole/libraries/BytesParsing.sol";
+import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 
 using BytesParsing for bytes;
-using GasDropoffLib for GasDropoff;
 
 uint constant MODE_SIZE = 1;
 uint constant BOOL_SIZE = 1;
