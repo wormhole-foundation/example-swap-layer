@@ -28,5 +28,8 @@ fork_changed:
 node_modules:
 	npm ci
 
-testing.env: fork_changed
+testing.env: fork_changed ../ts-sdk/lib
 	npm run build -- $(FORK)
+
+../ts-sdk/lib:
+	cd ../ts-sdk && npm ci && npm run build
