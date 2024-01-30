@@ -35,4 +35,4 @@ lib/openzeppelin-contracts:
 	forge install openzeppelin/openzeppelin-contracts --no-git --no-commit
 
 lib/wormhole-solidity-sdk:
-	forge install wormhole-foundation/wormhole-solidity-sdk --no-git --no-commit
+	forge install wormhole-foundation/wormhole-solidity-sdk@18894be --no-git --no-commit

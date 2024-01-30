@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.24;
 
-import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 
+import { IdempotentUpgrade } from "wormhole-sdk/proxy/ProxyBase.sol";
 import { SwapLayerTestBase } from "./TestBase.sol";
 import "./utils/UpgradeTester.sol";
-import { IdempotentUpgrade } from "proxy/ProxyBase.sol";
 
 import "swap-layer/assets/SwapLayerGovernance.sol";
 import "swap-layer/assets/SwapLayerQuery.sol";

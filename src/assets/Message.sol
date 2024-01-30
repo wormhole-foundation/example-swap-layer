@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 import { fromUniversalAddress } from "wormhole-sdk/Utils.sol";
 
 import "./Params.sol";

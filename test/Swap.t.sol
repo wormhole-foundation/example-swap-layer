@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 
 import { MockERC20 } from "forge-std/mocks/MockERC20.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
+import { Math } from "@openzeppelin/utils/math/Math.sol";
 
-import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 
 import { SwapLayerTestBase } from "./TestBase.sol";
@@ -332,7 +332,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     });
 
     (bytes memory encodedVaa, bytes memory encodedCctpMessage, bytes memory cctpAttestation) =
-      cctpOverride.craftWormholeCctpRedeemParams(amount, fill.encode());
+      wormholeCctpSimulator.craftWormholeCctpRedeemParams(amount, fill.encode());
 
     return swapLayer.redeem(
       redeemParams,

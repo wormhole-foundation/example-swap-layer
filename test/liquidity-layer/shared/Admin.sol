@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 
 import {IAdmin} from "liquidity-layer/IAdmin.sol";
 
-import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
+import {ERC1967Utils} from "@openzeppelin/proxy/ERC1967/ERC1967Utils.sol";
 
 // -------------------------------------- Persistent Storage ---------------------------------------
 

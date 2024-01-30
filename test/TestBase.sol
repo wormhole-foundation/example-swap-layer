@@ -4,19 +4,18 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC1967Proxy } from "@openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
+import "@openzeppelin/token/ERC20/IERC20.sol";
 
-import { IWormhole } from "wormhole-sdk/interfaces/IWormhole.sol";
-import { IWETH } from "wormhole-sdk/interfaces/IWETH.sol";
+import "wormhole-sdk/interfaces/IWormhole.sol";
+import "wormhole-sdk/interfaces/token/IWETH.sol";
+import "wormhole-sdk/interfaces/token/IUSDC.sol";
+import "wormhole-sdk/proxy/Proxy.sol";
 import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
-import { WormholeOverride } from "wormhole-local/WormholeOverride.sol";
-import { WormholeCctpOverride, FOREIGN_DOMAIN } from "wormhole-local/WormholeCctpOverride.sol";
-import { IUSDC } from "cctp/IUSDC.sol";
-import { Proxy } from "proxy/Proxy.sol";
-import { IPermit2 } from "permit2/IPermit2.sol";
+import "wormhole-sdk/testing/UsdcDealer.sol";
+import "wormhole-sdk/testing/WormholeCctpSimulator.sol";
 
-import { ITokenRouter } from "liquidity-layer/ITokenRouter.sol";
+import "liquidity-layer/ITokenRouter.sol";
 import { FastTransferParameters } from "liquidity-layer/ITokenRouterTypes.sol";
 import { TokenRouterImplementation }
   from "./liquidity-layer/TokenRouter/TokenRouterImplementation.sol";
@@ -28,7 +27,7 @@ import "swap-layer/assets/GasPrice.sol";
 import "swap-layer/assets/GasDropoff.sol";
 
 contract SwapLayerTestBase is Test {
-  using WormholeOverride for IWormhole;
+  using UsdcDealer for IUSDC;
   using { toUniversalAddress } for address;
 
   uint16  constant FOREIGN_CHAIN_ID               = 0xF00F;
@@ -50,15 +49,13 @@ contract SwapLayerTestBase is Test {
   address   immutable traderJoeRouter;
   uint16    immutable chainId;
 
-  address immutable signer;
-  uint256 immutable signerSecret;
   address immutable llOwner;
   address immutable owner;
   address immutable admin;
   address immutable assistant;
   address immutable feeRecipient;
 
-  WormholeCctpOverride immutable cctpOverride;
+  WormholeCctpSimulator immutable wormholeCctpSimulator;
 
   ITokenRouter liquidityLayer;
   SwapLayer swapLayer;
@@ -71,15 +68,13 @@ contract SwapLayerTestBase is Test {
     traderJoeRouter = vm.envAddress("TEST_TRADERJOE_ROUTER_ADDRESS");
     chainId         = wormhole.chainId();
 
-    (signer, signerSecret) = makeAddrAndKey("signer");
-    llOwner                = makeAddr("llOwner");
-    owner                  = makeAddr("owner");
-    admin                  = makeAddr("admin");
-    assistant              = makeAddr("assistant");
-    feeRecipient           = makeAddr("feeRecipient");
+    llOwner      = makeAddr("llOwner");
+    owner        = makeAddr("owner");
+    admin        = makeAddr("admin");
+    assistant    = makeAddr("assistant");
+    feeRecipient = makeAddr("feeRecipient");
 
-    wormhole.setUpOverride(signerSecret);
-    cctpOverride = new WormholeCctpOverride(
+    wormholeCctpSimulator = new WormholeCctpSimulator(
       wormhole,
       tokenMessenger,
       FOREIGN_CHAIN_ID,
@@ -103,8 +98,8 @@ contract SwapLayerTestBase is Test {
       abi.encodeCall(TokenRouterImplementation.initialize, (llOwner, llAssistant))
     )));
 
-    cctpOverride.setMintRecipient(address(liquidityLayer));
-    cctpOverride.setDestinationCaller(address(liquidityLayer));
+    wormholeCctpSimulator.setMintRecipient(address(liquidityLayer));
+    wormholeCctpSimulator.setDestinationCaller(address(liquidityLayer));
 
     vm.startPrank(llOwner);
     liquidityLayer.setCctpAllowance(type(uint256).max);
@@ -158,25 +153,8 @@ contract SwapLayerTestBase is Test {
 
   function _dealOverride(address token, address to, uint amount) internal {
     if (token == address(usdc))
-      _dealUsdc(to, amount);
+      IUSDC(token).deal(to, amount);
     else
       deal(token, to, amount);
-  }
-
-  function _dealUsdc(address to, uint256 amount) private {
-    //taken from Wormhole circle integration repo, see:
-    // https://github.com/wormhole-foundation/wormhole-circle-integration/blob/evm/optimize/evm/forge/tests/helpers/libraries/UsdcDeal.sol
-    IUSDC usdc_ = IUSDC(address(usdc));
-    vm.prank(usdc_.masterMinter());
-    usdc_.configureMinter(address(this), amount);
-    usdc_.mint(address(to), amount);
-
-    //this most canonical way of using forge randomly stopped working:
-    // deal(address(usdc), address(to), amount);
-
-    //brittle workaround for dealing usdc (Ethereum mainnet only):
-    //  uses binance 14 address which has the highest usdc balance
-    //vm.prank(0x28C6c06298d514Db089934071355E5743bf21d60);
-    //usdc.transfer(address(to), amount);
   }
 }

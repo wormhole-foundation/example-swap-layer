@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/token/ERC20/IERC20.sol";
 
-import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 
 using BytesParsing for bytes;

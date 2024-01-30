@@ -10,14 +10,9 @@ libs = [
 ]
 
 remappings = [
-    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/=lib/openzeppelin-contracts/contracts/",
     "forge-std/=lib/forge-std/src/",
-    "permit2/=modules/permit2/",
-    "uniswap/=modules/uniswap/",
-    "cctp/=modules/circle/",
-    "proxy/=modules/proxy/",
     "wormhole-sdk/=lib/wormhole-solidity-sdk/src/",
-    "wormhole-local/=modules/wormhole/",
     "liquidity-layer/=modules/liquidity-layer/",
     "swap-layer/=src",
 ]

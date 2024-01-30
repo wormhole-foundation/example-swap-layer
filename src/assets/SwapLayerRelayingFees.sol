@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
+import "wormhole-sdk/libraries/BytesParsing.sol";
 
 import { InvalidChainId, SwapLayerBase } from "./SwapLayerBase.sol";
 import { Percentage, PercentageLib } from "./Percentage.sol";
