@@ -15,7 +15,8 @@
       "usdcAddress": "0x9999f7fea5938fd3b1e26a12c3f2fb024e194f97",
       "circleMessageTransmitter": "0xe09A679F56207EF33F5b9d8fb4499Ec00792eA73",
       "circleDomain": 7,
-      "wethAddress": "0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889"
+      "wethAddress": "0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889",
+      "traderJoeRouterAddress": "0x0000000000000000000000000000000000000000"
     },
     {
       "description": "Sepolia",
@@ -30,7 +31,24 @@
       "usdcAddress": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
       "circleMessageTransmitter": "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD",
       "circleDomain": 0,
-      "wethAddress": "0x7b79995e5f793a07bc00c21412e50ecae098e7f9"
+      "wethAddress": "0x7b79995e5f793a07bc00c21412e50ecae098e7f9",
+      "traderJoeRouterAddress": "0x0000000000000000000000000000000000000000"
+    },
+    {
+      "description": "Fuji",
+      "evmNetworkId": 43113,
+      "chainId": 6,
+      "rpc": "https://rpc.ankr.com/avalanche_fuji",
+      "rpcWs": "wss://avalanche-fuji-c-chain.publicnode.com",
+      "wormholeAddress": "0x7bbcE28e64B3F8b84d876Ab298393c38ad7aac4C",
+      "liquidityLayerAddress": "0x7353B29FDc79435dcC7ECc9Ac9F9b61d83B4E0F4",
+      "universalRouterAddress": "0x0000000000000000000000000000000000000000",
+      "permit2Address": "0x0000000000000000000000000000000000000000",
+      "usdcAddress": "0x5425890298aed601595a70ab815c96711a31bc65",
+      "circleMessageTransmitter": "0xa9fb1b3009dcb79e2fe346c16a604b8fa8ae0a79",
+      "circleDomain": 1,
+      "wethAddress": "0xd00ae08403b9bbb9124bb305c09058e32c39a48c",
+      "traderJoeRouterAddress": "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30"
     }
   ]
 }

@@ -42,12 +42,13 @@ export async function deploySwapLayerImplementation(
   //TODO use the ones off the ts-sdk instead
 
   const contract = await factory.deploy(
-    chain.wethAddress,
-    chain.permit2Address,
-    chain.universalRouterAddress,
-    chain.liquidityLayerAddress,
     majorDelay,
-    minorDelay
+    minorDelay,
+    chain.liquidityLayerAddress,
+    chain.permit2Address,
+    chain.wethAddress,
+    chain.universalRouterAddress,
+    chain.traderJoeRouterAddress
   );
   return await contract.deployed().then((result) => {
     console.log("Successfully deployed contract at " + result.address);

@@ -26,6 +26,7 @@ export type ChainInfo = {
   permit2Address: string;
   liquidityLayerAddress: string;
   wethAddress: string;
+  traderJoeRouterAddress: string;
 };
 
 export type Deployment = {

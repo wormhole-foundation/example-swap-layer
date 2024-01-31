@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "startLocalMumbai": "anvil --fork-url https://rpc.ankr.com/polygon_mumbai --port 8546",
-    "startLocalSepolia": "anvil --fork-url https://ethereum-sepolia.publicnode.com --port 8547",
+    "startLocalSepolia": "anvil --fork-url https://rpc2.sepolia.org --port 8547",
+    "startLocalFuji": "anvil --fork-url https://api.avax-test.network/ext/bc/C/rpc --port 8548",
     "deployLocalTestnet": "ENV=localTestnet sh ./ts-scripts/shell/deploySwapLayer.sh",
     "configureLocalTestnet": "ENV=localTestnet sh ./ts-scripts/shell/configureSwapLayer.sh",
     "updateFeesLocalTestnet": "ENV=localTestnet sh ./ts-scripts/shell/updateFeesSwapLayer.sh",

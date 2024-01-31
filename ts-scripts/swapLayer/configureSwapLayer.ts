@@ -65,8 +65,8 @@ function createSwapLayerConfiguration(
       const wh = new Wormhole(network, [EvmPlatform]);
 
       const swapLayerAddress = getSwapLayerAddress(currentChain);
-      const universalShim: UniversalAddress = toNative<"Evm">(
-        "Evm",
+      const universalShim: UniversalAddress = toNative<"Ethereum">(
+        "Ethereum",
         swapLayerAddress
       ).toUniversalAddress();
 

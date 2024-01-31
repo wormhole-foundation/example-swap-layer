@@ -27,6 +27,10 @@ abstract contract SwapLayerUniswapUR is SwapLayerBase {
   }
 
   function _uniswapInitialApprove() internal override {
+    //if any of the addresses are null, return
+    if (address(_permit2) == address(0) || _uniswapRouter == address(0))
+      return;
+    
     _maxApprove(_usdc, address(_permit2));
     _maxApprove(IERC20(address(_wnative)), address(_permit2));
     _permit2MaxApprove(address(_usdc));

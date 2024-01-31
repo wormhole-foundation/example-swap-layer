@@ -35,6 +35,8 @@ abstract contract SwapLayerTraderJoe is SwapLayerBase {
   using BytesParsing for bytes;
 
   function _traderJoeInitialApprove() internal override {
+    if (_traderJoeRouter == address(0))
+      return;
     _maxApprove(_usdc, _traderJoeRouter);
     _maxApprove(IERC20(address(_wnative)), _traderJoeRouter);
   }

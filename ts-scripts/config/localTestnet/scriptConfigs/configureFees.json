@@ -20,5 +20,16 @@
     "maxGasDropoff": "1000000000000000000",
     "gasDropoffMargin": "2",
     "gasTokenPrice": "100000000"
+  },
+  {
+    "chainId": 6,
+    "baseFee": "10000",
+    "gasPrice": "1000000000",
+    "gasPriceMargin": "25",
+    "gasPriceTimestamp": "0",
+    "gasPriceUpdateThreshold": "1",
+    "maxGasDropoff": "1000000000000000000",
+    "gasDropoffMargin": "2",
+    "gasTokenPrice": "100000000"
   }
 ]
