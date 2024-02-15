@@ -1,0 +1,31 @@
+[package]
+name = "swap-layer"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "swap_layer"
+
+[features]
+default = ["localnet", "no-idl"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+localnet = []
+testnet = []
+
+[dependencies]
+anchor-lang.workspace = true
+anchor-spl.workspace = true
+solana-program.workspace = true
+cfg-if.workspace = true
+
+wormhole-io = "0.1.3"
+wormhole-solana-utils = { version = "0.2.0-alpha.15", features = ["anchor"] }
+
+token-router = { git = "https://github.com/wormhole-foundation/example-liquidity-layer.git", rev = "08e7840d3e12d345196f12e59a76f84f5287502b", features = ["cpi"] }
+liquidity-layer-common-solana = { git = "https://github.com/wormhole-foundation/example-liquidity-layer.git", rev = "08e7840d3e12d345196f12e59a76f84f5287502b" }
+whirlpool-cpi = { git = "https://github.com/orca-so/whirlpool-cpi", branch = "anchor/0.29.0" }
+
