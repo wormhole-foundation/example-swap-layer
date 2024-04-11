@@ -13,16 +13,16 @@ import "wormhole-sdk/libraries/BytesParsing.sol";
 import "liquidity-layer/ITokenRouter.sol";
 import {SwapType} from "./Params.sol";
 
-struct SwapLayerEndpointsState {
+struct SwapLayerPeersState {
   // chainId => wormhole address mapping of swap contracts on other chains
-  mapping(uint16 => bytes32) endpoints;
+  mapping(uint16 => bytes32) peers;
 }
 
-// keccak256("SwapLayerEndpointsState") - 1
+// keccak256("SwapLayerPeersState") - 1
 bytes32 constant SWAP_LAYER_ENDPOINTS_STORAGE_SLOT =
   0xb61590eff329af7624aa29325e2f4a6630b27f49b074313bf2beeaaebd805731;
 
-function swapLayerEndpointsState() pure returns (SwapLayerEndpointsState storage state) {
+function swapLayerPeersState() pure returns (SwapLayerPeersState storage state) {
   assembly ("memory-safe") {
     state.slot := SWAP_LAYER_ENDPOINTS_STORAGE_SLOT
   }
@@ -36,14 +36,14 @@ error EthTransferFailed();
 abstract contract SwapLayerBase {
   using BytesParsing for bytes;
 
-  ITokenRouter     internal immutable _liquidityLayer;
-  IPermit2         internal immutable _permit2;
-  IWETH            internal immutable _wnative;
-  IWormhole        internal immutable _wormhole;
-  IERC20           internal immutable _usdc;
-  uint16           internal immutable _chainId;
-  address          internal immutable _uniswapRouter;
-  address          internal immutable _traderJoeRouter;
+  ITokenRouter internal immutable _liquidityLayer;
+  IPermit2     internal immutable _permit2;
+  IWETH        internal immutable _wnative;
+  IWormhole    internal immutable _wormhole;
+  IERC20       internal immutable _usdc;
+  uint16       internal immutable _chainId;
+  address      internal immutable _uniswapRouter;
+  address      internal immutable _traderJoeRouter;
 
   constructor(
     address liquidityLayer,
@@ -62,15 +62,15 @@ abstract contract SwapLayerBase {
     _traderJoeRouter = traderJoeRouter;
   }
 
-  function _getEndpoint(uint16 chainId) internal view returns (bytes32) {
-    return swapLayerEndpointsState().endpoints[chainId];
+  function _getPeer(uint16 chainId) internal view returns (bytes32) {
+    return swapLayerPeersState().peers[chainId];
   }
 
-  function _setEndpoint(uint16 endpointChain, bytes32 endpoint) internal {
-    if (endpointChain == 0 || endpointChain == _chainId)
+  function _setPeer(uint16 peerChain, bytes32 peer) internal {
+    if (peerChain == 0 || peerChain == _chainId)
       revert InvalidChainId();
 
-    swapLayerEndpointsState().endpoints[endpointChain] = endpoint;
+    swapLayerPeersState().peers[peerChain] = peer;
   }
 
   function _transferEth(address to, uint256 amount) internal {

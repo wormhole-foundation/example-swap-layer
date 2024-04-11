@@ -39,8 +39,6 @@ contract SwapLayerTestBase is Test {
   uint128 constant FAST_TRANSFER_MAX_AMOUNT       = 1e9;
   uint128 constant FAST_TRANSFER_BASE_FEE         = 1e6;
   uint128 constant FAST_TRANSFER_INIT_AUCTION_FEE = 1e6;
-  uint32  constant MAJOR_DELAY                    = 7 days;
-  uint32  constant MINOR_DELAY                    = 2 days;
 
   IWormhole immutable wormhole;
   IWETH     immutable wnative;
@@ -51,8 +49,8 @@ contract SwapLayerTestBase is Test {
 
   address immutable llOwner;
   address immutable owner;
-  address immutable admin;
   address immutable assistant;
+  address immutable feeUpdater;
   address immutable feeRecipient;
 
   WormholeCctpSimulator immutable wormholeCctpSimulator;
@@ -70,8 +68,8 @@ contract SwapLayerTestBase is Test {
 
     llOwner      = makeAddr("llOwner");
     owner        = makeAddr("owner");
-    admin        = makeAddr("admin");
     assistant    = makeAddr("assistant");
+    feeUpdater   = makeAddr("feeUpdater");
     feeRecipient = makeAddr("feeRecipient");
 
     wormholeCctpSimulator = new WormholeCctpSimulator(
@@ -130,8 +128,6 @@ contract SwapLayerTestBase is Test {
 
     swapLayer = SwapLayer(payable(address(new Proxy(
       address(new SwapLayer(
-        MAJOR_DELAY,
-        MINOR_DELAY,
         address(liquidityLayer),
         vm.envAddress("TEST_PERMIT2_ADDRESS"),
         address(wnative),
@@ -140,10 +136,10 @@ contract SwapLayerTestBase is Test {
       )),
       abi.encodePacked(
         owner,
-        admin,
         assistant,
+        feeUpdater,
         feeRecipient,
-        false, //adminCanUpgradeContract
+        false, //assistantIsEmpowered
         FOREIGN_CHAIN_ID,
         FOREIGN_SWAP_LAYER,
         feeParams

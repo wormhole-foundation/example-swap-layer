@@ -181,8 +181,10 @@ const swapItem = {
   layout: [
     { name: "deadline", ...timestampItem },
     { name: "limitAmount", ...amountItem },
-    //this will eventually be a switch - but for now we only have one type - uniswap
-    { name: "type", binary: "uint", size: 1, custom: { to: "Uniswap", from: 0 }},
+    { name: "type", binary: "switch", idSize: 1, layouts: [
+      [[0, "UniswapV3"], []],
+      [[1, "TraderJoe"], []]
+    ]},
     { name: "legFirstFee", binary: "uint", size: 3 },
     { name: "path", binary: "array", lengthSize: 1, layout: [
       { name: "address", ...evmAddressItem },
@@ -254,8 +256,6 @@ const immutableTypes = [
   "Permit2",
   "UniswapRouter",
   "LiquidityLayer",
-  "MajorDelay",
-  "MinorDelay"
 ] as const;
 type ImmutableType = typeof immutableTypes[number];
 const immutableTypeItem = {
@@ -272,39 +272,21 @@ const immutableTypeItem = {
   }
 } as const satisfies UintLayoutItem;
 
-const subQueries = ["Current", "Proposed", "UnlockTime"] as const;
-type SubQuery = typeof subQueries[number];
-const subQueryTypeItem = {
-  binary: "uint",
-  size: 1,
-  custom: {
-    to: (val: number) => {
-      if (val >= subQueries.length)
-        throw new Error("Invalid subquery type");
-
-      return subQueries[val];
-    },
-    from: (val: SubQuery): number => subQueries.indexOf(val),
-  }
-} as const satisfies UintLayoutItem;
-
 export const queryLayout = {
   binary: "switch",
   idSize: 1,
   idTag: "query",
   layouts: [
-    //TODO define remaining GovernanceCommand types
-    [[0, "FeeParams"],               [{ name: "chain", ...layoutItems.chainItem() }]],
-    [[1, "Endpoint"],                [{ name: "subQuery", ...subQueryTypeItem },
-                                      { name: "chain",    ...layoutItems.chainItem() }
-                                     ]],
-    [[2, "Immutable"],               [{ name: "immutable", ...immutableTypeItem }]],
-    [[3, "AdminCanUpgradeContract"], []],
-    [[4, "Assistant"],               []],
-    [[5, "Owner"],                   [{ name: "subQuery", ...subQueryTypeItem }]],
-    [[6, "Admin"],                   [{ name: "subQuery", ...subQueryTypeItem }]],
-    [[7, "FeeRecipient"],            [{ name: "subQuery", ...subQueryTypeItem }]],
-    [[8, "Implementation"],          [{ name: "subQuery", ...subQueryTypeItem }]],
+    [[0, "FeeParams"],            [{ name: "chain", ...layoutItems.chainItem() }]],
+    [[1, "Peer"],                 [{ name: "chain", ...layoutItems.chainItem() }]],
+    [[2, "Immutable"],            [{ name: "immutable", ...immutableTypeItem   }]],
+    [[3, "AssistantIsEmpowered"], []],
+    [[4, "Owner"],                []],
+    [[5, "PendingOwner"],         []],
+    [[6, "Assistant"],            []],
+    [[7, "FeeUpdater"],           []],
+    [[8, "FeeRecipient"],         []],
+    [[9, "Implementation"],       []],
   ],
 } as const satisfies LayoutItem;
 
@@ -349,11 +331,11 @@ export const feeParamUpdatesBatchLayout = {
 } as const satisfies Layout;
 
 export const proxyConstructorArgsLayout = [
-  { name: "owner",           ...evmAddressItem },
-  { name: "admin",           ...evmAddressItem },
-  { name: "assistant",       ...evmAddressItem },
-  { name: "feeRecipient",    ...evmAddressItem },
-  { name: "adminCanUpgrade", ...boolItem       },
+  { name: "owner",                ...evmAddressItem },
+  { name: "assistant",            ...evmAddressItem },
+  { name: "feeUpdater",           ...evmAddressItem },
+  { name: "feeRecipient",         ...evmAddressItem },
+  { name: "assistantIsEmpowered", ...boolItem       },
 ] as const satisfies Layout;
 
 export const governanceCommandLayout = {
@@ -361,13 +343,18 @@ export const governanceCommandLayout = {
   idSize: 1,
   idTag: "GovernanceCommand",
   layouts: [
-    //TODO define remaining GovernanceCommand types
-    [[0, "UpdateEndpoint"],         [{ name: "endpoint", ...addressChainItem },
-                                      ...feeParamsLayout,
-                                    ]],
-    [[1, "ProposeEndpointUpdate"],  [{ name: "endpoint", ...addressChainItem }]],
-    [[6, "UpgradeContract"],        [{ name: "implementation", ...evmAddressItem }]],
-    [[7, "ProposeContractUpgrade"], [{ name: "implementation", ...evmAddressItem }]],
+    [[0, "UpdatePeer"],               [{ name: "peer", ...addressChainItem },
+                                        ...feeParamsLayout,
+                                      ]],
+    [[1, "SweepTokens"],              [{ name: "token",           ...evmAddressItem }]],
+    [[2, "UpdateFeeUpdater"],         [{ name: "newFeeUpdater",   ...evmAddressItem }]],
+    [[3, "UpdateAssistant"],          [{ name: "newAssistant",    ...evmAddressItem }]],
+    [[4, "DisempowerAssistant"],      []],
+    [[5, "UpdateFeeRecipient"],       [{ name: "newFeeRecipient", ...evmAddressItem }]],
+    [[6, "UpgradeContract"],          [{ name: "implementation",  ...evmAddressItem }]],
+    [[7, "EmpowerAssistant"],         []],
+    [[8, "ProposeOwnershipTransfer"], [{ name: "pendingOwner",    ...evmAddressItem }]],
+    [[9, "RelinquishOwnership"],      []],
   ],
 } as const satisfies Layout;
 

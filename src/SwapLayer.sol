@@ -13,8 +13,6 @@ contract SwapLayer is SwapLayerSansRouterImpls
   {
   //constructor of the logic contract setting immutables
   constructor(
-    uint32 majorDelay,
-    uint32 minorDelay,
     address liquidityLayer,
     address permit2,
     address wnative,
@@ -22,8 +20,6 @@ contract SwapLayer is SwapLayerSansRouterImpls
     address traderJoeRouter
   )
   SwapLayerSansRouterImpls(
-    majorDelay,
-    minorDelay,
     liquidityLayer,
     permit2,
     wnative,

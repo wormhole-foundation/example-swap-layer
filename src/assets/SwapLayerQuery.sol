@@ -6,12 +6,6 @@ import "wormhole-sdk/libraries/BytesParsing.sol";
 
 import { SwapLayerGovernance } from "./SwapLayerGovernance.sol";
 
-enum SubQueryType {
-  Current,
-  Proposed,
-  UnlockTime
-}
-
 enum ImmutableType {
   Wormhole,
   Usdc,
@@ -19,21 +13,20 @@ enum ImmutableType {
   Permit2,
   UniswapRouter,
   TraderJoeRouter,
-  LiquidityLayer,
-  MajorDelay,
-  MinorDelay
+  LiquidityLayer
 }
 
 enum QueryType {
   FeeParams,
-  Endpoint, //has subquery type
+  Peer,
   Immutable,
-  AdminCanUpgradeContract,
+  AssistantIsEmpowered,
+  Owner,
+  PendingOwner,
   Assistant,
-  Owner, //has subquery type
-  Admin, //has subquery type
-  FeeRecipient, //has subquery type
-  Implementation //has subquery type
+  FeeUpdater,
+  FeeRecipient,
+  Implementation
 }
 
 abstract contract SwapLayerQuery is SwapLayerGovernance {
@@ -48,99 +41,51 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
       uint8 query_;
       (query_, offset) = queries.asUint8Unchecked(offset);
       QueryType query = QueryType(query_);
-      if (query == QueryType.FeeParams) {
+      if (query == QueryType.FeeParams || query == QueryType.Peer) {
         uint16 chainId;
         (chainId, offset) = queries.asUint16Unchecked(offset);
-        ret = abi.encodePacked(ret, _getFeeParams(chainId));
-      }
-      else if (query == QueryType.Endpoint) {
-        uint8 subQueryType_;
-        (subQueryType_, offset) = queries.asUint8Unchecked(offset);
-        SubQueryType subQueryType = SubQueryType(subQueryType_);
-        uint16 chainId;
-        (chainId, offset) = queries.asUint16Unchecked(offset);
-        if (subQueryType == SubQueryType.UnlockTime)
-          ret = abi.encodePacked(ret, _getProposedEndpointUnlockTime(chainId));
-        else
-          ret = abi.encodePacked(ret,
-            subQueryType == SubQueryType.Current
-              ? _getEndpoint(chainId)
-              : _getProposedEndpoint(chainId)
-            );
+        ret = query == QueryType.FeeParams
+          ? abi.encodePacked(ret, _getFeeParams(chainId))
+          : abi.encodePacked(ret, _getPeer(chainId));
       }
       else if (query == QueryType.Immutable) {
         uint8 immutableType_;
         (immutableType_, offset) = queries.asUint8Unchecked(offset);
         ImmutableType immutableType = ImmutableType(immutableType_);
-
-        if (immutableType == ImmutableType.MajorDelay ||
-            immutableType == ImmutableType.MinorDelay) {
-          ret = abi.encodePacked(ret,
-            immutableType == ImmutableType.MajorDelay
-              ? _majorDelay
-              : _minorDelay
-          );
-        }
-        else {
-          address addr;
-          if (immutableType == ImmutableType.Wormhole)
-            addr = address(_wormhole);
-          else if (immutableType == ImmutableType.Usdc)
-            addr = address(_usdc);
-          else if (immutableType == ImmutableType.WrappedNative)
-            addr = address(_wnative);
-          else if (immutableType == ImmutableType.Permit2)
-            addr = address(_permit2);
-          else if (immutableType == ImmutableType.UniswapRouter)
-            addr = _uniswapRouter;
-          else if (immutableType == ImmutableType.TraderJoeRouter)
-            addr = _traderJoeRouter;
-          else //must be ImmutableType.LiquidityLayer
-            addr = address(_liquidityLayer);
-          ret = abi.encodePacked(ret, addr);
-        }
+        address addr;
+        if (immutableType == ImmutableType.Wormhole)
+          addr = address(_wormhole);
+        else if (immutableType == ImmutableType.Usdc)
+          addr = address(_usdc);
+        else if (immutableType == ImmutableType.WrappedNative)
+          addr = address(_wnative);
+        else if (immutableType == ImmutableType.Permit2)
+          addr = address(_permit2);
+        else if (immutableType == ImmutableType.UniswapRouter)
+          addr = _uniswapRouter;
+        else if (immutableType == ImmutableType.TraderJoeRouter)
+          addr = _traderJoeRouter;
+        else //must be ImmutableType.LiquidityLayer
+          addr = address(_liquidityLayer);
+        ret = abi.encodePacked(ret, addr);
       }
-      else if (query == QueryType.Assistant)
-        ret = abi.encodePacked(ret, _getAssistant());
-      else if (query == QueryType.AdminCanUpgradeContract)
-        ret = abi.encodePacked(ret, _getAdminCanUpgradeContract());
+      else if (query == QueryType.AssistantIsEmpowered)
+        ret = abi.encodePacked(ret, _getAssistantIsEmpowered());
       else { //query must be one of Admin, Owner, FeeRecipient, Implementation
-        uint8 subQueryType_;
-        (subQueryType_, offset) = queries.asUint8Unchecked(offset);
-        SubQueryType subQueryType = SubQueryType(subQueryType_);
-
-        if (subQueryType == SubQueryType.UnlockTime) {
-          uint32 unlockTime;
-          if (query == QueryType.Admin)
-            unlockTime = _getProposedAdminUnlockTime();
-          else if (query == QueryType.Owner)
-            unlockTime = _getProposedOwnerUnlockTime();
-          else if (query == QueryType.FeeRecipient)
-            unlockTime = _getProposedFeeRecipientUnlockTime();
-          else //must be QueryType.Implementation
-            unlockTime = _getProposedImplementationUnlockTime();
-          ret = abi.encodePacked(ret, unlockTime);
-        }
-        else {
-          address addr;
-          if (query == QueryType.Admin)
-            addr = subQueryType == SubQueryType.Current
-              ? _getAdmin()
-              : _getProposedAdmin();
-          else if (query == QueryType.Owner)
-            addr = subQueryType == SubQueryType.Current
-              ? _getOwner()
-              : _getProposedOwner();
-          else if (query == QueryType.FeeRecipient)
-            addr = subQueryType == SubQueryType.Current
-              ? _getFeeRecipient()
-              : _getProposedFeeRecipient();
-          else //must be QueryType.Implementation
-            addr = subQueryType == SubQueryType.Current
-              ? _getImplementation()
-              : _getProposedImplementation();
-          ret = abi.encodePacked(ret, addr);
-        }
+        address addr;
+        if (query == QueryType.Owner)
+          addr = _getOwner();
+        else if (query == QueryType.PendingOwner)
+          addr = _getPendingOwner();
+        else if (query == QueryType.Assistant)
+          addr = _getAssistant();
+        else if (query == QueryType.FeeUpdater)
+          addr = _getFeeUpdater();
+        else if (query == QueryType.FeeRecipient)
+          addr = _getFeeRecipient();
+        else //must be QueryType.Implementation
+          addr = _getImplementation();
+        ret = abi.encodePacked(ret, addr);
       }
     }
     queries.checkLength(offset);

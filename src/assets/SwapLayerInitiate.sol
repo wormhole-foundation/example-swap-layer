@@ -67,8 +67,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       //unchecked cast ...
       //... but if someone manages to withdraw 10^(38-6) USDC then we have other problems regardless
       uint128(_acquireUsdc(uint(fastTransferFee) + relayingFee, mos, params));
-    bytes32 endpoint = _getEndpoint(targetChain);
-    if (endpoint == bytes32(0))
+    bytes32 peer = _getPeer(targetChain);
+    if (peer == bytes32(0))
       revert ChainNotSupported(targetChain);
 
     (bytes memory outputSwap, ) = params.slice(
@@ -83,7 +83,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         _liquidityLayer.placeFastMarketOrder(
           usdcAmount,
           targetChain,
-          endpoint,
+          peer,
           swapMessage,
           fastTransferFee,
           fastTransferDeadline
@@ -95,7 +95,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       (uint64 sequence, uint64 cctpNonce) = _liquidityLayer.placeMarketOrder(
         usdcAmount,
         targetChain,
-        endpoint,
+        peer,
         swapMessage
       );
 

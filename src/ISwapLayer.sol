@@ -27,9 +27,6 @@ interface ISwapLayer {
   //selector: a9bb3dca
   function batchGovernanceCommands(bytes calldata commands) external;
 
-  //selector: e60df1a0
-  function batchOwnerInterventions(bytes calldata interventions) external;
-
   //selector: f4189c473 - can't actually be called externally except by the contract itself
   function checkedUpgrade(bytes calldata data) external payable;
 

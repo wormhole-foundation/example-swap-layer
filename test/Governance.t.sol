@@ -20,9 +20,8 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
 
   function testOwnerContractUpgrade() public {
     UpgradeTester upgradeTester = new UpgradeTester();
-    (address implementation, ) = swapLayer.batchQueries(abi.encodePacked(
-      QueryType.Implementation, SubQueryType.Current
-    )).asAddressUnchecked(0);
+    (address implementation, ) =
+      swapLayer.batchQueries(abi.encodePacked(QueryType.Implementation)).asAddressUnchecked(0);
 
     vm.expectRevert(NotAuthorized.selector);
     swapLayer.batchGovernanceCommands(
@@ -30,25 +29,6 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
     );
 
     vm.startPrank(owner);
-    vm.expectRevert(abi.encodeWithSelector(ProposalMissing.selector, UpdateType.Implementation));
-    swapLayer.batchGovernanceCommands(
-      abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
-    );
-
-    swapLayer.batchGovernanceCommands(
-      abi.encodePacked(GovernanceCommand.ProposeContractUpgrade, address(upgradeTester))
-    );
-
-    if (MAJOR_DELAY > 0) {
-      //should revert with ProposalLockPeriodNotOver but we can't enforce the exact timestamps
-      vm.expectRevert();
-      swapLayer.batchGovernanceCommands(
-        abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
-      );
-
-      skip(MAJOR_DELAY);
-    }
-
     swapLayer.batchGovernanceCommands(
       abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
     );
@@ -58,46 +38,31 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
 
     UpgradeTester(address(swapLayer)).upgradeTo(implementation, new bytes(0));
 
-    (address restoredImplementation, ) = swapLayer.batchQueries(abi.encodePacked(
-      QueryType.Implementation, SubQueryType.Current
-    )).asAddressUnchecked(0);
+    (address restoredImplementation, ) =
+      swapLayer.batchQueries(abi.encodePacked(QueryType.Implementation)).asAddressUnchecked(0);
     assertEq(restoredImplementation, implementation);
   }
 
-  function testAdminContractUpgrade() public {
+  function testAssistantContractUpgrade() public {
     UpgradeTester upgradeTester = new UpgradeTester();
-    (bool adminCanUpgrade, ) = swapLayer.batchQueries(abi.encodePacked(
-      QueryType.AdminCanUpgradeContract
+    (bool assistantIsEmpowered, ) = swapLayer.batchQueries(abi.encodePacked(
+      QueryType.AssistantIsEmpowered
     )).asBoolUnchecked(0);
 
-    assertEq(adminCanUpgrade, false);
+    assertEq(assistantIsEmpowered, false);
 
-    vm.startPrank(admin);
+    vm.startPrank(assistant);
     vm.expectRevert(NotAuthorized.selector);
     swapLayer.batchGovernanceCommands(
-      abi.encodePacked(GovernanceCommand.ProposeContractUpgrade, address(upgradeTester))
+      abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
     );
 
     vm.startPrank(owner);
-    swapLayer.batchOwnerInterventions(
-      abi.encodePacked(OwnerIntervention.EnableAdminCanUpgradeContract)
-    );
-
-    vm.startPrank(admin);
     swapLayer.batchGovernanceCommands(
-      abi.encodePacked(GovernanceCommand.ProposeContractUpgrade, address(upgradeTester))
+      abi.encodePacked(GovernanceCommand.EmpowerAssistant)
     );
 
-    if (MAJOR_DELAY > 0) {
-      //should revert with ProposalLockPeriodNotOver but we can't enforce the exact timestamps
-      vm.expectRevert();
-      swapLayer.batchGovernanceCommands(
-        abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
-      );
-
-      skip(MAJOR_DELAY);
-    }
-
+    vm.startPrank(assistant);
     swapLayer.batchGovernanceCommands(
       abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
     );
@@ -107,42 +72,31 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
     address newOwner = makeAddr("newOwner");
 
     vm.expectRevert(NotAuthorized.selector);
-    swapLayer.batchOwnerInterventions(
-      abi.encodePacked(OwnerIntervention.ProposeOwnershipTransfer, newOwner)
+    swapLayer.batchGovernanceCommands(
+      abi.encodePacked(GovernanceCommand.ProposeOwnershipTransfer, newOwner)
     );
 
-    vm.prank(owner);
-    swapLayer.batchOwnerInterventions(
-      abi.encodePacked(OwnerIntervention.ProposeOwnershipTransfer, newOwner)
+    vm.startPrank(owner);
+    swapLayer.batchGovernanceCommands(
+      abi.encodePacked(GovernanceCommand.ProposeOwnershipTransfer, newOwner)
     );
 
     bytes memory getRes = swapLayer.batchQueries(abi.encodePacked(
-      QueryType.Owner, SubQueryType.Current,
-      QueryType.Owner, SubQueryType.Proposed
+      QueryType.Owner, QueryType.PendingOwner
     ));
-    (address owner_, ) = getRes.asAddressUnchecked(0);
+    (address owner_,        ) = getRes.asAddressUnchecked(0);
     (address pendingOwner_, ) = getRes.asAddressUnchecked(20);
 
-    assertEq(owner_, owner);
+    assertEq(owner_,        owner);
     assertEq(pendingOwner_, newOwner);
 
     vm.startPrank(newOwner);
-    if (MAJOR_DELAY > 0) {
-      //should revert with ProposalLockPeriodNotOver but we can't enforce the exact timestamps
-      vm.expectRevert();
-      swapLayer.batchOwnerInterventions(new bytes(0));
-
-      skip(MAJOR_DELAY);
-    }
-
-    swapLayer.batchOwnerInterventions(new bytes(0));
+    swapLayer.batchGovernanceCommands(new bytes(0));
 
     getRes = swapLayer.batchQueries(abi.encodePacked(
-      QueryType.Owner, SubQueryType.Current,
-      QueryType.Owner, SubQueryType.Proposed
+      QueryType.Owner, QueryType.PendingOwner
     ));
-
-    (owner_, ) = getRes.asAddressUnchecked(0);
+    (owner_,        ) = getRes.asAddressUnchecked(0);
     (pendingOwner_, ) = getRes.asAddressUnchecked(20);
 
     assertEq(owner_, newOwner);
@@ -152,7 +106,7 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
   function testUpdateAssistant() public {
     address newAssistant = makeAddr("newAssistant");
 
-    vm.prank(owner);
+    vm.prank(assistant);
     swapLayer.batchGovernanceCommands(
       abi.encodePacked(GovernanceCommand.UpdateAssistant, newAssistant)
     );
@@ -169,63 +123,40 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
 
     vm.expectRevert(NotAuthorized.selector);
     swapLayer.batchGovernanceCommands(
-      abi.encodePacked(GovernanceCommand.ProposeFeeRecipientUpdate, newFeeRecipient)
+      abi.encodePacked(GovernanceCommand.UpdateFeeRecipient, newFeeRecipient)
     );
 
-    vm.startPrank(admin);
-    swapLayer.batchGovernanceCommands(
-      abi.encodePacked(GovernanceCommand.ProposeFeeRecipientUpdate, newFeeRecipient)
-    );
-
-    bytes memory getRes = swapLayer.batchQueries(abi.encodePacked(
-      QueryType.FeeRecipient, SubQueryType.Current,
-      QueryType.FeeRecipient, SubQueryType.Proposed
-    ));
-    (address feeRecipient_, ) = getRes.asAddressUnchecked(0);
-    (address pendingFeeRecipient_, ) = getRes.asAddressUnchecked(20);
-
-    assertEq(feeRecipient_, feeRecipient);
-    assertEq(pendingFeeRecipient_, newFeeRecipient);
-
-    if (MINOR_DELAY > 0) {
-      //should revert with ProposalLockPeriodNotOver but we can't enforce the exact timestamps
-      vm.expectRevert();
-      swapLayer.batchGovernanceCommands(
-        abi.encodePacked(GovernanceCommand.UpdateFeeRecipient, newFeeRecipient)
-      );
-
-      skip(MINOR_DELAY);
-    }
-
+    vm.startPrank(assistant);
+    vm.expectRevert(NotAuthorized.selector);
     swapLayer.batchGovernanceCommands(
       abi.encodePacked(GovernanceCommand.UpdateFeeRecipient, newFeeRecipient)
     );
 
-    getRes = swapLayer.batchQueries(abi.encodePacked(
-      QueryType.FeeRecipient, SubQueryType.Current,
-      QueryType.FeeRecipient, SubQueryType.Proposed
-    ));
-    (feeRecipient_, ) = getRes.asAddressUnchecked(0);
-    (pendingFeeRecipient_, ) = getRes.asAddressUnchecked(20);
+    vm.startPrank(owner);
+    swapLayer.batchGovernanceCommands(
+      abi.encodePacked(GovernanceCommand.UpdateFeeRecipient, newFeeRecipient)
+    );
+
+    (address feeRecipient_, ) =
+      swapLayer.batchQueries(abi.encodePacked(QueryType.FeeRecipient)).asAddressUnchecked(0);
 
     assertEq(feeRecipient_, newFeeRecipient);
-    assertEq(pendingFeeRecipient_, address(0));
   }
 
-  // function testRegisterEndpoint() public {
-  //   bytes32 endpoint = bytes32(uint256(1));
+  // function testRegisterPeer() public {
+  //   bytes32 peer = bytes32(uint256(1));
   //   uint16 chain = type(uint16).max;
 
   //   vm.prank(owner);
   //   swapLayer.batchGovernanceCommands(abi.encodePacked(
-  //     GovernanceCommand.RegisterEndpoint, chain, endpoint
+  //     GovernanceCommand.RegisterPeer, chain, peer
   //   ));
 
-  //   (bytes32 endpoint_, ) = swapLayer.batchQueries(abi.encodePacked(
-  //     QueryType.Endpoint, chain
+  //   (bytes32 peer_, ) = swapLayer.batchQueries(abi.encodePacked(
+  //     QueryType.Peer, chain
   //   )).asBytes32Unchecked(0);
 
-  //   assertEq(endpoint_, endpoint);
+  //   assertEq(peer_, peer);
   // }
 
   function testSweepTokens() public {
