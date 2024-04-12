@@ -1,0 +1,24 @@
+[package]
+name = "swap-layer"
+description = "Created with Anchor"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "swap_layer"
+
+[features]
+default = []
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+localnet = []
+testnet = []
+integration-test = []
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+solana-program.workspace = true
