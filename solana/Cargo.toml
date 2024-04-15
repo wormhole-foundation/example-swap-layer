@@ -10,8 +10,9 @@ version = "0.0.0"
 authors = ["Wormhole Contributors"]
 
 [workspace.dependencies]
-anchor-lang = "0.29.0"
-solana-program = "1.17.20"
+anchor-lang = "=0.29.0"
+anchor-spl = "=0.29.0"
+solana-program = "=1.17.20"
 
 [profile.release]
 overflow-checks = true
