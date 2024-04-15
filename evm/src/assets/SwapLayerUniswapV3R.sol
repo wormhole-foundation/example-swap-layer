@@ -21,7 +21,7 @@ abstract contract SwapLayerUniswapV3R is SwapLayerBase {
   function _uniswapInitialApprove() internal override {
     if (_uniswapRouter == address(0))
       return;
-      
+
     _maxApprove(_usdc, _uniswapRouter);
     _maxApprove(IERC20(address(_wnative)), _uniswapRouter);
   }

@@ -8,18 +8,16 @@ import { InvalidChainId, SwapLayerBase } from "./SwapLayerBase.sol";
 import { Percentage, PercentageLib } from "./Percentage.sol";
 import { GasPrice, GasPriceLib } from "./GasPrice.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
+import { IoTokenMOS } from "./InitiateParams.sol";
+import {
+  ADDRESS_SIZE,
+  SWAP_TYPE_UNISWAPV3,
+  SWAP_TYPE_TRADERJOE,
+  SWAP_TYPE_GENERIC_SOLANA,
+  IoToken,
+  parseSwapTypeAndCount
+} from "./Params.sol";
 
-// interface IUniswapV3Pool {
-//   function slot0() external view returns (
-//     uint160 sqrtPriceX96,
-//     int24 tick,
-//     uint16 observationIndex,
-//     uint16 observationCardinality,
-//     uint16 observationCardinalityNext,
-//     uint8 feeProtocol,
-//     bool unlocked
-//   );
-// }
 
 //store everything in one slot and make reads and writes cheap (no struct in memory nonsense)
 type FeeParams is uint256;
@@ -32,13 +30,13 @@ library FeeParamsLib {
   //  2 bytes gasPriceUpdateThreshold - scalar (see Percentage)
   //  4 bytes maxGasDropoff           - wei (see GasDropoff)
   //  4 bytes gasDropoffMargin        - scalar (see Percentage)
-  // 10 bytes gasTokenPrice           - atomic usdc/ether (e.g. 1e9 = 1000 usdc/eth)
-  //  // 1 byte mode                     - 0: fixed, 1: uniswap
-  //  // 9 bytes modeData
+  // 10 bytes gasTokenPrice           - atomic usdc/token (e.g. 1e9 = 1000 usdc/ether (or sol))
   //
   // note: just 4 bytes would be enough to accurately represent gas token prices in usdc
   //  a 27/5 bit split gives 8 digits of precision and a max value of:
   //    1e2 (8 digit mantissa in usdc) * 1e31 (max exponent) = 1e33
+  // an alternative for the gas token price would be to use an on-chain oracle to look
+  //   up the price as needed (if available)
 
   uint256 private constant BASE_FEE_SIZE = 32;
   uint256 private constant BASE_FEE_OFFSET = 0;
@@ -231,8 +229,9 @@ function feeParamsState() pure returns (FeeParamsState storage state) {
 
 error MaxGasDropoffExceeded(uint requested, uint maximum);
 error RelayingDisabledForChain();
+error InvalidSwapTypeForChain(uint16 chain, uint swapType);
 
-//TODO: do we actually want/need this?
+//the additional gas cost is likely worth the cost of being able to reconstruct old fees
 event FeeParamsUpdated(uint16 indexed chainId, FeeParams params);
 
 enum FeeUpdate {
@@ -250,34 +249,17 @@ enum FeeUpdate {
 abstract contract SwapLayerRelayingFees is SwapLayerBase {
   using BytesParsing for bytes;
 
+  //TODO this should come from elsewhere
+  uint private constant SOLANA_CHAIN_ID = 1;
+  uint private constant SOLANA_ATA_RENT_LAMPORTS = 2039280;
+  uint private constant LAMPORTS_PER_SOL = 1e9;
   //uint private constant BIT128 = 1 << 128;
   uint private constant GAS_OVERHEAD = 1e5; //TODO
   uint private constant DROPOFF_GAS_OVERHEAD = 1e4; //TODO
   uint private constant UNISWAP_GAS_OVERHEAD = 1e5; //TODO
   uint private constant UNISWAP_GAS_PER_SWAP = 1e5; //TODO
-
-  // function calcGasTokenUsdcPrice(uint24 uniswapFee) private view returns (uint) {
-  //   (uint160 sqrtPriceX96,,,,,,) = uniswapPool.slot0();
-
-  //   uint256 uniswapPrice;
-  //   uint fractionalBits;
-  //   if (sqrtPriceX96 < BIT128) {
-  //     //if sqrtPriceX96 takes less than 16 bytes we can safely square it
-  //     uniswapPrice = uint(sqrtPriceX96) * uint(sqrtPriceX96);
-  //     fractionalBits = 192;
-  //   }
-  //   else {
-  //     //if sqrtPriceX96 takes between 16 and 20 bytes, we rightshift by 32 before squaring
-  //     uniswapPrice = sqrtPriceX96 >> 32;
-  //     uniswapPrice = uniswapPrice * uniswapPrice;
-  //     fractionalBits = 128;
-  //   }
-  // }
-
-  // function getUniV3GasPrice(uint24 uniswapFee) private view returns (uint) {
-  //   uint uniswapPrice = uniswapGasTokenPriceOracle(uniswapFee);
-  //   return uniswapGasTokenIsFirst_ ? uniswapPrice : BIT256 / uniswapPrice;
-  // }
+  uint private constant TRADERJOE_GAS_OVERHEAD = 1e5; //TODO
+  uint private constant TRADERJOE_GAS_PER_SWAP = 1e5; //TODO
 
   function _batchFeeUpdates(bytes memory updates) internal {
     uint16 curChain = 0;
@@ -351,7 +333,8 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
   function _calcRelayingFee(
     uint16 targetChain,
     GasDropoff gasDropoff_,
-    uint swaps
+    bytes memory params,
+    IoTokenMOS memory outputMOS
   ) internal view returns (uint relayerFee) { unchecked {
     FeeParams feeParams = _getFeeParams(targetChain);
 
@@ -361,26 +344,60 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
 
     relayerFee = feeParams.baseFee();
 
-    uint totalGas = GAS_OVERHEAD;
     uint gasDropoff = gasDropoff_.from();
     if (gasDropoff > 0) {
       uint maxGasDropoff = feeParams.maxGasDropoff().from();
       if (gasDropoff > maxGasDropoff)
         revert MaxGasDropoffExceeded(gasDropoff, maxGasDropoff);
 
-      totalGas += DROPOFF_GAS_OVERHEAD;
-
       relayerFee += feeParams.gasDropoffMargin().compound(
         gasDropoff * feeParams.gasTokenPrice()
       ) / 1 ether;
     }
 
-    if (swaps > 0)
-      totalGas += UNISWAP_GAS_OVERHEAD + UNISWAP_GAS_PER_SWAP * swaps;
+    uint swapCount = 0;
+    uint swapType;
+    if (outputMOS.mode != IoToken.Usdc) {
+      uint offset = outputMOS.offset;
+      if (outputMOS.mode == IoToken.Other)
+        offset += ADDRESS_SIZE;
 
-    relayerFee += feeParams.gasPriceMargin().compound(
-      totalGas * feeParams.gasPrice().from() * feeParams.gasTokenPrice()
-    ) / 1 ether;
+      (swapType, swapCount, ) = parseSwapTypeAndCount(params, offset);
+    }
+
+    if (targetChain == SOLANA_CHAIN_ID) {
+      //TODO figure out what other dynamic fees might go into Solana fee calculations
+      if (swapType != SWAP_TYPE_GENERIC_SOLANA)
+        revert InvalidSwapTypeForChain(targetChain, swapType);
+
+      //add the cost of ATA rent for non-gas tokens
+      if (outputMOS.mode == IoToken.Other)
+        relayerFee += feeParams.gasDropoffMargin().compound(
+          SOLANA_ATA_RENT_LAMPORTS * feeParams.gasTokenPrice()
+        ) / LAMPORTS_PER_SOL;
+    }
+    else { //EVM chains
+      uint totalGas = GAS_OVERHEAD;
+      if (gasDropoff > 0)
+        totalGas += DROPOFF_GAS_OVERHEAD;
+
+      if (swapCount != 0) {
+        uint overhead;
+        uint gasPerSwap;
+        if (swapType == SWAP_TYPE_UNISWAPV3)
+          (overhead, gasPerSwap) = (  UNISWAP_GAS_OVERHEAD,   UNISWAP_GAS_PER_SWAP);
+        else if (swapType == SWAP_TYPE_TRADERJOE)
+          (overhead, gasPerSwap) = (TRADERJOE_GAS_OVERHEAD, TRADERJOE_GAS_PER_SWAP);
+        else
+          revert InvalidSwapTypeForChain(targetChain, swapType);
+
+        totalGas += overhead + gasPerSwap * swapCount;
+      }
+
+      relayerFee += feeParams.gasPriceMargin().compound(
+        totalGas * feeParams.gasPrice().from() * feeParams.gasTokenPrice()
+      ) / 1 ether;
+    }
   }}
 
   function _getFeeParams(uint16 chainId) internal view returns (FeeParams) {
@@ -393,7 +410,19 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
   }
 }
 
-// -------------------------
+// ---- unused code to use uniswap v3 pools as oracles for token prices ----
+
+// interface IUniswapV3Pool {
+//   function slot0() external view returns (
+//     uint160 sqrtPriceX96,
+//     int24 tick,
+//     uint16 observationIndex,
+//     uint16 observationCardinality,
+//     uint16 observationCardinalityNext,
+//     uint8 feeProtocol,
+//     bool unlocked
+//   );
+// }
 
 // bytes32 constant UNISWAP_POOL_CODE_HASH =
 //   0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
@@ -410,6 +439,29 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
 //     uniswapGasTokenIsFirst_ = address(wnative) < address(usdc);
 //     uniswapFactory_ = uniswapFactory;
 //   }
+
+// function calcGasTokenUsdcPrice(uint24 uniswapFee) private view returns (uint) {
+//   (uint160 sqrtPriceX96,,,,,,) = uniswapPool.slot0();
+
+//   uint256 uniswapPrice;
+//   uint fractionalBits;
+//   if (sqrtPriceX96 < BIT128) {
+//     //if sqrtPriceX96 takes less than 16 bytes we can safely square it
+//     uniswapPrice = uint(sqrtPriceX96) * uint(sqrtPriceX96);
+//     fractionalBits = 192;
+//   }
+//   else {
+//     //if sqrtPriceX96 takes between 16 and 20 bytes, we rightshift by 32 before squaring
+//     uniswapPrice = sqrtPriceX96 >> 32;
+//     uniswapPrice = uniswapPrice * uniswapPrice;
+//     fractionalBits = 128;
+//   }
+// }
+
+// function getUniV3GasPrice(uint24 uniswapFee) private view returns (uint) {
+//   uint uniswapPrice = uniswapGasTokenPriceOracle(uniswapFee);
+//   return uniswapGasTokenIsFirst_ ? uniswapPrice : BIT256 / uniswapPrice;
+// }
 
 //   function uniswapGasTokenPriceOracle(uint24 uniswapFee) private view returns (IUniswapV3Pool) {
 //     (address token0, address token1) =

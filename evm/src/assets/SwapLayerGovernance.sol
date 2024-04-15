@@ -22,7 +22,7 @@ import { FeeParams, FeeParamsLib, SwapLayerRelayingFees } from "./SwapLayerRelay
 struct GovernanceState {
   address  owner; //puts owner address in eip1967 admin slot
   address  pendingOwner;
-  address  assistant; 
+  address  assistant;
   address  feeUpdater;
   address  feeRecipient;
   bool     assistantIsEmpowered;
@@ -130,7 +130,7 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
         if (newPeer != curPeer) {
           if (curPeer != bytes32(0) && !isOwner && !state.assistantIsEmpowered)
             revert NotAuthorized();
-      
+
           _setPeer(peerChain, newPeer);
         }
 
@@ -166,7 +166,7 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
       else { //owner or empowered assistant only commands
         if (!isOwner && !state.assistantIsEmpowered)
           revert NotAuthorized();
-        
+
         if (command == GovernanceCommand.UpdateFeeRecipient) {
           address newFeeRecipient;
           (newFeeRecipient, offset) = commands.asAddressUnchecked(offset);

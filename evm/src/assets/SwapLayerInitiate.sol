@@ -42,19 +42,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     uint relayingFee = 0;
     bytes memory redeemPayload;
     if (mos.redeem.mode == RedeemMode.Relay) {
-      uint swapCount = 0;
-      if (mos.output.mode != IoToken.Usdc) {
-        uint offset = mos.output.offset;
-        if (mos.output.mode == IoToken.Other)
-          offset += ADDRESS_SIZE;
-
-        uint pathLength;
-        (pathLength,) = parseSwapLength(params, offset);
-        swapCount = pathLength + 1;
-      }
-
       (GasDropoff gasDropoff, uint maxRelayingFee, ) = parseRelayParams(params, mos.redeem.offset);
-      relayingFee = _calcRelayingFee(targetChain, gasDropoff, swapCount);
+      relayingFee = _calcRelayingFee(targetChain, gasDropoff, params, mos.output);
       if (relayingFee > maxRelayingFee)
         revert ExceedsMaxRelayingFee(relayingFee, maxRelayingFee);
 
@@ -63,10 +52,9 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     else
       (redeemPayload, ) = params.slice(mos.redeem.offset - MODE_SIZE, mos.redeem.size + MODE_SIZE);
 
-    uint128 usdcAmount =
-      //unchecked cast ...
-      //... but if someone manages to withdraw 10^(38-6) USDC then we have other problems regardless
-      uint128(_acquireUsdc(uint(fastTransferFee) + relayingFee, mos, params));
+    //unchecked cast, but if someone manages to withdraw 10^(38-6) USDC then we have other problems
+    uint128 usdcAmount = uint128(_acquireUsdc(uint(fastTransferFee) + relayingFee, mos, params));
+
     bytes32 peer = _getPeer(targetChain);
     if (peer == bytes32(0))
       revert ChainNotSupported(targetChain);
@@ -149,8 +137,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         (approveCheck, offset) = params.asBoolUnchecked(offset);
       }
 
-      (uint256 deadline, uint outputAmount, SwapType swapType, bytes memory path, ) =
-        parseSwapParams(inputToken, _usdc, params, offset);
+      (uint256 deadline, uint outputAmount, uint swapType, bytes memory path, ) =
+        parseEvmSwapParams(inputToken, _usdc, params, offset);
 
       //adjust outputAmount to ensure that the received usdc amount on the target chain is at least
       //  the specified outputAmount

@@ -11,7 +11,7 @@ import "wormhole-sdk/interfaces/token/IPermit2.sol";
 import {IWETH} from "wormhole-sdk/interfaces/token/IWETH.sol";
 import "wormhole-sdk/libraries/BytesParsing.sol";
 import "liquidity-layer/ITokenRouter.sol";
-import {SwapType} from "./Params.sol";
+import {SWAP_TYPE_UNISWAPV3, SWAP_TYPE_TRADERJOE} from "./Params.sol";
 
 struct SwapLayerPeersState {
   // chainId => wormhole address mapping of swap contracts on other chains
@@ -28,6 +28,7 @@ function swapLayerPeersState() pure returns (SwapLayerPeersState storage state) 
   }
 }
 
+error InvalidSwapType(uint256 swapType);
 error SwapFailed(bytes reason);
 error InvalidChainId();
 error DeadlineExpired(uint256 blocktime, uint256 deadline);
@@ -85,7 +86,7 @@ abstract contract SwapLayerBase {
 
   //returns the consumed input amount on exact out swaps and the output amount on exact in swaps
   function _swap(
-    SwapType swapType,
+    uint swapType,
     bool isExactIn,
     uint inputAmount,
     uint outputAmount,
@@ -103,8 +104,15 @@ abstract contract SwapLayerBase {
         return 0;
     }
 
-    function(bool,uint,uint,IERC20,IERC20,bool,bool,bytes memory) internal returns (uint) swapFunc =
-      swapType == SwapType.UniswapV3 ? _uniswapSwap : _traderJoeSwap;
+    function(bool,uint,uint,IERC20,IERC20,bool,bool,bytes memory) internal returns (uint) swapFunc;
+    if (swapType == SWAP_TYPE_UNISWAPV3)
+      swapFunc = _uniswapSwap;
+    else if (swapType == SWAP_TYPE_TRADERJOE)
+      swapFunc = _traderJoeSwap;
+    else if (revertOnFailure)
+      revert InvalidSwapType(swapType);
+    else
+      return 0;
 
     return swapFunc(
       isExactIn,

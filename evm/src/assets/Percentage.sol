@@ -22,8 +22,8 @@ library PercentageLib {
   uint private constant EXPONENT_BITS = 2;
   uint private constant EXPONENT_BITS_MASK = (1 << EXPONENT_BITS) - 1;
   uint private constant MAX_MANTISSA = 1e4; //= 100 % (if exponent = 0)
-  //we essentially treat use a uint256 like an array of 4 uint64s containing [1e5, 1e4, 1e3, 1e2]
-  //as a simple way to save some gas over using EVM exponentiation
+  //we essentially use a uint256 like an array of 4 uint64s containing [1e5, 1e4, 1e3, 1e2] as a
+  //  simple way to save some gas over using EVM exponentiation
   uint private constant BITS_PER_POWER = 8*8; //4 powers, 8 bytes per power of ten, 8 bits per byte
   uint private constant POWERS_OF_TEN =
     (1e5 << 3*BITS_PER_POWER) +

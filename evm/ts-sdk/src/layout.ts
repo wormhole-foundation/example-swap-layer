@@ -18,7 +18,6 @@ const forceBigIntConversion = {
   } satisfies CustomConversion<number, bigint>,
 } as const;
 
-//I can't believe I forgot to implement this!
 const boolItem = {
   binary: "uint",
   size: 1,
@@ -175,6 +174,14 @@ const acquireModeItem = {
   ]
 } as const satisfies NamedLayoutItem;
 
+const sharedUniswapTraderJoeLayout = [
+  { name: "legFirstFee", binary: "uint", size: 3 },
+  { name: "path", binary: "array", lengthSize: 1, layout: [
+    { name: "address", ...evmAddressItem },
+    { name: "fee", binary: "uint", size: 3 },
+  ]}
+] as const satisfies Layout;
+
 const swapItem = {
   name: "swap",
   binary: "object",
@@ -182,28 +189,10 @@ const swapItem = {
     { name: "deadline", ...timestampItem },
     { name: "limitAmount", ...amountItem },
     { name: "type", binary: "switch", idSize: 1, layouts: [
-      [[0, "UniswapV3"], []],
-      [[1, "TraderJoe"], []]
+      [[1, "UniswapV3"], sharedUniswapTraderJoeLayout],
+      [[2, "TraderJoe"], sharedUniswapTraderJoeLayout],
+      [[16, "GenericSolana"], [/* TODO */]]
     ]},
-    { name: "legFirstFee", binary: "uint", size: 3 },
-    { name: "path", binary: "array", lengthSize: 1, layout: [
-      { name: "address", ...evmAddressItem },
-      { name: "fee", binary: "uint", size: 3 },
-    ]}
-  ]
-} as const satisfies NamedLayoutItem;
-
-const outputTokenItem = {
-  name: "outputToken",
-  binary: "switch",
-  idSize: 1,
-  idTag: "type",
-  layouts: [
-    [[0, "Usdc"],  []],
-    [[1, "Gas"],   [swapItem]],
-    [[2, "Other"], [{ name: "address", ...layoutItems.universalAddressItem},
-                    swapItem,
-                   ]],
   ]
 } as const satisfies NamedLayoutItem;
 
@@ -230,12 +219,26 @@ const inputTokenItem = {
   ]
 } as const satisfies NamedLayoutItem;
 
+const outputTokenItem = {
+  name: "outputToken",
+  binary: "switch",
+  idSize: 1,
+  idTag: "type",
+  layouts: [
+    [[0, "Usdc"],  []],
+    [[1, "Gas"],   [swapItem]],
+    [[2, "Other"], [{ name: "address", ...layoutItems.universalAddressItem},
+                    swapItem,
+                   ]],
+  ]
+} as const satisfies NamedLayoutItem;
+
 export const initiateArgsLayout = [
   fastTransferModeItem,
   redeemModeItem,
-  outputTokenItem,
   { name: "isExactIn", ...boolItem },
   inputTokenItem,
+  outputTokenItem,
 ] as const satisfies Layout;
 
 // ---- message layout ----

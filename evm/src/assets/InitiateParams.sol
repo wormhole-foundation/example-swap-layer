@@ -6,6 +6,8 @@ import "wormhole-sdk/libraries/BytesParsing.sol";
 
 import "./Params.sol";
 
+import "forge-std/console.sol";
+
 using BytesParsing for bytes;
 
 enum FastTransferMode {
@@ -89,14 +91,6 @@ uint constant PERMIT2_TRANSFER_SIZE =
 //    4 bytes  gas dropoff (in 1e12 wei, i.e. microether, i.e. 1 eth = 10**6)
 //    6 bytes  max relayer fee (in atomic usdc, i.e. 6 decimals -> 1e6 = 1 usdc)
 //
-// 1 byte   output token type
-//  0: USDC
-//  1: GAS
-//    swap struct
-//  2: Token
-//   32 bytes  token address
-//    swap struct
-//
 // 1 byte   isExactIn
 // 1 byte   input token type
 //  0: USDC
@@ -109,6 +103,14 @@ uint constant PERMIT2_TRANSFER_SIZE =
 //    1 byte   approveCheck
 //   20 bytes  token address
 //   16 bytes  input amount
+//    swap struct
+//
+// 1 byte   output token type
+//  0: USDC
+//  1: GAS
+//    swap struct
+//  2: Token
+//   32 bytes  token address
 //    swap struct
 
 struct FastTransferMOS {
@@ -132,9 +134,9 @@ struct IoTokenMOS {
 struct ModesOffsetsSizes {
   FastTransferMOS fastTransfer;
   RedeemMOS redeem;
-  IoTokenMOS output;
   bool isExactIn;
   IoTokenMOS input;
+  IoTokenMOS output;
 }
 
 function parseParamBaseStructure(
@@ -167,19 +169,6 @@ function parseParamBaseStructure(
     mos.redeem = RedeemMOS(redeemMode, paramBlockOffset, paramBlockOffset - offset);
   }
   {
-    IoToken outputTokenType;
-    (outputTokenType, offset) = parseIoToken(params, offset);
-    paramBlockOffset = offset;
-    if (outputTokenType == IoToken.Gas)
-      skipSwap(params, offset);
-    else if (outputTokenType == IoToken.Other) {
-      offset += UNIVERSAL_ADDRESS_SIZE; //token address
-      skipSwap(params, offset);
-    }
-
-    mos.output = IoTokenMOS(outputTokenType, offset, paramBlockOffset - offset);
-  }
-  {
     (mos.isExactIn, offset) = params.asBoolUnchecked(offset);
     IoToken inputTokenType;
     (inputTokenType, offset) = parseIoToken(params, offset);
@@ -198,6 +187,20 @@ function parseParamBaseStructure(
 
     mos.input = IoTokenMOS(inputTokenType, paramBlockOffset, paramBlockOffset - offset);
   }
+  {
+    IoToken outputTokenType;
+    (outputTokenType, offset) = parseIoToken(params, offset);
+    paramBlockOffset = offset;
+    if (outputTokenType == IoToken.Gas)
+      offset = skipSwap(params, offset);
+    else if (outputTokenType == IoToken.Other) {
+      offset += UNIVERSAL_ADDRESS_SIZE; //token address
+      offset = skipSwap(params, offset);
+    }
+
+    mos.output = IoTokenMOS(outputTokenType, paramBlockOffset, paramBlockOffset - offset);
+  }
+
   params.checkLength(offset);
 }}
 

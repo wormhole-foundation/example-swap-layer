@@ -17,6 +17,7 @@ import { PriceHelper as TJMath } from "./external/TJMath/PriceHelper.sol";
 
 import { Messages } from "./liquidity-layer/shared/Messages.sol";
 
+import "swap-layer/assets/Params.sol";
 import "swap-layer/assets/SwapLayerInitiate.sol";
 import "swap-layer/assets/SwapLayerRedeem.sol";
 import "swap-layer/assets/SwapLayerQuery.sol";
@@ -189,11 +190,11 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
       abi.encodePacked(
         false,           //fast transfer
         RedeemMode.Direct,
-        IoToken.Usdc,    //output token
         true,            //isExactIn
         IoToken.Usdc,    //input token
         uint128(amount), //input amount
-        AcquireMode.Preapproved
+        AcquireMode.Preapproved,
+        IoToken.Usdc    //output token
       )
     );
     (uint amountOut, ) = swapReturn.asUint256Unchecked(0);
@@ -209,16 +210,16 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
       abi.encodePacked(
         FastTransferMode.Disabled,
         RedeemMode.Direct,
-        IoToken.Usdc, //output token
         true,         //isExactIn
         IoToken.Gas,  //input token
         uint32(block.timestamp + 1800), //deadline
         uint128(0),   //minOutputAmount
-        SwapType.UniswapV3,
+        uint8(SWAP_TYPE_UNISWAPV3),
         UNISWAP_FEE,
         uint8(1),     //pathLength
         address(mockToken),
-        UNISWAP_FEE
+        UNISWAP_FEE,
+        IoToken.Usdc //output token
       )
     );
     (uint256 amountOut, ) = swapReturn.asUint256Unchecked(0);
@@ -233,18 +234,18 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
       abi.encodePacked(
         FastTransferMode.Disabled,
         RedeemMode.Direct,
-        IoToken.Usdc, //output token
         true,         //isExactIn
         IoToken.Gas,  //input token
         uint32(block.timestamp + 1800), //deadline
         uint128(0),   //minOutputAmount
-        SwapType.TraderJoe,
+        uint8(SWAP_TYPE_TRADERJOE),
         TRADERJOE_VERSION,
         TRADERJOE_BIN_STEP,
         uint8(1),     //pathLength
         address(mockToken),
         TRADERJOE_VERSION,
-        TRADERJOE_BIN_STEP
+        TRADERJOE_BIN_STEP,
+        IoToken.Usdc //output token
       )
     );
     (uint256 amountOut, ) = swapReturn.asUint256Unchecked(0);
@@ -261,16 +262,16 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
         RedeemMode.Relay,
         uint32(0),    //gas dropoff
         uint48(1e9),  //max relayer fee
-        IoToken.Usdc, //output token
         true,         //isExactIn
         IoToken.Gas,  //input token
         uint32(block.timestamp + 1800), //deadline
         uint128(0),   //minOutputAmount
-        SwapType.UniswapV3,
+        uint8(SWAP_TYPE_UNISWAPV3),
         UNISWAP_FEE,
         uint8(1),     //pathLength
         address(mockToken),
-        UNISWAP_FEE
+        UNISWAP_FEE,
+        IoToken.Usdc //output token
       )
     );
     (uint256 amountOut, ) = swapReturn.asUint256Unchecked(0);
@@ -301,7 +302,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
         IoToken.Gas,
         uint32(0),  //deadline
         uint128(0), //minOutputAmount
-        SwapType.UniswapV3,
+        uint8(SWAP_TYPE_UNISWAPV3),
         UNISWAP_FEE,
         uint8(1),   //pathLength
         address(mockToken),

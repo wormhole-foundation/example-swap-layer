@@ -17,7 +17,7 @@ build: dependencies
 	forge build
 
 test: dependencies
-	forge test --fork-url $$TEST_RPC -vvvv
+	forge test --fork-url $$TEST_RPC -vvv
 #--match-test RelayedEthSwap
 
 clean:

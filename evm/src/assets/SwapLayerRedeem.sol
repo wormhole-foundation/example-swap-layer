@@ -54,7 +54,6 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       usdcAmount = fill.amount - relayingFee;
 
       //no extra params when relaying
-      //TODO include source chain gas price and parse gas adjustment parameters
       params.checkLength(0);
     }
     else {
@@ -95,10 +94,12 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       else
         (outputToken, offset) = parseIERC20(swapParams, offset);
 
-      (uint256 deadline, uint minOutputAmount, SwapType swapType, bytes memory path, uint offset_) =
-        parseSwapParams(_usdc, outputToken, swapParams, offset);
-
-      offset = offset_;
+      uint256 deadline;
+      uint minOutputAmount;
+      uint swapType;
+      bytes memory path;
+      (deadline, minOutputAmount, swapType, path, offset) =
+        parseEvmSwapParams(_usdc, outputToken, swapParams, offset);
 
       outputAmount = _swap(
         swapType,
@@ -108,7 +109,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
         _usdc,
         outputToken,
         false, //never revert on failed swap - worst case, recipient receives usdc
-        false, //always skip approve check, we have max approve with the router for usdc
+        false, //always skip approve check, we have max approve with the routers for usdc
         deadline,
         path
       );
