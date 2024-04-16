@@ -1,16 +1,82 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
-import { SwapLayer } from "../../target/types/swap_layer";
+import * as splToken from "@solana/spl-token";
+import { Connection, Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { expectIxOk } from "./helpers";
+import {
+    LOCALHOST,
+    PAYER_KEYPAIR,
+    OWNER_KEYPAIR,
+    OWNER_ASSISTANT_KEYPAIR,
+    FEE_UPDATER_KEYPAIR,
+    USDC_MINT_ADDRESS,
+} from "./helpers";
+import { SwapLayerProgram, localnet, Custodian } from "../src/swapLayer";
+import { use as chaiUse, expect } from "chai";
+
+chaiUse(require("chai-as-promised"));
 
 describe("swap-layer", () => {
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+    const connection = new Connection(LOCALHOST, "processed");
+    const payer = PAYER_KEYPAIR;
+    const relayer = Keypair.generate();
+    const owner = OWNER_KEYPAIR;
+    const ownerAssistant = OWNER_ASSISTANT_KEYPAIR;
+    const feeUpdater = FEE_UPDATER_KEYPAIR;
 
-  const program = anchor.workspace.SwapLayer as Program<SwapLayer>;
+    const feeRecipient = Keypair.generate();
+    const feeRecipientToken = splToken.getAssociatedTokenAddressSync(
+        USDC_MINT_ADDRESS,
+        feeRecipient.publicKey
+    );
 
-  it.skip("Is initialized!", async () => {
-    // Add your test here.
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
-  });
+    const swapLayer = new SwapLayerProgram(connection, localnet(), USDC_MINT_ADDRESS);
+
+    describe("Admin", () => {
+        describe("Initialize", () => {
+            it("Initialize", async () => {
+                const ix = await swapLayer.initializeIx({
+                    owner: payer.publicKey,
+                    ownerAssistant: ownerAssistant.publicKey,
+                    feeRecipient: feeRecipient.publicKey,
+                    feeUpdater: feeUpdater.publicKey,
+                });
+
+                await expectIxOk(connection, [ix], [payer]);
+
+                const custodianData = await swapLayer.fetchCustodian();
+                expect(custodianData).to.eql(
+                    new Custodian(
+                        payer.publicKey,
+                        null,
+                        ownerAssistant.publicKey,
+                        feeRecipientToken,
+                        feeUpdater.publicKey
+                    )
+                );
+            });
+
+            before("Set up Token Accounts", async function () {
+                await splToken.getOrCreateAssociatedTokenAccount(
+                    connection,
+                    payer,
+                    USDC_MINT_ADDRESS,
+                    feeRecipient.publicKey
+                );
+
+                // await splToken.getOrCreateAssociatedTokenAccount(
+                //     connection,
+                //     payer,
+                //     USDC_MINT_ADDRESS,
+                //     PublicKey.default
+                // );
+
+                // await splToken.getOrCreateAssociatedTokenAccount(
+                //     connection,
+                //     payer,
+                //     USDC_MINT_ADDRESS,
+                //     SystemProgram.programId
+                // );
+            });
+        });
+    });
 });
