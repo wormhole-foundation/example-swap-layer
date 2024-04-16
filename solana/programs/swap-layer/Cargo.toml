@@ -15,11 +15,13 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
-localnet = []
-testnet = []
-integration-test = []
+localnet = ["token-router/testnet"]
+testnet = ["token-router/testnet"]
+integration-test = ["localnet"]
 
 [dependencies]
+token-router.workspace = true
+
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 solana-program.workspace = true

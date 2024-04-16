@@ -24,11 +24,11 @@ pub mod swap_layer {
         processor::initialize(ctx)
     }
 
-    pub fn swap_jupiter_v6_shared_accounts_route(
-        ctx: Context<SwapJupiterV6SharedAccountsRoute>,
+    pub fn swap_jupiter_v6_shared_accounts_route_passthrough(
+        ctx: Context<SwapJupiterV6SharedAccountsRoutePassthrough>,
         selector: [u8; 8],
-        args: SwapJupiterV6SharedAccountsRouteArgs,
+        args: SwapJupiterV6SharedAccountsRoutePassthroughArgs,
     ) -> Result<()> {
-        processor::swap_jupiter_v6_shared_accounts_route(ctx, selector, args)
+        processor::swap_jupiter_v6_shared_accounts_route_passthrough(ctx, selector, args)
     }
 }

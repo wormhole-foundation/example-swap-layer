@@ -24,4 +24,4 @@ lint:
 
 .PHONY: integration-test
 integration-test: node_modules
-	anchor test --arch sbf
+	anchor test --arch sbf -- --features integration-test

@@ -8,11 +8,36 @@ resolver = "2"
 edition = "2021"
 version = "0.0.0"
 authors = ["Wormhole Contributors"]
+license = "Apache-2.0"
+homepage = "https://https://github.com/xlabs"
+repository = "https://github.com/xlabs/swap-layer"
+
+[workspace.dependencies.common]
+package = "liquidity-layer-common-solana"
+path = "lib/example-liquidity-layer/solana/modules/common"
+
+[workspace.dependencies.token-router]
+path = "lib/example-liquidity-layer/solana/programs/token-router"
+features = ["cpi"]
+
+[workspace.dependencies.matching-engine]
+path = "lib/example-liquidity-layer/solana/programs/matching-engine"
+features = ["no-entrypoint"]
 
 [workspace.dependencies]
+wormhole-io = "0.1.2"
 anchor-lang = "=0.29.0"
 anchor-spl = "=0.29.0"
 solana-program = "=1.17.20"
+hex = "0.4.3"
+ruint = "1.9.0"
+cfg-if = "1.0"
+hex-literal = "0.4.1"
+
+wormhole-raw-vaas = "0.2.0-alpha.2"
+wormhole-solana-consts = "0.2.0-alpha.11"
+wormhole-solana-utils = "0.2.0-alpha.15"
+wormhole-cctp-solana = "0.1.0-alpha.6"
 
 [profile.release]
 overflow-checks = true
