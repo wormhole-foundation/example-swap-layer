@@ -22,6 +22,9 @@ lint:
 	cargo fmt --check
 	$(MAKE) clippy
 
+lib/example-liquidity-layer/solana/Cargo.toml:
+	git submodule update --init --recursive
+
 .PHONY: integration-test
-integration-test: node_modules
+integration-test: node_modules lib/example-liquidity-layer/solana/Cargo.toml
 	anchor test --arch sbf -- --features integration-test
