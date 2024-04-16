@@ -2311,6 +2311,7 @@ version = "0.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "liquidity-layer-common-solana",
  "solana-program",
  "token-router",
 ]
