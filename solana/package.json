@@ -4,11 +4,14 @@
         "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
     },
     "dependencies": {
+        "@certusone/wormhole-sdk": "^0.10.13",
         "@coral-xyz/anchor": "^0.29.0",
         "@jup-ag/api": "^6.0.20-test",
         "@solana/spl-token": "^0.4.3",
         "@solana/web3.js": "^1.91.4",
-        "@types/node-fetch": "^2.6.11"
+        "@types/node-fetch": "^2.6.11",
+        "chai-as-promised": "^7.1.1",
+        "ts-results": "^3.3.0"
     },
     "devDependencies": {
         "@types/bn.js": "^5.1.0",
