@@ -15,14 +15,13 @@ const USDT_MINT_ADDRESS = new PublicKey(
 );
 
 const ALLOWED_DEXES = [
-  //   "Lifinity V2",
-  //   "Meteora",
-  //   "Meteora DLMM",
-  //   "Orca V2",
-  //   "Phoenix",
-  //   "Raydium",
-  //   "Raydium CLMM",
-  "Whirlpool",
+  "Lifinity V2", // use
+  //"Meteora DLMM", // use
+  //"Orca V2",
+  //"Phoenix", // use
+  //"Raydium",
+  //"Raydium CLMM", // use
+  //"Whirlpool", // use
 ];
 
 main();
@@ -32,57 +31,62 @@ async function main() {
     basePath: "https://quote-api.jup.ag/v6",
   });
 
-  //   const quoteResponse = await jupiter.quoteGet({
-  //     inputMint: USDC_MINT_ADDRESS.toBase58(),
-  //     outputMint: splToken.NATIVE_MINT.toBase58(),
-  //     amount: 50000000000,
-  //     slippageBps: 50,
-  //     onlyDirectRoutes: true, // Maybe set to false if using `restrictIntermediateTokens`.
-  //     swapMode: "ExactIn",
-  //     dexes: ALLOWED_DEXES,
-  //     // restrictIntermediateTokens: true, // This might be interesting to use. Research this.
-  //   });
-
-  const quoteResponse = {
-    inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    inAmount: "50000000000",
-    outputMint: "So11111111111111111111111111111111111111112",
-    outAmount: "356466797912",
-    otherAmountThreshold: "354684463923",
-    swapMode: "ExactIn",
+  const quoteResponse = await jupiter.quoteGet({
+    inputMint: USDC_MINT_ADDRESS.toBase58(),
+    outputMint: splToken.NATIVE_MINT.toBase58(),
+    amount: 50000000000,
     slippageBps: 50,
-    priceImpactPct: "0.0050",
-    routePlan: [
-      {
-        swapInfo: {
-          ammKey: "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
-          label: "Whirlpool",
-          inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-          outputMint: "So11111111111111111111111111111111111111112",
-          inAmount: "50000000000",
-          outAmount: "356466797912",
-          feeAmount: "1996",
-          feeMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-        },
-        percent: 100,
-      },
-    ],
-    // contextSlot: 259989210,
-    // timeTaken: 0.0014488,
-  };
+    onlyDirectRoutes: true, // Maybe set to false if using `restrictIntermediateTokens`.
+    swapMode: "ExactIn",
+    dexes: ALLOWED_DEXES,
+    // restrictIntermediateTokens: true, // This might be interesting to use. Research this.
+  });
+
+  // const quoteResponse = {
+  //   inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  //   inAmount: "50000000000",
+  //   outputMint: "So11111111111111111111111111111111111111112",
+  //   outAmount: "356466797912",
+  //   otherAmountThreshold: "354684463923",
+  //   swapMode: "ExactIn",
+  //   slippageBps: 50,
+  //   priceImpactPct: "0.0050",
+  //   routePlan: [
+  //     {
+  //       swapInfo: {
+  //         ammKey: "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
+  //         label: "Whirlpool",
+  //         inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  //         outputMint: "So11111111111111111111111111111111111111112",
+  //         inAmount: "50000000000",
+  //         outAmount: "356466797912",
+  //         feeAmount: "1996",
+  //         feeMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  //       },
+  //       percent: 100,
+  //     },
+  //   ],
+  //   // contextSlot: 259989210,
+  //   // timeTaken: 0.0014488,
+  // };
 
   console.log(JSON.stringify(quoteResponse, null, 2));
 
   const guy = Keypair.generate();
+  const [custodian] = PublicKey.findProgramAddressSync(
+    [Buffer.from("custodian")],
+    guy.publicKey
+  );
   //   // Check later.
   const ata = splToken.getAssociatedTokenAddressSync(
     splToken.NATIVE_MINT,
-    guy.publicKey
+    custodian,
+    true
   );
   console.log("ata", ata.toString());
   const wtf = await jupiter.swapInstructionsPost({
     swapRequest: {
-      userPublicKey: guy.publicKey.toString(),
+      userPublicKey: custodian.toString(),
       // @ts-ignore
       quoteResponse,
     },

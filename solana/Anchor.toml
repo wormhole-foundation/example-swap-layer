@@ -44,69 +44,86 @@ address = "CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3"
 ### Mint -- USDC
 [[test.validator.account]]
 address = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
-filename = "ts/tests/accounts/usdc_mint.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/usdc_mint.json"
 
 ### Payer Token Account -- USDC
 [[test.validator.account]]
 address = "6s9vuDVXZsJY1Qp29cFxKgbSmpTH2QWnrjZzPHWmFXCz"
-filename = "ts/tests/accounts/usdc_payer_token.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/usdc_payer_token.json"
 
 ### Circle Token Messenger Minter PDA -- Token Messenger
 [[test.validator.account]]
 address = "Afgq3BHEfCE7d78D2XE9Bfyu2ieDqvE24xX8KDwreBms"
-filename = "ts/tests/accounts/token_messenger_minter/token_messenger.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/token_messenger.json"
 
 ### Circle Token Messenger Minter PDA -- Token Minter
 [[test.validator.account]]
 address = "DBD8hAwLDRQkTsu6EqviaYNGKPnsAMmQonxf7AH8ZcFY"
-filename = "ts/tests/accounts/token_messenger_minter/token_minter.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/token_minter.json"
 
 ### Circle Token Messenger Minter PDA -- USDC Custody Token Account
 [[test.validator.account]]
 address = "AEfKU8wHGtYgsXpymQ6e1cGHJJeKqCj95pw82iyRUKEs"
-filename = "ts/tests/accounts/token_messenger_minter/usdc_custody_token.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_custody_token.json"
 
 ### Circle Token Messenger Minter PDA -- USDC Local Token
 [[test.validator.account]]
 address = "4xt9P42CcMHXAgvemTnzineHp6owfGUcrg1xD9V7mdk1"
-filename = "ts/tests/accounts/token_messenger_minter/usdc_local_token.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_local_token.json"
 
 ### Circle Token Messenger Minter PDA -- USDC Token Pair
 [[test.validator.account]]
 address = "ADcG1d7znq6wR73BJgEh7dR4vTJcETLLyfXMNZjJVwk4"
-filename = "ts/tests/accounts/token_messenger_minter/usdc_token_pair.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_token_pair.json"
 
 ### Circle Token Messenger Minter PDA -- Ethereum Remote Token Messenger
 [[test.validator.account]]
 address = "Hazwi3jFQtLKc2ughi7HFXPkpDeso7DQaMR9Ks4afh3j"
-filename = "ts/tests/accounts/token_messenger_minter/ethereum_remote_token_messenger.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/ethereum_remote_token_messenger.json"
 
 ### Circle Token Messenger Minter PDA -- Arbitrum Remote Token Messenger
 [[test.validator.account]]
 address = "REzxi9nX3Eqseha5fBiaJhTC6SFJx4qJhP83U4UCrtc"
-filename = "ts/tests/accounts/token_messenger_minter/arbitrum_remote_token_messenger.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/arbitrum_remote_token_messenger.json"
 
 ### Circle Token Messenger Minter PDA -- Base Remote Token Messenger
 [[test.validator.account]]
 address = "BWyFzH6LsnmDAaDWbGsriQ9SiiKq1CF6pbH4Ye3kzSBV"
-filename = "ts/tests/accounts/token_messenger_minter/misconfigured_remote_token_messenger.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/misconfigured_remote_token_messenger.json"
 
 ### Circle Message Transmitter PDA -- Message Transmitter Config
 [[test.validator.account]]
 address = "BWrwSWjbikT3H7qHAkUEbLmwDQoB4ZDJ4wcSEhSPTZCu"
-filename = "ts/tests/accounts/message_transmitter/message_transmitter_config.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/message_transmitter/message_transmitter_config.json"
 
 ### Wormhole Core Bridge -- Config
 [[test.validator.account]]
 address = "6bi4JGDoRwUs9TYBuvoA7dUVyikTJDrJsJU1ew6KVLiu"
-filename = "ts/tests/accounts/core_bridge/config.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/config.json"
 
 ### Wormhole Core Bridge -- Fee Collector
 [[test.validator.account]]
 address = "7s3a1ycs16d6SNDumaRtjcoyMaTDZPavzgsmS3uUZYWX"
-filename = "ts/tests/accounts/core_bridge/fee_collector.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/fee_collector.json"
 
 ### Wormhole Core Bridge -- Guardian Set 0
 [[test.validator.account]]
 address = "dxZtypiKT5D9LYzdPxjvSZER9MgYfeRVU5qpMTMTRs4"
-filename = "ts/tests/accounts/core_bridge/guardian_set_0.json"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/guardian_set_0.json"
+
+### Testnet Matching Engine Program
+[[test.validator.clone]]
+address = "mPydpGUWxzERTNpyvTKdvS7v8kvw5sgwfiP8WQFrXVS"
+
+### Testnet Matching Engine -- Custodian
+[[test.validator.account]]
+address = "5BsCKkzuZXLygduw6RorCqEB61AdzNkxp5VzQrFGzYWr"
+filename = "lib/example-liquidity-layer/solana/ts/tests/accounts/testnet/matching_engine_custodian.json"
+
+### Testnet Token Router Program
+[[test.validator.clone]]
+address = "tD8RmtdcV7bzBeuFgyrFc8wvayj988ChccEzRQzo6md"
+
+### Testnet Token Router -- Custodian
+[[test.validator.clone]]
+address = "CFYdtHYDnQgCAcwetWVjVg5V8Uiy1CpJaoYJxmV19Z7N"
