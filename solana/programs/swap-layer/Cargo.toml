@@ -21,6 +21,7 @@ integration-test = ["localnet"]
 
 [dependencies]
 token-router.workspace = true
+common.workspace = true
 
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true

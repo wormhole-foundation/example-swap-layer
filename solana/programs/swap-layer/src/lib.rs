@@ -14,7 +14,6 @@ pub mod utils;
 declare_id!("AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m");
 
 const CUSTODIAN_BUMP: u8 = 254;
-const USDC_MINT: Pubkey = solana_program::pubkey!("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 
 #[program]
 pub mod swap_layer {
