@@ -7,13 +7,9 @@ mod composite;
 
 mod error;
 
-pub mod messages;
-
 pub mod state;
 
 pub mod utils;
-
-pub mod types;
 
 declare_id!("AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m");
 

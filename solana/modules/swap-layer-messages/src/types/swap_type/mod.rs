@@ -45,11 +45,12 @@ impl Readable for SwapType {
 impl Writeable for SwapType {
     fn written_size(&self) -> usize {
         match self {
-            Self::Invalid => 1,
-            Self::UniswapV3(parameters) => 1 + parameters.written_size(),
-            Self::TraderJoe(parameters) => 1 + parameters.written_size(),
-            Self::JupiterV6(parameters) => 1 + parameters.written_size(),
+            Self::Invalid => 0,
+            Self::UniswapV3(parameters) => parameters.written_size(),
+            Self::TraderJoe(parameters) => parameters.written_size(),
+            Self::JupiterV6(parameters) => parameters.written_size(),
         }
+        .saturating_add(1)
     }
 
     fn write<W>(&self, writer: &mut W) -> io::Result<()>

@@ -39,8 +39,8 @@ impl Writeable for OutputToken {
     fn written_size(&self) -> usize {
         match self {
             Self::Usdc => 1,
-            Self::Gas(swap) => 1 + swap.written_size(),
-            Self::Token(swap) => 1 + swap.written_size(),
+            Self::Gas(swap) => swap.written_size().saturating_add(1),
+            Self::Token(swap) => swap.written_size().saturating_add(1),
         }
     }
 
@@ -87,7 +87,8 @@ impl Readable for OutputSwap {
 
 impl Writeable for OutputSwap {
     fn written_size(&self) -> usize {
-        4 + 16 + self.swap_type.written_size()
+        const ADDITIONAL: usize = 4 + 16;
+        self.swap_type.written_size().saturating_add(ADDITIONAL)
     }
 
     fn write<W>(&self, writer: &mut W) -> io::Result<()>

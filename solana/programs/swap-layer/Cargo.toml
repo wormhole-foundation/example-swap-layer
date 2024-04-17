@@ -20,6 +20,7 @@ testnet = ["token-router/testnet"]
 integration-test = ["localnet"]
 
 [dependencies]
+swap-layer-messages.workspace = true
 token-router.workspace = true
 common.workspace = true
 
@@ -31,3 +32,6 @@ ruint.workspace = true
 
 [dev-dependencies]
 hex-literal.workspace = true
+
+[lints]
+workspace = true

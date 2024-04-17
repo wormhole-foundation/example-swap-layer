@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, ErrorKind};
 
 use crate::types::Uint24;
 use common::wormhole_io::{Readable, Writeable};
@@ -32,15 +32,18 @@ impl Readable for SharedUniswapTraderJoeSwapParameters {
 
 impl Writeable for SharedUniswapTraderJoeSwapParameters {
     fn written_size(&self) -> usize {
-        1 + self.leg_first_fee.written_size()
-            + self.path.iter().map(Writeable::written_size).sum::<usize>()
+        self.leg_first_fee
+            .written_size()
+            .saturating_add(self.path.iter().map(Writeable::written_size).sum::<usize>())
+            .saturating_add(1)
     }
 
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
     {
-        u8::write(&(self.path.len() as u8), writer)?;
+        let path_len = u8::try_from(self.path.len()).map_err(|_| ErrorKind::InvalidInput)?;
+        path_len.write(writer)?;
         self.leg_first_fee.write(writer)?;
         for path in &self.path {
             path.write(writer)?;
@@ -72,7 +75,7 @@ impl Readable for SharedUniswapTraderJoeSwapPath {
 
 impl Writeable for SharedUniswapTraderJoeSwapPath {
     fn written_size(&self) -> usize {
-        20 + self.fee.written_size()
+        self.fee.written_size().saturating_add(20)
     }
 
     fn write<W>(&self, writer: &mut W) -> io::Result<()>

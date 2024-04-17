@@ -9,19 +9,27 @@ pub struct Uint24(Uint<24, 1>);
 
 impl Uint24 {
     pub fn from_be_bytes(bytes: [u8; 3]) -> Self {
-        let mut value = u64::default();
+        let mut out = u64::default();
         for (i, byte) in bytes.into_iter().enumerate() {
-            value += u64::from(byte) << (8 * (2 - i));
+            let value = u64::from(byte) << usize::saturating_mul(8, usize::saturating_sub(2, i));
+            out = out.saturating_add(value);
         }
 
-        Self(Uint::from(value))
+        Self(Uint::from(out))
     }
 
     pub fn to_be_bytes(self) -> [u8; 3] {
         let value = u64::from(self);
         let mut bytes = <[u8; 3]>::default();
         for (i, byte) in bytes.iter_mut().enumerate() {
-            *byte = ((value >> (8 * (2 - i))) % 256) as u8;
+            let byte_val = (value >> usize::saturating_mul(8, usize::saturating_sub(2, i))) % 256;
+
+            // This conversion is safe because the above value modulo 256 will be u8.
+            #[allow(clippy::as_conversions)]
+            #[allow(clippy::cast_possible_truncation)]
+            let byte_val = byte_val as u8;
+
+            *byte = byte_val;
         }
 
         bytes
@@ -104,7 +112,8 @@ impl Uint48 {
     pub fn from_be_bytes(bytes: [u8; 6]) -> Self {
         let mut value = u64::default();
         for (i, byte) in bytes.into_iter().enumerate() {
-            value += u64::from(byte) << (8 * (5 - i));
+            let c = u64::from(byte) << (usize::saturating_mul(8, usize::saturating_sub(5, i)));
+            value = value.saturating_add(c);
         }
 
         Self(Uint::from(value))
@@ -114,7 +123,14 @@ impl Uint48 {
         let value = u64::from(self);
         let mut bytes = <[u8; 6]>::default();
         for (i, byte) in bytes.iter_mut().enumerate() {
-            *byte = ((value >> (8 * (5 - i))) % 256) as u8;
+            let byte_val = (value >> (usize::saturating_mul(8, usize::saturating_sub(5, i)))) % 256;
+
+            // This conversion is safe because the above value modulo 256 will be u8.
+            #[allow(clippy::as_conversions)]
+            #[allow(clippy::cast_possible_truncation)]
+            let byte_val = byte_val as u8;
+
+            *byte = byte_val;
         }
 
         bytes
