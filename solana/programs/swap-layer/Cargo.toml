@@ -26,3 +26,8 @@ common.workspace = true
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 solana-program.workspace = true
+
+ruint.workspace = true
+
+[dev-dependencies]
+hex-literal.workspace = true

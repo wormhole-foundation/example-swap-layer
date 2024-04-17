@@ -2,6 +2,7 @@
 members = [
     "programs/*"
 ]
+exclude = ["lib"]
 resolver = "2"
 
 [workspace.package]
