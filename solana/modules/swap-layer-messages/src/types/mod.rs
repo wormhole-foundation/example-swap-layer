@@ -54,11 +54,14 @@ impl Writeable for RedeemMode {
     fn written_size(&self) -> usize {
         match self {
             Self::Direct => 1,
-            Self::Payload(payload) => 1 + payload.written_size(),
+            Self::Payload(payload) => payload.written_size().saturating_add(1),
             Self::Relay {
                 gas_dropoff,
                 relaying_fee,
-            } => 1 + gas_dropoff.written_size() + relaying_fee.written_size(),
+            } => gas_dropoff
+                .written_size()
+                .saturating_add(relaying_fee.written_size())
+                .saturating_add(1),
         }
     }
 

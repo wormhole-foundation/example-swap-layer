@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = [ "modules/swap-layer-messages",
     "programs/*"
 ]
 exclude = ["lib"]
@@ -26,6 +26,7 @@ path = "lib/example-liquidity-layer/solana/programs/matching-engine"
 features = ["no-entrypoint"]
 
 [workspace.dependencies]
+swap-layer-messages = { path = "modules/swap-layer-messages" }
 wormhole-io = "0.1.2"
 anchor-lang = "=0.29.0"
 anchor-spl = "=0.29.0"

@@ -2313,7 +2313,17 @@ dependencies = [
  "liquidity-layer-common-solana",
  "ruint",
  "solana-program",
+ "swap-layer-messages",
  "token-router",
+]
+
+[[package]]
+name = "swap-layer-messages"
+version = "0.0.0"
+dependencies = [
+ "hex-literal",
+ "liquidity-layer-common-solana",
+ "ruint",
 ]
 
 [[package]]

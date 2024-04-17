@@ -3,8 +3,13 @@ anchor_version = "0.29.0"   # CLI
 solana_version = "1.16.27"
 
 [features]
-seeds = false
+resolution = false
 skip-lint = false
+
+[workspace]
+members = [
+    "programs/swap-layer"
+]
 
 [programs.localnet]
 swap_layer = "AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m"

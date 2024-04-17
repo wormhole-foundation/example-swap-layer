@@ -27,9 +27,10 @@ impl Readable for SwapMessageV1 {
 
 impl Writeable for SwapMessageV1 {
     fn written_size(&self) -> usize {
-        self.recipient.written_size()
-            + self.redeem_mode.written_size()
-            + self.output_token.written_size()
+        self.recipient
+            .written_size()
+            .saturating_add(self.redeem_mode.written_size())
+            .saturating_add(self.output_token.written_size())
     }
 
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
