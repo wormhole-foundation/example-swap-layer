@@ -1193,7 +1193,6 @@ version = "0.0.0"
 dependencies = [
  "anchor-lang",
  "cfg-if",
- "hex-literal",
  "ruint",
  "solana-program",
  "wormhole-cctp-solana",
@@ -1226,7 +1225,6 @@ dependencies = [
  "anchor-spl",
  "cfg-if",
  "hex",
- "hex-literal",
  "liquidity-layer-common-solana",
  "ruint",
  "solana-program",
@@ -2311,7 +2309,9 @@ version = "0.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "hex-literal",
  "liquidity-layer-common-solana",
+ "ruint",
  "solana-program",
  "token-router",
 ]
@@ -2409,7 +2409,6 @@ dependencies = [
  "anchor-spl",
  "cfg-if",
  "hex",
- "hex-literal",
  "liquidity-layer-common-solana",
  "matching-engine",
  "ruint",

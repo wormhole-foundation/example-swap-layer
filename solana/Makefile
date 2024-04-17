@@ -25,6 +25,15 @@ lint:
 lib/example-liquidity-layer/solana/Cargo.toml:
 	git submodule update --init --recursive
 
+.PHONY: cargo-test
+cargo-test:
+	cargo test --workspace --all-targets --features $(NETWORK) -- --nocapture
+
 .PHONY: integration-test
 integration-test: node_modules lib/example-liquidity-layer/solana/Cargo.toml
 	anchor test --arch sbf -- --features integration-test
+
+.PHONY: test
+test:
+	NETWORK=localnet $(MAKE) cargo-test
+	NETWORK=testnet $(MAKE) cargo-test
