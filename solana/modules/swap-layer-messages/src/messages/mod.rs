@@ -52,8 +52,8 @@ mod test {
     use hex_literal::hex;
 
     use crate::types::{
-        OutputSwap, OutputToken, RedeemMode, SharedUniswapTraderJoeSwapParameters,
-        SharedUniswapTraderJoeSwapPath, SwapType, Uint24, Uint48,
+        OutputSwap, OutputToken, RedeemMode, SwapType, Uint24, Uint48, UniswapSwapParameters,
+        UniswapSwapPath,
     };
 
     use super::*;
@@ -118,9 +118,9 @@ mod test {
                 output_token: OutputToken::Gas(OutputSwap {
                     deadline: 0,
                     limit_amount: 0,
-                    swap_type: SwapType::UniswapV3(SharedUniswapTraderJoeSwapParameters {
-                        leg_first_fee: Uint24::from(500),
-                        path: vec![SharedUniswapTraderJoeSwapPath {
+                    swap_type: SwapType::UniswapV3(UniswapSwapParameters {
+                        first_leg_fee: Uint24::from(500),
+                        path: vec![UniswapSwapPath {
                             evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
                             fee: Uint24::from(500),
                         },]
