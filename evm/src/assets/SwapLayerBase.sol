@@ -10,7 +10,7 @@ import "wormhole-sdk/interfaces/token/IPermit2.sol";
 
 import {IWETH} from "wormhole-sdk/interfaces/token/IWETH.sol";
 import "wormhole-sdk/libraries/BytesParsing.sol";
-import "liquidity-layer/ITokenRouter.sol";
+import {ITokenRouter} from "liquidity-layer/interfaces/ITokenRouter.sol";
 import {SWAP_TYPE_UNISWAPV3, SWAP_TYPE_TRADERJOE} from "./Params.sol";
 
 struct SwapLayerPeersState {

@@ -15,10 +15,10 @@ import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 import "wormhole-sdk/testing/UsdcDealer.sol";
 import "wormhole-sdk/testing/WormholeCctpSimulator.sol";
 
-import "liquidity-layer/ITokenRouter.sol";
-import { FastTransferParameters } from "liquidity-layer/ITokenRouterTypes.sol";
-import { TokenRouterImplementation }
-  from "./liquidity-layer/TokenRouter/TokenRouterImplementation.sol";
+import { ITokenRouter } from "liquidity-layer/interfaces/ITokenRouter.sol";
+import { FastTransferParameters, Endpoint } from "liquidity-layer/interfaces/ITokenRouterTypes.sol";
+import { Implementation } from "liquidity-layer/shared/Implementation.sol";
+import { TokenRouter } from "liquidity-layer/TokenRouter/TokenRouter.sol";
 
 import { SwapLayer } from "swap-layer/SwapLayer.sol";
 import "swap-layer/assets/SwapLayerRelayingFees.sol";
@@ -34,11 +34,12 @@ contract SwapLayerTestBase is Test {
   bytes32 constant FOREIGN_LIQUIDITY_LAYER        = bytes32(uint256(uint160(address(1))));
   bytes32 constant FOREIGN_SWAP_LAYER             = bytes32(uint256(uint160(address(2))));
   bytes32 constant MATCHING_ENGINE_ADDRESS        = bytes32(uint256(uint160(address(3))));
+  bytes32 constant MATCHING_ENGINE_MINT_RECIPIENT = bytes32(uint256(uint160(address(4))));
   uint16  constant MATCHING_ENGINE_CHAIN          = 0xFFFF;
   uint32  constant MATCHING_ENGINE_DOMAIN         = 0xFFFFFFFF;
-  uint128 constant FAST_TRANSFER_MAX_AMOUNT       = 1e9;
-  uint128 constant FAST_TRANSFER_BASE_FEE         = 1e6;
-  uint128 constant FAST_TRANSFER_INIT_AUCTION_FEE = 1e6;
+  uint64  constant FAST_TRANSFER_MAX_AMOUNT       = 1e9;
+  uint64  constant FAST_TRANSFER_BASE_FEE         = 1e6;
+  uint64  constant FAST_TRANSFER_INIT_AUCTION_FEE = 1e6;
 
   IWormhole immutable wormhole;
   IWETH     immutable wnative;
@@ -83,38 +84,42 @@ contract SwapLayerTestBase is Test {
   }
 
   function deployBase() public {
-    address llAssistant = address(0);
-    liquidityLayer = ITokenRouter(address(new ERC1967Proxy(
-      address(new TokenRouterImplementation(
-        address(usdc),
-        address(wormhole),
-        tokenMessenger,
-        MATCHING_ENGINE_CHAIN,
-        MATCHING_ENGINE_ADDRESS,
-        MATCHING_ENGINE_DOMAIN
-      )),
-      abi.encodeCall(TokenRouterImplementation.initialize, (llOwner, llAssistant))
-    )));
+    vm.startPrank(llOwner);
+    {
+      liquidityLayer = ITokenRouter(address(new ERC1967Proxy(
+        address(new TokenRouter(
+          address(usdc),
+          address(wormhole),
+          tokenMessenger,
+          MATCHING_ENGINE_CHAIN,
+          MATCHING_ENGINE_ADDRESS,
+          MATCHING_ENGINE_MINT_RECIPIENT,
+          MATCHING_ENGINE_DOMAIN
+        )),
+        abi.encodeCall(Implementation.initialize, abi.encodePacked(llOwner)) //ownerAssistant
+      )));
+
+      liquidityLayer.setCctpAllowance(type(uint256).max);
+      
+      liquidityLayer.addRouterEndpoint(
+        FOREIGN_CHAIN_ID,
+        Endpoint(FOREIGN_LIQUIDITY_LAYER, FOREIGN_LIQUIDITY_LAYER),
+        FOREIGN_DOMAIN
+      );
+
+      liquidityLayer.updateFastTransferParameters(
+        FastTransferParameters({
+          enabled: true,
+          maxAmount: FAST_TRANSFER_MAX_AMOUNT,
+          baseFee: FAST_TRANSFER_BASE_FEE,
+          initAuctionFee: FAST_TRANSFER_INIT_AUCTION_FEE
+        })
+      );
+    }
+    vm.stopPrank();
 
     wormholeCctpSimulator.setMintRecipient(address(liquidityLayer));
     wormholeCctpSimulator.setDestinationCaller(address(liquidityLayer));
-
-    vm.startPrank(llOwner);
-    liquidityLayer.setCctpAllowance(type(uint256).max);
-    liquidityLayer.addRouterEndpoint(
-      FOREIGN_CHAIN_ID,
-      FOREIGN_LIQUIDITY_LAYER,
-      FOREIGN_DOMAIN
-    );
-    liquidityLayer.updateFastTransferParameters(
-      FastTransferParameters({
-        enabled: true,
-        maxAmount: FAST_TRANSFER_MAX_AMOUNT,
-        baseFee: FAST_TRANSFER_BASE_FEE,
-        initAuctionFee: FAST_TRANSFER_INIT_AUCTION_FEE
-      })
-    );
-    vm.stopPrank();
 
     FeeParams feeParams;
     feeParams = feeParams.baseFee(1e4); //1 cent

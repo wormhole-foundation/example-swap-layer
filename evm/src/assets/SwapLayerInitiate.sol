@@ -52,8 +52,10 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     else
       (redeemPayload, ) = params.slice(mos.redeem.offset - MODE_SIZE, mos.redeem.size + MODE_SIZE);
 
-    //unchecked cast, but if someone manages to withdraw 10^(38-6) USDC then we have other problems
-    uint128 usdcAmount = uint128(_acquireUsdc(uint(fastTransferFee) + relayingFee, mos, params));
+    //unchecked cast, but if someone manages to withdraw 10^(19-6), i.e. 10 trillion USDC then
+    //  we have other problems regardless (though who knows what the future holds for the "stable"
+    //  coin that is the US dollar - or any other fiat currency for that matter)
+    uint64 usdcAmount = uint64(_acquireUsdc(uint(fastTransferFee) + relayingFee, mos, params));
 
     bytes32 peer = _getPeer(targetChain);
     if (peer == bytes32(0))
@@ -67,7 +69,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     bytes memory swapMessage = encodeSwapMessage(recipient, redeemPayload, outputSwap);
     bytes memory ret;
     if (mos.fastTransfer.mode == FastTransferMode.Enabled) {
-      (uint64 sequence, uint64 fastSequence, uint64 cctpNonce) =
+      (uint64 sequence, uint64 fastSequence, uint256 protocolSequence) =
         _liquidityLayer.placeFastMarketOrder(
           usdcAmount,
           targetChain,
@@ -77,17 +79,17 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
           fastTransferDeadline
         );
 
-      ret = abi.encode(usdcAmount, sequence, cctpNonce, fastSequence);
+      ret = abi.encode(usdcAmount, sequence, protocolSequence, fastSequence);
     }
     else {
-      (uint64 sequence, uint64 cctpNonce) = _liquidityLayer.placeMarketOrder(
+      (uint64 sequence, uint256 protocolSequence) = _liquidityLayer.placeMarketOrder(
         usdcAmount,
         targetChain,
         peer,
         swapMessage
       );
 
-      ret = abi.encode(usdcAmount, sequence, cctpNonce);
+      ret = abi.encode(usdcAmount, sequence, protocolSequence);
     }
 
     return (mos.redeem.mode == RedeemMode.Relay)

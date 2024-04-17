@@ -6,7 +6,7 @@ import "@openzeppelin/token/ERC20/IERC20.sol";
 import "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
-import { OrderResponse as Attestations, RedeemedFill } from "liquidity-layer/ITokenRouter.sol";
+import { OrderResponse as Attestations, RedeemedFill } from "liquidity-layer/interfaces/ITokenRouter.sol";
 
 import "./SwapLayerGovernance.sol";
 import "./Params.sol";

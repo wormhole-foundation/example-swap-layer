@@ -15,7 +15,7 @@ import { INonfungiblePositionManager } from "./external/IUniswap.sol";
 import { ITJLBRouter, ITJLBFactory } from "./external/ITraderJoe.sol";
 import { PriceHelper as TJMath } from "./external/TJMath/PriceHelper.sol";
 
-import { Messages } from "./liquidity-layer/shared/Messages.sol";
+import { Messages } from "liquidity-layer/shared/Messages.sol";
 
 import "swap-layer/assets/Params.sol";
 import "swap-layer/assets/SwapLayerInitiate.sol";

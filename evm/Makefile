@@ -10,6 +10,15 @@ export
 unexport TEST_FORK
 endif
 
+tolib = $(addprefix lib/,$(firstword $(subst @, ,$(notdir $(1)))))
+
+define install_lib
+dependencies: $(call tolib,$(1))
+
+$(call tolib,$(1)):
+	forge install $(1) --no-git --no-commit
+endef
+
 .DEFAULT_GOAL = build
 .PHONY: build test clean dependencies
 
@@ -20,19 +29,14 @@ test: dependencies
 	forge test --fork-url $$TEST_RPC -vvv
 #--match-test RelayedEthSwap
 
+LIB_DEPS = foundry-rs/forge-std
+LIB_DEPS += openzeppelin/openzeppelin-contracts@dc44c9f #4.9.6
+LIB_DEPS += wormhole-foundation/wormhole-solidity-sdk@18894be #post-merged branch
+LIB_DEPS += wormhole-foundation/example-liquidity-layer@1363c14 #evm/upgradeability branch
+# dynamically generate install rule for each lib dependency and add to depdenencies
+$(foreach dep,$(LIB_DEPS), $(eval $(call install_lib,$(dep))))
+
 clean:
 	forge clean
 	@$(MAKE) -C env clean
 
-dependencies: lib/forge-std lib/openzeppelin-contracts lib/wormhole-solidity-sdk
-
-#TODO nail down version
-lib/forge-std:
-	forge install foundry-rs/forge-std --no-git --no-commit
-
-#TODO nail down version
-lib/openzeppelin-contracts:
-	forge install openzeppelin/openzeppelin-contracts --no-git --no-commit
-
-lib/wormhole-solidity-sdk:
-	forge install wormhole-foundation/wormhole-solidity-sdk@18894be --no-git --no-commit

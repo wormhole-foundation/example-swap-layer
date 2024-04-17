@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-import { OrderResponse } from "liquidity-layer/ITokenRouter.sol";
+import { OrderResponse } from "liquidity-layer/interfaces/ITokenRouter.sol";
 
 interface ISwapLayer {
   //selector: 0f3376b1
