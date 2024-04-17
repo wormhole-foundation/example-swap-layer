@@ -11,8 +11,8 @@ use common::wormhole_io::{Readable, Writeable};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SwapType {
     Invalid,
-    UniswapV3(SharedUniswapTraderJoeSwapParameters),
-    TraderJoe(SharedUniswapTraderJoeSwapParameters),
+    UniswapV3(UniswapSwapParameters),
+    TraderJoe(TraderJoeSwapParameters),
     JupiterV6(JupiterV6SwapParameters),
 }
 

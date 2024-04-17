@@ -4,10 +4,12 @@ use common::wormhole_io::{Readable, Writeable};
 use ruint::{ToUintError, Uint};
 
 /// New type for a 3-byte unsigned integer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Uint24(Uint<24, 1>);
 
 impl Uint24 {
+    pub const ZERO: Uint24 = Uint24(Uint::ZERO);
+
     pub fn from_be_bytes(bytes: [u8; 3]) -> Self {
         let mut out = u64::default();
         for (i, byte) in bytes.into_iter().enumerate() {
