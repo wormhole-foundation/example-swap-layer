@@ -21,8 +21,4 @@ export class Custodian {
         this.feeRecipientToken = feeRecipientToken;
         this.feeUpdater = feeUpdater;
     }
-
-    static address(programId: PublicKey) {
-        return emitterAddress(programId);
-    }
 }

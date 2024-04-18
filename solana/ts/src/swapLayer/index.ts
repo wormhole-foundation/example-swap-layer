@@ -5,6 +5,7 @@ import { Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import { IDL, SwapLayer } from "../../../target/types/swap_layer";
 import { Custodian } from "./state";
+import * as tokenRouterSdk from "../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
 
 export const PROGRAM_IDS = ["AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m"] as const;
 
@@ -33,13 +34,24 @@ export class SwapLayerProgram {
     }
 
     custodianAddress(): PublicKey {
-        return Custodian.address(this.ID);
+        return PublicKey.findProgramAddressSync([Buffer.from("custodian")], this.ID)[0];
     }
 
     usdcComposite(mint?: PublicKey): { mint: PublicKey } {
         return {
             mint: mint ?? this.mint,
         };
+    }
+
+    tmpTokenAccountKey() {
+        return PublicKey.findProgramAddressSync(
+            [Buffer.from("tmp"), this.mint.toBuffer()],
+            this.ID
+        )[0];
+    }
+
+    checkedCustodianComposite(addr?: PublicKey): { custodian: PublicKey } {
+        return { custodian: addr ?? this.custodianAddress() };
     }
 
     async fetchCustodian(input?: { address: PublicKey }): Promise<Custodian> {
@@ -66,6 +78,31 @@ export class SwapLayerProgram {
                 feeRecipientToken: splToken.getAssociatedTokenAddressSync(this.mint, feeRecipient),
                 feeUpdater,
                 usdc: this.usdcComposite(this.mint),
+            })
+            .instruction();
+    }
+
+    async completeTransferRelayIx(accounts: {
+        payer: PublicKey;
+        beneficiary: PublicKey;
+        preparedFill: PublicKey;
+        tokenRouterCustody: PublicKey;
+        tokenRouterProgram: PublicKey;
+    }) {
+        const { payer, beneficiary, preparedFill, tokenRouterCustody, tokenRouterProgram } =
+            accounts;
+
+        return this.program.methods
+            .completeTransferRelay()
+            .accounts({
+                payer,
+                custodian: this.checkedCustodianComposite(),
+                tmpTokenAccount: this.tmpTokenAccountKey(),
+                usdc: this.usdcComposite(this.mint),
+                beneficiary,
+                preparedFill,
+                tokenRouterCustody,
+                tokenRouterProgram,
             })
             .instruction();
     }

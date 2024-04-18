@@ -132,3 +132,11 @@ address = "tD8RmtdcV7bzBeuFgyrFc8wvayj988ChccEzRQzo6md"
 ### Testnet Token Router -- Custodian
 [[test.validator.clone]]
 address = "CFYdtHYDnQgCAcwetWVjVg5V8Uiy1CpJaoYJxmV19Z7N"
+
+### Testnet Token Router - Sepolia Endpoint
+[[test.validator.clone]]
+address = "7GKCHT6kxRGmJJYuKXUkBzzxKXbnyEHa79nuQeeHKVxW"
+
+### Testnet Token Router - Mint Recipient
+[[test.validator.clone]]
+address = "EPEpG3P1Vvak3stx7RnwQD9vWFLpWzpXnbfXc1owrD7o"
