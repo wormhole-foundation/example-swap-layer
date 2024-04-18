@@ -10,4 +10,3 @@ export function programDataAddress(programId: PublicKey) {
         BPF_LOADER_UPGRADEABLE_PROGRAM_ID,
     )[0];
 }
-
