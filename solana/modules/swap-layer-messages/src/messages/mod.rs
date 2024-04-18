@@ -4,9 +4,9 @@ use common::wormhole_io::{Readable, TypePrefixedPayload, Writeable};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SwapMessageV1 {
-    recipient: [u8; 32],
-    redeem_mode: crate::types::RedeemMode,
-    output_token: crate::types::OutputToken,
+    pub recipient: [u8; 32],
+    pub redeem_mode: crate::types::RedeemMode,
+    pub output_token: crate::types::OutputToken,
 }
 
 impl Readable for SwapMessageV1 {

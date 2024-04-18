@@ -18,26 +18,26 @@ pub struct Custodian {
 }
 
 impl Custodian {
-    pub const SEED_PREFIX: &'static [u8] = b"emitter";
+    pub const SEED_PREFIX: &'static [u8] = b"custodian";
     pub const BUMP: u8 = crate::CUSTODIAN_BUMP;
     pub const SIGNER_SEEDS: &'static [&'static [u8]] = &[Self::SEED_PREFIX, &[Self::BUMP]];
 }
 
-// #[cfg(test)]
-// mod test {
-//     use solana_program::pubkey::Pubkey;
+#[cfg(test)]
+mod test {
+    use solana_program::pubkey::Pubkey;
 
-//     use super::*;
+    use super::*;
 
-//     #[test]
-//     fn test_bump() {
-//         let (custodian, bump) =
-//             Pubkey::find_program_address(&[Custodian::SEED_PREFIX], &crate::id());
-//         assert_eq!(Custodian::BUMP, bump, "bump mismatch");
-//         assert_eq!(
-//             custodian,
-//             Pubkey::create_program_address(Custodian::SIGNER_SEEDS, &crate::id()).unwrap(),
-//             "custodian mismatch",
-//         );
-//     }
-// }
+    #[test]
+    fn test_bump() {
+        let (custodian, bump) =
+            Pubkey::find_program_address(&[Custodian::SEED_PREFIX], &crate::id());
+        assert_eq!(Custodian::BUMP, bump, "bump mismatch");
+        assert_eq!(
+            custodian,
+            Pubkey::create_program_address(Custodian::SIGNER_SEEDS, &crate::id()).unwrap(),
+            "custodian mismatch",
+        );
+    }
+}
