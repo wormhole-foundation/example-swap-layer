@@ -6,7 +6,7 @@ pub use solana::*;
 
 use std::io;
 
-use common::wormhole_io::{Readable, Writeable};
+use crate::wormhole_io::{Readable, Writeable};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SwapType {

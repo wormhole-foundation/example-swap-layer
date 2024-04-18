@@ -1193,12 +1193,18 @@ version = "0.0.0"
 dependencies = [
  "anchor-lang",
  "cfg-if",
- "ruint",
+ "liquidity-layer-messages",
  "solana-program",
  "wormhole-cctp-solana",
+ "wormhole-solana-consts",
+]
+
+[[package]]
+name = "liquidity-layer-messages"
+version = "0.0.0"
+dependencies = [
  "wormhole-io",
  "wormhole-raw-vaas",
- "wormhole-solana-consts",
 ]
 
 [[package]]
@@ -2321,8 +2327,7 @@ dependencies = [
 name = "swap-layer-messages"
 version = "0.0.0"
 dependencies = [
- "hex-literal",
- "liquidity-layer-common-solana",
+ "liquidity-layer-messages",
  "ruint",
 ]
 

@@ -1,6 +1,6 @@
 use std::io;
 
-use common::wormhole_io::{Readable, TypePrefixedPayload, Writeable};
+use crate::wormhole_io::{Readable, TypePrefixedPayload, Writeable};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SwapMessageV1 {
@@ -65,10 +65,10 @@ mod test {
         let redeemer_message =
             hex!("010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d0000");
 
-        let fill = common::messages::Fill::read_slice(&encoded_fill).unwrap();
+        let fill = liquidity_layer_messages::Fill::read_slice(&encoded_fill).unwrap();
         assert_eq!(
             fill,
-            common::messages::Fill {
+            liquidity_layer_messages::Fill {
                 source_chain: 0xf00f,
                 order_sender: hex!(
                     "0000000000000000000000000000000000000000000000000000000000000002"
@@ -96,10 +96,10 @@ mod test {
         let redeemer_message =
             hex!("010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d00010000000000000000000000000000000000000000010001f4015991a2df15a8f6a256d3ec51e99254cd3fb576a90001f4");
 
-        let fill = common::messages::Fill::read_slice(&encoded_fill).unwrap();
+        let fill = liquidity_layer_messages::Fill::read_slice(&encoded_fill).unwrap();
         assert_eq!(
             fill,
-            common::messages::Fill {
+            liquidity_layer_messages::Fill {
                 source_chain: 0xf00f,
                 order_sender: hex!(
                     "0000000000000000000000000000000000000000000000000000000000000002"
@@ -137,10 +137,10 @@ mod test {
         let redeemer_message =
             hex!("010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000000000000000f424000");
 
-        let fill = common::messages::Fill::read_slice(&encoded_fill).unwrap();
+        let fill = liquidity_layer_messages::Fill::read_slice(&encoded_fill).unwrap();
         assert_eq!(
             fill,
-            common::messages::Fill {
+            liquidity_layer_messages::Fill {
                 source_chain: 0xf00f,
                 order_sender: hex!(
                     "0000000000000000000000000000000000000000000000000000000000000002"
@@ -171,10 +171,10 @@ mod test {
         let redeemer_message =
             hex!("010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d0100000004deadbeef00");
 
-        let fill = common::messages::Fill::read_slice(&encoded_fill).unwrap();
+        let fill = liquidity_layer_messages::Fill::read_slice(&encoded_fill).unwrap();
         assert_eq!(
             fill,
-            common::messages::Fill {
+            liquidity_layer_messages::Fill {
                 source_chain: 0xf00f,
                 order_sender: hex!(
                     "0000000000000000000000000000000000000000000000000000000000000002"

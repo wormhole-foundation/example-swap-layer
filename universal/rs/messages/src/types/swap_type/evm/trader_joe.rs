@@ -1,15 +1,14 @@
 use std::io::{self, ErrorKind};
 
-use crate::types::Uint24;
-use common::wormhole_io::{Readable, Writeable};
+use crate::wormhole_io::{Readable, Writeable};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UniswapSwapParameters {
-    pub first_leg_fee: Uint24,
-    pub path: Vec<UniswapSwapPath>,
+pub struct TraderJoeSwapParameters {
+    pub first_pool_id: TraderJoePoolId,
+    pub path: Vec<TraderJoeSwapPath>,
 }
 
-impl Readable for UniswapSwapParameters {
+impl Readable for TraderJoeSwapParameters {
     const SIZE: Option<usize> = None;
 
     fn read<R>(reader: &mut R) -> io::Result<Self>
@@ -17,7 +16,7 @@ impl Readable for UniswapSwapParameters {
         Self: Sized,
         R: io::Read,
     {
-        let first_leg_fee = Readable::read(reader)?;
+        let first_pool_id = Readable::read(reader)?;
 
         let path_len = u8::read(reader)?;
         let mut path = Vec::with_capacity(path_len.into());
@@ -25,15 +24,15 @@ impl Readable for UniswapSwapParameters {
             path.push(Readable::read(reader)?);
         }
         Ok(Self {
-            first_leg_fee,
+            first_pool_id,
             path,
         })
     }
 }
 
-impl Writeable for UniswapSwapParameters {
+impl Writeable for TraderJoeSwapParameters {
     fn written_size(&self) -> usize {
-        self.first_leg_fee
+        self.first_pool_id
             .written_size()
             .saturating_add(self.path.iter().map(Writeable::written_size).sum::<usize>())
             .saturating_add(1)
@@ -43,7 +42,7 @@ impl Writeable for UniswapSwapParameters {
     where
         W: io::Write,
     {
-        self.first_leg_fee.write(writer)?;
+        self.first_pool_id.write(writer)?;
 
         let path_len = u8::try_from(self.path.len()).map_err(|_| ErrorKind::InvalidInput)?;
         path_len.write(writer)?;
@@ -55,12 +54,12 @@ impl Writeable for UniswapSwapParameters {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UniswapSwapPath {
+pub struct TraderJoeSwapPath {
     pub evm_address: [u8; 20],
-    pub fee: Uint24,
+    pub pool_id: TraderJoePoolId,
 }
 
-impl Readable for UniswapSwapPath {
+impl Readable for TraderJoeSwapPath {
     const SIZE: Option<usize> = Some(23);
 
     fn read<R>(reader: &mut R) -> io::Result<Self>
@@ -70,13 +69,13 @@ impl Readable for UniswapSwapPath {
     {
         Ok(Self {
             evm_address: Readable::read(reader)?,
-            fee: Readable::read(reader)?,
+            pool_id: Readable::read(reader)?,
         })
     }
 }
-impl Writeable for UniswapSwapPath {
+impl Writeable for TraderJoeSwapPath {
     fn written_size(&self) -> usize {
-        self.fee.written_size().saturating_add(20)
+        self.pool_id.written_size().saturating_add(20)
     }
 
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
@@ -84,6 +83,41 @@ impl Writeable for UniswapSwapPath {
         W: io::Write,
     {
         self.evm_address.write(writer)?;
-        self.fee.write(writer)
+        self.pool_id.write(writer)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraderJoePoolId {
+    pub version: u8,
+    pub bin_size: u16,
+}
+
+impl Readable for TraderJoePoolId {
+    const SIZE: Option<usize> = Some(3);
+
+    fn read<R>(reader: &mut R) -> io::Result<Self>
+    where
+        Self: Sized,
+        R: io::Read,
+    {
+        Ok(Self {
+            version: u8::read(reader)?,
+            bin_size: u16::read(reader)?,
+        })
+    }
+}
+
+impl Writeable for TraderJoePoolId {
+    fn written_size(&self) -> usize {
+        Self::SIZE.unwrap()
+    }
+
+    fn write<W>(&self, writer: &mut W) -> io::Result<()>
+    where
+        W: io::Write,
+    {
+        self.version.write(writer)?;
+        self.bin_size.write(writer)
     }
 }

@@ -1,4 +1,4 @@
-[submodule "solana/lib/example-liquidity-layer"]
-	path = solana/lib/example-liquidity-layer
+[submodule "lib/example-liquidity-layer"]
+    path = lib/example-liquidity-layer
     url = https://github.com/wormhole-foundation/example-liquidity-layer.git
     branch = main
