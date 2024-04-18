@@ -9,7 +9,7 @@ pub use uint::*;
 
 use std::io;
 
-use common::wormhole_io::{Readable, Writeable, WriteableBytes};
+use crate::wormhole_io::{Readable, Writeable, WriteableBytes};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RedeemMode {

@@ -1,6 +1,6 @@
 use std::{io, ops::Deref};
 
-use common::wormhole_io::{Readable, Writeable};
+use crate::wormhole_io::{Readable, Writeable};
 use ruint::{ToUintError, Uint};
 
 /// New type for a 3-byte unsigned integer.
