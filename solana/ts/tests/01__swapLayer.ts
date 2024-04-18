@@ -39,6 +39,7 @@ describe("swap-layer", () => {
     const payer = PAYER_KEYPAIR;
     const relayer = Keypair.generate();
     const owner = OWNER_KEYPAIR;
+    const recipient = Keypair.generate();
     const ownerAssistant = OWNER_ASSISTANT_KEYPAIR;
     const feeUpdater = FEE_UPDATER_KEYPAIR;
     const feeRecipient = Keypair.generate();
@@ -111,6 +112,20 @@ describe("swap-layer", () => {
                     USDC_MINT_ADDRESS,
                     SystemProgram.programId,
                 );
+
+                await splToken.getOrCreateAssociatedTokenAccount(
+                    connection,
+                    payer,
+                    USDC_MINT_ADDRESS,
+                    relayer.publicKey,
+                );
+
+                await splToken.getOrCreateAssociatedTokenAccount(
+                    connection,
+                    payer,
+                    USDC_MINT_ADDRESS,
+                    recipient.publicKey,
+                );
             });
 
             after("Setup Lookup Table", async function () {
@@ -157,7 +172,7 @@ describe("swap-layer", () => {
             const burnSource = Array.from(Buffer.alloc(32, "beefdead", "hex"));
             const redeemer = swapLayer.custodianAddress();
 
-            it("Redeem USDC", async function () {
+            it("Redeem USDC (Self Redeem)", async function () {
                 const cctpNonce = testCctpNonce++;
 
                 // Concoct a Circle message.
@@ -238,6 +253,7 @@ describe("swap-layer", () => {
                     preparedFill,
                     tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
                     tokenRouterProgram: tokenRouter.ID,
+                    recipient: payer.publicKey,
                 });
 
                 await expectIxOk(connection, [transferIx], [payer]);

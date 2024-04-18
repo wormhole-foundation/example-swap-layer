@@ -88,9 +88,20 @@ export class SwapLayerProgram {
         preparedFill: PublicKey;
         tokenRouterCustody: PublicKey;
         tokenRouterProgram: PublicKey;
+        recipient: PublicKey;
+        recipientTokenAccount?: PublicKey;
     }) {
-        const { payer, beneficiary, preparedFill, tokenRouterCustody, tokenRouterProgram } =
-            accounts;
+        let {
+            payer,
+            beneficiary,
+            preparedFill,
+            tokenRouterCustody,
+            tokenRouterProgram,
+            recipient,
+            recipientTokenAccount,
+        } = accounts;
+
+        recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.mint, recipient);
 
         return this.program.methods
             .completeTransferRelay()
@@ -98,6 +109,8 @@ export class SwapLayerProgram {
                 payer,
                 custodian: this.checkedCustodianComposite(),
                 tmpTokenAccount: this.tmpTokenAccountKey(),
+                recipient,
+                recipientTokenAccount,
                 usdc: this.usdcComposite(this.mint),
                 beneficiary,
                 preparedFill,
