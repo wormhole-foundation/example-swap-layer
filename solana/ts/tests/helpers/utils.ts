@@ -217,3 +217,7 @@ export async function getBlockTime(connection: Connection): Promise<number> {
         .then(async (slot) => connection.getBlockTime(slot))
         .then((value) => value!);
 }
+
+export function hackedExpectDeepEqual(left: any, right: any) {
+    expect(JSON.parse(JSON.stringify(left))).to.eql(JSON.parse(JSON.stringify(right)));
+}

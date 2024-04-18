@@ -5,7 +5,7 @@ import { Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import { IDL, SwapLayer } from "../../../target/types/swap_layer";
 import { Custodian } from "./state";
-import * as tokenRouterSdk from "../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
+import * as tokenRouterSdk from "../../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
 
 export const PROGRAM_IDS = ["AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m"] as const;
 
@@ -46,7 +46,7 @@ export class SwapLayerProgram {
     tmpTokenAccountKey() {
         return PublicKey.findProgramAddressSync(
             [Buffer.from("tmp"), this.mint.toBuffer()],
-            this.ID
+            this.ID,
         )[0];
     }
 

@@ -13,7 +13,7 @@ export class Custodian {
         pendingOwner: PublicKey | null,
         ownerAssistant: PublicKey,
         feeRecipientToken: PublicKey,
-        feeUpdater: PublicKey
+        feeUpdater: PublicKey,
     ) {
         this.owner = owner;
         this.pendingOwner = pendingOwner;
