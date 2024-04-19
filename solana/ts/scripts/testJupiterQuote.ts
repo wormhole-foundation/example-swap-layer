@@ -1,142 +1,148 @@
-import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
-import fetch from "node-fetch";
+import { InstructionFromJSON, createJupiterApiClient } from "@jup-ag/api";
 import * as splToken from "@solana/spl-token";
-import {
-  createJupiterApiClient,
-  InstructionFromJSON,
-  InstructionFromJSONTyped,
-} from "@jup-ag/api";
+import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { execSync } from "child_process";
 
-const USDC_MINT_ADDRESS = new PublicKey(
-  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-);
-const USDT_MINT_ADDRESS = new PublicKey(
-  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
-);
+const USDC_MINT_ADDRESS = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+const USDT_MINT_ADDRESS = new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB");
 
 const ALLOWED_DEXES = [
-  "Lifinity V2", // use
-  //"Meteora DLMM", // use
-  //"Orca V2",
-  //"Phoenix", // use
-  //"Raydium",
-  //"Raydium CLMM", // use
-  //"Whirlpool", // use
+    //"Lifinity V2", // use
+    //"Meteora DLMM", // use
+    //"Orca V2",
+    //"Phoenix", // use
+    //"Raydium",
+    //"Raydium CLMM", // use
+    "Whirlpool", // use
 ];
 
 main();
 
 async function main() {
-  const jupiter = createJupiterApiClient({
-    basePath: "https://quote-api.jup.ag/v6",
-  });
+    const jupiter = createJupiterApiClient({
+        basePath: "https://quote-api.jup.ag/v6",
+    });
 
-  const quoteResponse = await jupiter.quoteGet({
-    inputMint: USDC_MINT_ADDRESS.toBase58(),
-    outputMint: splToken.NATIVE_MINT.toBase58(),
-    amount: 50000000000,
-    slippageBps: 50,
-    onlyDirectRoutes: true, // Maybe set to false if using `restrictIntermediateTokens`.
-    swapMode: "ExactIn",
-    dexes: ALLOWED_DEXES,
-    // restrictIntermediateTokens: true, // This might be interesting to use. Research this.
-  });
+    const inputMint = USDT_MINT_ADDRESS;
+    const outputMint = USDC_MINT_ADDRESS;
 
-  // const quoteResponse = {
-  //   inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-  //   inAmount: "50000000000",
-  //   outputMint: "So11111111111111111111111111111111111111112",
-  //   outAmount: "356466797912",
-  //   otherAmountThreshold: "354684463923",
-  //   swapMode: "ExactIn",
-  //   slippageBps: 50,
-  //   priceImpactPct: "0.0050",
-  //   routePlan: [
-  //     {
-  //       swapInfo: {
-  //         ammKey: "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
-  //         label: "Whirlpool",
-  //         inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-  //         outputMint: "So11111111111111111111111111111111111111112",
-  //         inAmount: "50000000000",
-  //         outAmount: "356466797912",
-  //         feeAmount: "1996",
-  //         feeMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-  //       },
-  //       percent: 100,
-  //     },
-  //   ],
-  //   // contextSlot: 259989210,
-  //   // timeTaken: 0.0014488,
-  // };
+    const quoteResponse = await jupiter.quoteGet({
+        inputMint: inputMint.toString(),
+        outputMint: outputMint.toString(),
+        amount: 50000000000,
+        slippageBps: 50,
+        onlyDirectRoutes: true, // Maybe set to false if using `restrictIntermediateTokens`.
+        swapMode: "ExactIn",
+        dexes: ALLOWED_DEXES,
+        // restrictIntermediateTokens: true, // This might be interesting to use. Research this.
+    });
 
-  console.log(JSON.stringify(quoteResponse, null, 2));
+    // const quoteResponse = {
+    //   inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    //   inAmount: "50000000000",
+    //   outputMint: "So11111111111111111111111111111111111111112",
+    //   outAmount: "356466797912",
+    //   otherAmountThreshold: "354684463923",
+    //   swapMode: "ExactIn",
+    //   slippageBps: 50,
+    //   priceImpactPct: "0.0050",
+    //   routePlan: [
+    //     {
+    //       swapInfo: {
+    //         ammKey: "Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE",
+    //         label: "Whirlpool",
+    //         inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    //         outputMint: "So11111111111111111111111111111111111111112",
+    //         inAmount: "50000000000",
+    //         outAmount: "356466797912",
+    //         feeAmount: "1996",
+    //         feeMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    //       },
+    //       percent: 100,
+    //     },
+    //   ],
+    //   // contextSlot: 259989210,
+    //   // timeTaken: 0.0014488,
+    // };
 
-  const guy = Keypair.generate();
-  const [custodian] = PublicKey.findProgramAddressSync(
-    [Buffer.from("custodian")],
-    guy.publicKey
-  );
-  //   // Check later.
-  const ata = splToken.getAssociatedTokenAddressSync(
-    splToken.NATIVE_MINT,
-    custodian,
-    true
-  );
-  console.log("ata", ata.toString());
-  const wtf = await jupiter.swapInstructionsPost({
-    swapRequest: {
-      userPublicKey: custodian.toString(),
-      // @ts-ignore
-      quoteResponse,
-    },
-  });
-  console.log(InstructionFromJSON(wtf.swapInstruction));
+    console.log(JSON.stringify(quoteResponse, null, 2));
 
-  //   // Check later.
-  //   const ata = splToken.getAssociatedTokenAddressSync(
-  //     splToken.NATIVE_MINT,
-  //     guy.publicKey
-  //   );
+    const swapLayerProgramId = new PublicKey("AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m");
+    const [custodian] = PublicKey.findProgramAddressSync(
+        [Buffer.from("custodian")],
+        swapLayerProgramId,
+    );
+    console.log("custodian", custodian.toString());
 
-  //   const ixResponse = await (
-  //     await fetch("https://quote-api.jup.ag/v6/swap-instructions", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({
-  //         // quoteResponse from /quote api
-  //         quoteResponse: CANNED_QUOTE,
-  //         userPublicKey: guy.publicKey.toBase58(),
-  //       }),
-  //     })
-  //   ).json();
+    const ixResponse = await jupiter.swapInstructionsPost({
+        swapRequest: {
+            userPublicKey: custodian.toString(),
+            quoteResponse,
+        },
+    });
 
-  //   if (ixResponse.error) {
-  //     throw new Error("Failed to get swap instructions: " + ixResponse.error);
-  //   }
+    const ix = InstructionFromJSON(ixResponse.swapInstruction);
 
-  //   const {
-  //     tokenLedgerInstruction, // If you are using `useTokenLedger = true`.
-  //     computeBudgetInstructions, // The necessary instructions to setup the compute budget.
-  //     setupInstructions, // Setup missing ATA for the users.
-  //     swapInstruction: swapInstructionPayload, // The actual swap instruction.
-  //     cleanupInstruction, // Unwrap the SOL if `wrapAndUnwrapSol = true`.
-  //     addressLookupTableAddresses, // The lookup table addresses that you can use if you are using versioned transaction.
-  //   } = ixResponse;
+    const sharedAccountsRouteAccountLabels = [
+        ["token_program", false],
+        ["jupiter_custody_owner", true],
+        ["user_transfer_authority", false],
+        ["source_token_account", false],
+        ["jupiter_usdc_custody_token", true],
+        ["jupiter_usdt_custody_token", true],
+        ["destination_token_account", false],
+        ["usdc_mint", true],
+        ["usdt_mint", true],
+        ["platform_fee_account", false],
+        ["token_2022_program", false],
+        ["event_authority", false],
+        ["program", false],
+    ];
 
-  //   console.log(deserializeInstruction(swapInstructionPayload));
+    const whirlpoolAccounts = [
+        ["whirlpool_program", false],
+        ["token_program", false],
+        ["jupiter_custody_owner", false],
+        ["whirlpool_usdc_usdt_pool", true],
+        ["jupiter_usdc_custody_token", false],
+        ["whirlpool_usdc_vault", true],
+        ["jupiter_usdt_custody_token", false],
+        ["whirlpool_usdt_vault", true],
+        ["whirlpool_usdc_usdt_tick_array_0", true],
+        ["whirlpool_usdc_usdt_tick_array_1", true],
+        ["whirlpool_usdc_usdt_tick_array_2", true],
+        ["whirlpool_oracle", false],
+    ];
+
+    const allLabels = sharedAccountsRouteAccountLabels.concat(whirlpoolAccounts);
+    if (allLabels.length != ix.accounts.length) {
+        throw new Error(
+            `Mismatch in number of accounts: ${allLabels.length} != ${ix.accounts.length}`,
+        );
+    }
+
+    for (let i = 0; i < ix.accounts.length; ++i) {
+        const key = ix.accounts[i].pubkey.toString();
+        const [label, write] = allLabels[i];
+        if (write) {
+            console.log(key, `${label}.json`);
+            const cmd = `solana account -u m -o ${label}.json --output json ${key}`;
+            console.log(cmd);
+            execSync(cmd);
+        }
+    }
+
+    //   console.log(deserializeInstruction(swapInstructionPayload));
 }
 
 function deserializeInstruction(instruction: any) {
-  return new TransactionInstruction({
-    programId: new PublicKey(instruction.programId),
-    keys: instruction.accounts.map((key: any) => ({
-      pubkey: new PublicKey(key.pubkey),
-      isSigner: key.isSigner,
-      isWritable: key.isWritable,
-    })),
-    data: Buffer.from(instruction.data, "base64"),
-  });
+    return new TransactionInstruction({
+        programId: new PublicKey(instruction.programId),
+        keys: instruction.accounts.map((key: any) => ({
+            pubkey: new PublicKey(key.pubkey),
+            isSigner: key.isSigner,
+            isWritable: key.isWritable,
+        })),
+        data: Buffer.from(instruction.data, "base64"),
+    });
 }
