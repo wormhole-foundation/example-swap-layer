@@ -140,3 +140,65 @@ address = "7GKCHT6kxRGmJJYuKXUkBzzxKXbnyEHa79nuQeeHKVxW"
 ### Testnet Token Router - Mint Recipient
 [[test.validator.clone]]
 address = "EPEpG3P1Vvak3stx7RnwQD9vWFLpWzpXnbfXc1owrD7o"
+
+### NOTE: The accounts below are from mainnet.
+
+### USDC Mint (Mainnet)
+[[test.validator.account]]
+address = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+filename = "ts/tests/accounts/usdc_mint.json"
+
+### USDT Mint (Mainnet)
+[[test.validator.account]]
+address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+filename = "ts/tests/accounts/usdt_mint.json"
+
+### Wormhole Core Bridge Program (Mainnet)
+[[test.genesis]]
+address = "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
+program = "ts/tests/artifacts/mainnet_core_bridge.so"
+
+### Jupiter V6 Program (Mainnet)
+[[test.genesis]]
+address = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+program = "ts/tests/artifacts/mainnet_jupiter_v6.so"
+
+### Whirlpool Program (Mainnet)
+[[test.genesis]]
+address = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+program = "ts/tests/artifacts/mainnet_whirlpool.so"
+
+### Jupiter V6 -- Custody Token Owner
+[[test.validator.account]]
+address = "6U91aKa8pmMxkJwBCfPTmUEfZi6dHe7DcFq2ALvB2tbB"
+filename = "ts/tests/accounts/jupiter/jupiter_custody_owner.json"
+
+### Jupiter V6 -- USDC Custody Token
+[[test.validator.account]]
+address = "4mdQgodP1CZsx6fZEQWesU7BtPpGdYn69gCCGYAEYqUj"
+filename = "ts/tests/accounts/jupiter/jupiter_usdc_custody_token.json"
+
+### Jupiter V6 -- USDT Custody Token
+[[test.validator.account]]
+address = "59v2cSbCsnyaWymLnsq6TWzE6cEN5KJYNTBNrcP4smRH"
+filename = "ts/tests/accounts/jupiter/jupiter_usdt_custody_token.json"
+
+### Jupiter V6 -- LUT #1
+[[test.validator.account]]
+address = "GxS6FiQ3mNnAar9HGQ6mxP7t6FcwmHkU7peSeQDUHmpN"
+filename = "ts/tests/accounts/jupiter/jupiter_lut1.json"
+
+### Whirlpool -- USDC-USDT Pool
+[[test.validator.account]]
+address = "4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_pool.json"
+
+### Whirlpool -- USDC Vault
+[[test.validator.account]]
+address = "4oY1eVHJrt7ywuFoQnAZwto4qcQip1QhYMAhD11PU4QL"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_vault.json"
+
+### Whirlpool -- USDT Vault
+[[test.validator.account]]
+address = "4dSG9tKHZR4CAictyEnH9XuGZyKapodWXq5xyg7uFwE9"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdt_vault.json"
