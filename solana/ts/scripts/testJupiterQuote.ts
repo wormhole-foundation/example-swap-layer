@@ -80,19 +80,20 @@ async function main() {
             quoteResponse,
         },
     });
+    console.log("ixResponse", JSON.stringify(ixResponse, null, 2));
 
     const ix = InstructionFromJSON(ixResponse.swapInstruction);
 
     const sharedAccountsRouteAccountLabels = [
         ["token_program", false],
-        ["jupiter_custody_owner", true],
+        ["ts/tests/accounts/jupiter/jupiter_custody_owner", true],
         ["user_transfer_authority", false],
         ["source_token_account", false],
-        ["jupiter_usdc_custody_token", true],
-        ["jupiter_usdt_custody_token", true],
+        ["ts/tests/accounts/jupiter/jupiter_usdc_custody_token", true],
+        ["ts/tests/accounts/jupiter/jupiter_usdt_custody_token", true],
         ["destination_token_account", false],
-        ["usdc_mint", true],
-        ["usdt_mint", true],
+        ["usdc_mint", false],
+        ["usdt_mint", false],
         ["platform_fee_account", false],
         ["token_2022_program", false],
         ["event_authority", false],
@@ -103,15 +104,15 @@ async function main() {
         ["whirlpool_program", false],
         ["token_program", false],
         ["jupiter_custody_owner", false],
-        ["whirlpool_usdc_usdt_pool", true],
+        ["ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_pool", true],
         ["jupiter_usdc_custody_token", false],
-        ["whirlpool_usdc_vault", true],
+        ["ts/tests/accounts/whirlpool/whirlpool_usdc_vault", true],
         ["jupiter_usdt_custody_token", false],
-        ["whirlpool_usdt_vault", true],
-        ["whirlpool_usdc_usdt_tick_array_0", true],
-        ["whirlpool_usdc_usdt_tick_array_1", true],
-        ["whirlpool_usdc_usdt_tick_array_2", true],
-        ["whirlpool_oracle", false],
+        ["ts/tests/accounts/whirlpool/whirlpool_usdt_vault", true],
+        ["ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array_0", true],
+        ["ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array_1", true],
+        ["ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array_2", true],
+        ["ts/tests/accounts/whirlpool/whirlpool_oracle", false],
     ];
 
     const allLabels = sharedAccountsRouteAccountLabels.concat(whirlpoolAccounts);
@@ -124,8 +125,8 @@ async function main() {
     for (let i = 0; i < ix.accounts.length; ++i) {
         const key = ix.accounts[i].pubkey.toString();
         const [label, write] = allLabels[i];
+        console.log(`pubkey: ${key}, write to file: ${write}`);
         if (write) {
-            console.log(key, `${label}.json`);
             const cmd = `solana account -u m -o ${label}.json --output json ${key}`;
             console.log(cmd);
             execSync(cmd);
