@@ -9,7 +9,7 @@ import {
     SystemProgram,
     ComputeBudgetProgram,
 } from "@solana/web3.js";
-import { expectIxOk, hackedExpectDeepEqual } from "./helpers";
+import { expectIxOk, getUsdcAtaBalance, hackedExpectDeepEqual } from "./helpers";
 import { FEE_UPDATER_KEYPAIR } from "./helpers";
 import { SwapLayerProgram, localnet, Custodian } from "../src/swapLayer";
 import { use as chaiUse, expect } from "chai";
@@ -37,7 +37,6 @@ chaiUse(require("chai-as-promised"));
 describe("swap-layer", () => {
     const connection = new Connection(LOCALHOST, "processed");
     const payer = PAYER_KEYPAIR;
-    const relayer = Keypair.generate();
     const owner = OWNER_KEYPAIR;
     const recipient = Keypair.generate();
     const ownerAssistant = OWNER_ASSISTANT_KEYPAIR;
@@ -117,13 +116,6 @@ describe("swap-layer", () => {
                     connection,
                     payer,
                     USDC_MINT_ADDRESS,
-                    relayer.publicKey,
-                );
-
-                await splToken.getOrCreateAssociatedTokenAccount(
-                    connection,
-                    payer,
-                    USDC_MINT_ADDRESS,
                     recipient.publicKey,
                 );
             });
@@ -163,93 +155,40 @@ describe("swap-layer", () => {
         let testCctpNonce = 2n ** 64n - 20n * 6400n;
 
         let wormholeSequence = 2000n;
-        describe("USDC Transfers", function () {
-            const encodedMintRecipient = Array.from(
-                tokenRouter.cctpMintRecipientAddress().toBuffer(),
-            );
-            const sourceCctpDomain = 0;
-            const amount = 69n;
-            const burnSource = Array.from(Buffer.alloc(32, "beefdead", "hex"));
-            const redeemer = swapLayer.custodianAddress();
-
-            it("Redeem USDC (Self Redeem)", async function () {
-                const cctpNonce = testCctpNonce++;
-
-                // Concoct a Circle message.
-                const { destinationCctpDomain, burnMessage, encodedCctpMessage, cctpAttestation } =
-                    await craftCctpTokenBurnMessage(
-                        tokenRouter,
-                        sourceCctpDomain,
-                        cctpNonce,
-                        encodedMintRecipient,
-                        amount,
-                        burnSource,
-                    );
-
-                const message = new LiquidityLayerMessage({
-                    deposit: new LiquidityLayerDeposit(
-                        {
-                            tokenAddress: burnMessage.burnTokenAddress,
-                            amount,
-                            sourceCctpDomain,
-                            destinationCctpDomain,
-                            cctpNonce,
-                            burnSource,
-                            mintRecipient: encodedMintRecipient,
-                        },
-                        {
-                            fill: {
-                                sourceChain: foreignChain,
-                                orderSender: Array.from(Buffer.alloc(32, "d00d", "hex")),
-                                redeemer: Array.from(redeemer.toBuffer()),
-                                redeemerMessage: Buffer.from(
-                                    "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000000000000000f424000",
-                                    "hex",
-                                ),
-                            },
-                        },
-                    ),
-                });
-
-                const vaa = await postLiquidityLayerVaa(
+        describe("USDC Transfer (Relay Redeem Type)", function () {
+            it("Self Redeem Fill", async function () {
+                const result = await createAndRedeemCctpFillForTest(
                     connection,
-                    payer,
-                    MOCK_GUARDIANS,
-                    foreignEndpointAddress,
-                    wormholeSequence++,
-                    message,
-                    { sourceChain: "sepolia" },
-                );
-
-                const ix = await tokenRouter.redeemCctpFillIx(
-                    {
-                        payer: payer.publicKey,
-                        vaa,
-                    },
-                    {
-                        encodedCctpMessage,
-                        cctpAttestation,
-                    },
-                );
-
-                const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
-                    units: 300_000,
-                });
-
-                const { value: lookupTableAccount } = await connection.getAddressLookupTable(
+                    tokenRouter,
+                    swapLayer,
                     tokenRouterLkupTable,
+                    payer,
+                    testCctpNonce++,
+                    foreignChain,
+                    foreignEndpointAddress,
+                    wormholeSequence,
+                    Buffer.from(
+                        "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000000000000000f424000",
+                        "hex",
+                    ),
                 );
-
-                await expectIxOk(connection, [computeIx, ix], [payer], {
-                    addressLookupTableAccounts: [lookupTableAccount!],
-                });
+                const { vaa, message } = result!;
 
                 const vaaAccount = await VaaAccount.fetch(connection, vaa);
                 const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                const beneficiary = Keypair.generate();
+
+                // Balance check.
+                const recipientBefore = await getUsdcAtaBalance(connection, payer.publicKey);
+                const payerLamportBefore = await connection.getBalance(payer.publicKey);
+                const feeRecipientBefore = await getUsdcAtaBalance(
+                    connection,
+                    feeRecipient.publicKey,
+                );
 
                 const transferIx = await swapLayer.completeTransferRelayIx({
                     payer: payer.publicKey,
-                    beneficiary: payer.publicKey,
+                    beneficiary: beneficiary.publicKey,
                     preparedFill,
                     tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
                     tokenRouterProgram: tokenRouter.ID,
@@ -257,9 +196,143 @@ describe("swap-layer", () => {
                 });
 
                 await expectIxOk(connection, [transferIx], [payer]);
+
+                // Balance check.
+                const recipientAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                const payerLamportAfter = await connection.getBalance(payer.publicKey);
+                const feeRecipientAfter = await getUsdcAtaBalance(
+                    connection,
+                    feeRecipient.publicKey,
+                );
+
+                expect(recipientAfter).to.equal(recipientBefore + message.deposit!.header.amount);
+                expect(payerLamportAfter).to.be.lessThan(payerLamportBefore);
+                expect(feeRecipientAfter).to.equal(feeRecipientBefore);
             });
 
-            it.skip("Redeem USDC With Gas DropOff", async function () {});
+            it("Fill With Gas Dropoff", async function () {
+                const relayerFee = 1000000n;
+                const gasAmount = 69000000n;
+
+                const result = await createAndRedeemCctpFillForTest(
+                    connection,
+                    tokenRouter,
+                    swapLayer,
+                    tokenRouterLkupTable,
+                    payer,
+                    testCctpNonce++,
+                    foreignChain,
+                    foreignEndpointAddress,
+                    wormholeSequence,
+                    Buffer.from(
+                        "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02041CDB400000000f424000",
+                        "hex",
+                    ),
+                );
+                const { vaa, message } = result!;
+
+                const vaaAccount = await VaaAccount.fetch(connection, vaa);
+                const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                const beneficiary = Keypair.generate();
+
+                // Balance check.
+                const recipientBefore = await getUsdcAtaBalance(connection, recipient.publicKey);
+                const recipientLamportBefore = await connection.getBalance(recipient.publicKey);
+                const payerLamportBefore = await connection.getBalance(payer.publicKey);
+                const feeRecipientBefore = await getUsdcAtaBalance(
+                    connection,
+                    feeRecipient.publicKey,
+                );
+
+                const transferIx = await swapLayer.completeTransferRelayIx({
+                    payer: payer.publicKey,
+                    beneficiary: beneficiary.publicKey,
+                    preparedFill,
+                    tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                    tokenRouterProgram: tokenRouter.ID,
+                    recipient: recipient.publicKey,
+                });
+
+                await expectIxOk(connection, [transferIx], [payer]);
+
+                // Balance check.
+                const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
+                const recipientLamportAfter = await connection.getBalance(recipient.publicKey);
+                const payerLamportAfter = await connection.getBalance(payer.publicKey);
+                const feeRecipientAfter = await getUsdcAtaBalance(
+                    connection,
+                    feeRecipient.publicKey,
+                );
+
+                expect(recipientAfter - recipientBefore).to.equal(
+                    message.deposit!.header.amount - relayerFee,
+                );
+                expect(recipientLamportAfter - recipientLamportBefore).to.equal(Number(gasAmount));
+                expect(payerLamportAfter).to.be.lessThan(payerLamportBefore - Number(gasAmount));
+                expect(feeRecipientAfter).to.equal(feeRecipientBefore + relayerFee);
+            });
+
+            it("Fill Without Gas Dropoff", async function () {
+                const relayerFee = 1000000n;
+                const gasAmount = 0n;
+
+                const result = await createAndRedeemCctpFillForTest(
+                    connection,
+                    tokenRouter,
+                    swapLayer,
+                    tokenRouterLkupTable,
+                    payer,
+                    testCctpNonce++,
+                    foreignChain,
+                    foreignEndpointAddress,
+                    wormholeSequence,
+                    Buffer.from(
+                        "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000000000000000f424000",
+                        "hex",
+                    ),
+                );
+                const { vaa, message } = result!;
+
+                const vaaAccount = await VaaAccount.fetch(connection, vaa);
+                const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                const beneficiary = Keypair.generate();
+
+                // Balance check.
+                const recipientBefore = await getUsdcAtaBalance(connection, recipient.publicKey);
+                const recipientLamportBefore = await connection.getBalance(recipient.publicKey);
+                const payerLamportBefore = await connection.getBalance(payer.publicKey);
+                const feeRecipientBefore = await getUsdcAtaBalance(
+                    connection,
+                    feeRecipient.publicKey,
+                );
+
+                const transferIx = await swapLayer.completeTransferRelayIx({
+                    payer: payer.publicKey,
+                    beneficiary: beneficiary.publicKey,
+                    preparedFill,
+                    tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                    tokenRouterProgram: tokenRouter.ID,
+                    recipient: recipient.publicKey,
+                });
+
+                await expectIxOk(connection, [transferIx], [payer]);
+
+                // Balance check.
+                const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
+                const recipientLamportAfter = await connection.getBalance(recipient.publicKey);
+                const payerLamportAfter = await connection.getBalance(payer.publicKey);
+                const feeRecipientAfter = await getUsdcAtaBalance(
+                    connection,
+                    feeRecipient.publicKey,
+                );
+
+                expect(recipientAfter - recipientBefore).to.equal(
+                    message.deposit!.header.amount - relayerFee,
+                );
+                expect(recipientLamportAfter - recipientLamportBefore).to.equal(Number(gasAmount));
+                expect(payerLamportAfter).to.be.lessThan(payerLamportBefore - Number(gasAmount));
+                expect(feeRecipientAfter).to.equal(feeRecipientBefore + relayerFee);
+            });
         });
 
         describe("Jupiter V6 Swap", function () {
@@ -272,6 +345,93 @@ describe("swap-layer", () => {
         });
     });
 });
+
+async function createAndRedeemCctpFillForTest(
+    connection: Connection,
+    tokenRouter: tokenRouterSdk.TokenRouterProgram,
+    swapLayer: SwapLayerProgram,
+    tokenRouterLkupTable: PublicKey,
+    payer: Keypair,
+    cctpNonce: bigint,
+    foreignChain: number,
+    foreignEndpointAddress: number[],
+    wormholeSequence: bigint,
+    redeemerMessage: Buffer,
+): Promise<void | { vaa: PublicKey; message: LiquidityLayerMessage }> {
+    const encodedMintRecipient = Array.from(tokenRouter.cctpMintRecipientAddress().toBuffer());
+    const sourceCctpDomain = 0;
+    const amount = 6900000000n;
+    const burnSource = Array.from(Buffer.alloc(32, "beefdead", "hex"));
+    const redeemer = swapLayer.custodianAddress();
+
+    // Concoct a Circle message.
+    const { destinationCctpDomain, burnMessage, encodedCctpMessage, cctpAttestation } =
+        await craftCctpTokenBurnMessage(
+            tokenRouter,
+            sourceCctpDomain,
+            cctpNonce,
+            encodedMintRecipient,
+            amount,
+            burnSource,
+        );
+
+    const message = new LiquidityLayerMessage({
+        deposit: new LiquidityLayerDeposit(
+            {
+                tokenAddress: burnMessage.burnTokenAddress,
+                amount,
+                sourceCctpDomain,
+                destinationCctpDomain,
+                cctpNonce,
+                burnSource,
+                mintRecipient: encodedMintRecipient,
+            },
+            {
+                fill: {
+                    sourceChain: foreignChain as wormholeSdk.ChainId,
+                    orderSender: Array.from(Buffer.alloc(32, "d00d", "hex")),
+                    redeemer: Array.from(redeemer.toBuffer()),
+                    redeemerMessage: redeemerMessage,
+                },
+            },
+        ),
+    });
+
+    const vaa = await postLiquidityLayerVaa(
+        connection,
+        payer,
+        MOCK_GUARDIANS,
+        foreignEndpointAddress,
+        wormholeSequence++,
+        message,
+        { sourceChain: "sepolia" },
+    );
+
+    const ix = await tokenRouter.redeemCctpFillIx(
+        {
+            payer: payer.publicKey,
+            vaa,
+        },
+        {
+            encodedCctpMessage,
+            cctpAttestation,
+        },
+    );
+
+    const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
+        units: 300_000,
+    });
+
+    const { value: lookupTableAccount } = await connection.getAddressLookupTable(
+        tokenRouterLkupTable,
+    );
+
+    await expectIxOk(connection, [computeIx, ix], [payer], {
+        addressLookupTableAccounts: [lookupTableAccount!],
+    });
+
+    return { vaa, message };
+}
 
 async function craftCctpTokenBurnMessage(
     tokenRouter: tokenRouterSdk.TokenRouterProgram,

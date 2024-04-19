@@ -43,6 +43,14 @@ pub struct CompleteTransferRelay<'info> {
     /// passed in this context matches the intended recipient in the fill.
     pub recipient: AccountInfo<'info>,
 
+    #[account(
+        mut,
+        constraint = {
+            custodian.fee_recipient_token.key() == fee_recipient_token.key()
+        }
+    )]
+    pub fee_recipient_token: Account<'info, token::TokenAccount>,
+
     usdc: Usdc<'info>,
 
     /// CHECK: Recipient of lamports from closing the prepared_fill account.
@@ -51,15 +59,8 @@ pub struct CompleteTransferRelay<'info> {
 
     /// Prepared fill account.
     #[account(mut, constraint = {
-        let swap_msg = SwapMessageV1::read_slice(&prepared_fill.redeemer_message).unwrap();
-
-        require!(
-            matches!(
-                swap_msg.redeem_mode,
-                RedeemMode::Relay { .. }
-            ),
-            SwapLayerError::InvalidRedeemMode
-        );
+        let swap_msg = SwapMessageV1::read_slice(&prepared_fill.redeemer_message)
+                .map_err(|_| SwapLayerError::InvalidSwapMessage)?;
 
         require!(
             matches!(
@@ -86,8 +87,25 @@ pub struct CompleteTransferRelay<'info> {
 }
 
 pub fn complete_transfer_relay(ctx: Context<CompleteTransferRelay>) -> Result<()> {
+    // Parse the redeemer message.
+    let swap_msg = SwapMessageV1::read_slice(&ctx.accounts.prepared_fill.redeemer_message).unwrap();
+
+    match swap_msg.redeem_mode {
+        RedeemMode::Relay {
+            gas_dropoff,
+            relaying_fee,
+        } => handle_complete_transfer_relay(ctx, gas_dropoff, relaying_fee.into()),
+        _ => err!(SwapLayerError::InvalidRedeemMode),
+    }
+}
+
+fn handle_complete_transfer_relay(
+    ctx: Context<CompleteTransferRelay>,
+    gas_dropoff: u32,
+    relaying_fee: u64,
+) -> Result<()> {
     let prepared_fill = &ctx.accounts.prepared_fill;
-    let fill_amount = &ctx.accounts.token_router_custody.amount;
+    let fill_amount = ctx.accounts.token_router_custody.amount;
     let token_program = &ctx.accounts.token_program;
 
     // TODO: Add account constraint that order sender is a registered swap layer.
@@ -107,32 +125,61 @@ pub fn complete_transfer_relay(ctx: Context<CompleteTransferRelay>) -> Result<()
         &[Custodian::SIGNER_SEEDS],
     ))?;
 
-    // Parse the redeemer message.
-    let swap_msg = SwapMessageV1::read_slice(&prepared_fill.redeemer_message).unwrap();
-
-    // At this point, we know it's a relayed USDC transfer.
-    // If it's a self relay, just send the tokens to the recipient token,
-    // and close the custody token account.
-    // If it's a relayer, send the relayer fee to the fee recipient.
-    // See if the gas drop off is > 0, and if so, transfer lamports
-    // from the signer to the recipient.
-
     let payer = &ctx.accounts.payer;
     let recipient = &ctx.accounts.recipient;
 
     // If the payer is the recipient, just transfer the tokens to the recipient.
-    if payer.key() == recipient.key() {
+    let user_amount = {
+        if payer.key() == recipient.key() {
+            fill_amount
+        } else {
+            if gas_dropoff > 0 {
+                anchor_lang::system_program::transfer(
+                    CpiContext::new(
+                        ctx.accounts.system_program.to_account_info(),
+                        anchor_lang::system_program::Transfer {
+                            from: payer.to_account_info(),
+                            to: recipient.to_account_info(),
+                        },
+                    ),
+                    gas_dropoff.into(),
+                )?;
+            }
+
+            // Calculate the user amount.
+            fill_amount
+                .checked_sub(u64::try_from(relaying_fee).unwrap())
+                .ok_or(SwapLayerError::InvalidRelayerFee)?
+        }
+    };
+
+    // Transfer the tokens to the recipient.
+    anchor_spl::token::transfer(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::Transfer {
+                from: ctx.accounts.tmp_token_account.to_account_info(),
+                to: ctx.accounts.recipient_token_account.to_account_info(),
+                authority: ctx.accounts.custodian.to_account_info(),
+            },
+            &[Custodian::SIGNER_SEEDS],
+        ),
+        user_amount,
+    )?;
+
+    // Transfer eligible USDC to the fee recipient.
+    if user_amount != fill_amount {
         anchor_spl::token::transfer(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 anchor_spl::token::Transfer {
                     from: ctx.accounts.tmp_token_account.to_account_info(),
-                    to: ctx.accounts.recipient_token_account.to_account_info(),
+                    to: ctx.accounts.fee_recipient_token.to_account_info(),
                     authority: ctx.accounts.custodian.to_account_info(),
                 },
                 &[Custodian::SIGNER_SEEDS],
             ),
-            *fill_amount,
+            fill_amount.checked_sub(user_amount).unwrap(),
         )?;
     }
 

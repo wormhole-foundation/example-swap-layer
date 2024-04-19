@@ -90,6 +90,7 @@ export class SwapLayerProgram {
         tokenRouterProgram: PublicKey;
         recipient: PublicKey;
         recipientTokenAccount?: PublicKey;
+        feeRecipientToken?: PublicKey;
     }) {
         let {
             payer,
@@ -99,9 +100,14 @@ export class SwapLayerProgram {
             tokenRouterProgram,
             recipient,
             recipientTokenAccount,
+            feeRecipientToken,
         } = accounts;
 
         recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.mint, recipient);
+
+        if (feeRecipientToken === undefined) {
+            feeRecipientToken = await this.fetchCustodian().then((c) => c.feeRecipientToken);
+        }
 
         return this.program.methods
             .completeTransferRelay()
@@ -114,6 +120,7 @@ export class SwapLayerProgram {
                 usdc: this.usdcComposite(this.mint),
                 beneficiary,
                 preparedFill,
+                feeRecipientToken,
                 tokenRouterCustody,
                 tokenRouterProgram,
             })
