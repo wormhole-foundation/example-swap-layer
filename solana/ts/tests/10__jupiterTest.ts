@@ -8,6 +8,8 @@ import {
     PublicKey,
     SystemProgram,
     ComputeBudgetProgram,
+    TransactionInstruction,
+    AccountMeta,
 } from "@solana/web3.js";
 import { expectIxOk, hackedExpectDeepEqual } from "./helpers";
 import { FEE_UPDATER_KEYPAIR } from "./helpers";
@@ -24,15 +26,24 @@ import {
     PAYER_KEYPAIR,
     OWNER_KEYPAIR,
     OWNER_ASSISTANT_KEYPAIR,
-    USDC_MINT_ADDRESS,
     ETHEREUM_USDC_ADDRESS,
     MOCK_GUARDIANS,
     CircleAttester,
 } from "../../../lib/example-liquidity-layer/solana/ts/tests/helpers";
 import { VaaAccount } from "../../../lib/example-liquidity-layer/solana/ts/src/wormhole";
 import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solana/ts/src/cctp";
+import * as jupiter from "../src/jupiter";
+import { Whirlpool, IDL as WHIRLPOOL_IDL } from "../src/types/whirlpool";
 
 chaiUse(require("chai-as-promised"));
+
+const USDT_MINT_ADDRESS = new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB");
+const USDC_MINT_ADDRESS = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const JUPITER_V6_PROGRAM_ID = new PublicKey("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
+
+const WHIRLPOOL_PROGRAM_ID = new PublicKey("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc");
+const WHIRLPOOL_USDC_USDT = new PublicKey("4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4");
 
 describe("Jupiter V6 Testing", () => {
     const connection = new Connection(LOCALHOST, "processed");
@@ -65,8 +76,51 @@ describe("Jupiter V6 Testing", () => {
 
     let tokenRouterLkupTable: PublicKey;
 
+    const whirlpoolProgram = new anchor.Program(WHIRLPOOL_IDL, WHIRLPOOL_PROGRAM_ID, {
+        connection,
+    });
+
     describe("Whirlpool", () => {
-        // TODO
+        it("Swap USDT to USDC", async function () {
+            const swapIx = jupiter.toTransactionInstruction(
+                jupiterV6SwapIxResponseWhirlpool.swapInstruction,
+            );
+
+            const usdtToken = splToken.getAssociatedTokenAddressSync(
+                USDT_MINT_ADDRESS,
+                payer.publicKey,
+            );
+            const usdtTokenData = await splToken.getAccount(connection, usdtToken);
+            console.log({ usdtTokenData });
+
+            const usdcToken = splToken.getAssociatedTokenAddressSync(
+                USDC_MINT_ADDRESS,
+                payer.publicKey,
+            );
+            const usdcTokenData = await splToken.getAccount(connection, usdcToken);
+            console.log({ usdcTokenData });
+
+            const transferAuthority = jupiterTransferAuthorityAddress(2);
+            const ix = jupiterV6SwapIx(
+                {
+                    user: payer.publicKey,
+                    transferAuthority,
+                    inputMint: USDT_MINT_ADDRESS,
+                    outputMint: USDC_MINT_ADDRESS,
+                },
+                //swapIx.keys.slice(13),
+                await whirlpoolIxSetup(
+                    whirlpoolProgram,
+                    { tokenAuthority: transferAuthority, whirlpool: WHIRLPOOL_USDC_USDT },
+                    true,
+                ),
+                swapIx.data,
+            );
+
+            expect(swapIx.keys).has.length(ix.keys.length);
+
+            const txSig = await expectIxOk(connection, [ix], [payer]);
+        });
     });
 });
 
@@ -130,32 +184,35 @@ const jupiterV6SwapIxResponseWhirlpool = {
                 isWritable: false,
             },
             {
-                pubkey: "CapuXNQoDviLvU1PxFiizLgPNQCxrsag1uMeyk6zLVps",
+                pubkey: "BQ72nSv9f3PRyRKCBnHLVrerrv37CYTHm5h3s9VSGQDV",
                 isSigner: false,
                 isWritable: false,
             },
             {
-                pubkey: "21TrZtZnFU1rEvmiKTNSdZz7voe8kRZL7KX3pEGe7rS2",
+                //pubkey: "21TrZtZnFU1rEvmiKTNSdZz7voe8kRZL7KX3pEGe7rS2",
+                pubkey: "pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ",
                 isSigner: true,
                 isWritable: false,
             },
             {
-                pubkey: "BGNHoqiqB4oM7caZvDUKqC2JMfjXA8MnxeeaGrHdJ5xP",
+                //pubkey: "BGNHoqiqB4oM7caZvDUKqC2JMfjXA8MnxeeaGrHdJ5xP",
+                pubkey: "4MXG73DEVVRN9xiJavCkFVFtZdYBrKmD1hjxmTtNoZnA",
                 isSigner: false,
                 isWritable: true,
             },
             {
-                pubkey: "GQuvMWcBF1M2wgh2sbxkonq7FtBc6UNurtHjREMRAL1x",
+                pubkey: "6pXVFSACE5BND2C3ibGRWMG1fNtV7hfynWrfNKtCXhN3",
                 isSigner: false,
                 isWritable: true,
             },
             {
-                pubkey: "Gjmjory7TWKJXD2Jc6hKzAG991wWutFhtbXudzJqgx3p",
+                pubkey: "7u7cD7NxcZEuzRCBaYo8uVpotRdqZwez47vvuwzCov43",
                 isSigner: false,
                 isWritable: true,
             },
             {
-                pubkey: "CyBqVej3Bq73UGdaYv2BMNLeRhfv2nkUSy2KA4Tc5WtE",
+                //pubkey: "CyBqVej3Bq73UGdaYv2BMNLeRhfv2nkUSy2KA4Tc5WtE",
+                pubkey: "4tKtuvtQ4TzkkrkESnRpbfSXCEZPkZe3eL5tCFUdpxtf",
                 isSigner: false,
                 isWritable: true,
             },
@@ -200,7 +257,7 @@ const jupiterV6SwapIxResponseWhirlpool = {
                 isWritable: false,
             },
             {
-                pubkey: "CapuXNQoDviLvU1PxFiizLgPNQCxrsag1uMeyk6zLVps",
+                pubkey: "BQ72nSv9f3PRyRKCBnHLVrerrv37CYTHm5h3s9VSGQDV",
                 isSigner: false,
                 isWritable: false,
             },
@@ -210,7 +267,7 @@ const jupiterV6SwapIxResponseWhirlpool = {
                 isWritable: true,
             },
             {
-                pubkey: "Gjmjory7TWKJXD2Jc6hKzAG991wWutFhtbXudzJqgx3p",
+                pubkey: "7u7cD7NxcZEuzRCBaYo8uVpotRdqZwez47vvuwzCov43",
                 isSigner: false,
                 isWritable: true,
             },
@@ -220,7 +277,7 @@ const jupiterV6SwapIxResponseWhirlpool = {
                 isWritable: true,
             },
             {
-                pubkey: "GQuvMWcBF1M2wgh2sbxkonq7FtBc6UNurtHjREMRAL1x",
+                pubkey: "6pXVFSACE5BND2C3ibGRWMG1fNtV7hfynWrfNKtCXhN3",
                 isSigner: false,
                 isWritable: true,
             },
@@ -250,7 +307,198 @@ const jupiterV6SwapIxResponseWhirlpool = {
                 isWritable: false,
             },
         ],
-        data: "wSCbM0HWnIEFAQAAABEAZAABAHQ7pAsAAACpMkamCwAAADIAAA==",
+        data: "wSCbM0HWnIECAQAAABEAZAABAHQ7pAsAAAAoYEulCwAAADIAAA==",
     },
     addressLookupTableAddresses: ["GxS6FiQ3mNnAar9HGQ6mxP7t6FcwmHkU7peSeQDUHmpN"],
-} as const;
+};
+
+function eventAuthorityAddress(programId: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync([Buffer.from("__event_authority")], programId)[0];
+}
+
+function jupiterTransferAuthorityAddress(authorityId: number) {
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from("authority"), Buffer.from([authorityId])],
+        JUPITER_V6_PROGRAM_ID,
+    )[0];
+}
+
+async function whirlpoolIxSetup(
+    whirlpoolProgram: anchor.Program<Whirlpool>,
+    accounts: { tokenAuthority: PublicKey; whirlpool: PublicKey },
+    aToB: boolean,
+): Promise<AccountMeta[]> {
+    const { tokenAuthority, whirlpool } = accounts;
+
+    const { tokenMintA, tokenMintB, tokenVaultA, tokenVaultB } =
+        await whirlpoolProgram.account.whirlpool.fetch(whirlpool);
+
+    const { tickArray0, tickArray1, tickArray2 } = (() => {
+        if (whirlpool.equals(WHIRLPOOL_USDC_USDT)) {
+            const tickArray0 = new PublicKey("8kZSTVuV7C4GD9ZVR4wDtRSXv1SvsSQPfqUbthueRNGV");
+            if (aToB) {
+                return {
+                    tickArray0,
+                    tickArray1: new PublicKey("FqFkv2xNNCUyx1RYV61pGZ9AMzGfgcD8uXC9zCF5JKnR"),
+                    tickArray2: new PublicKey("A7sdy3NoAZp49cQNpreMGARAb9QJjYrrSyDALhThgk3D"),
+                };
+            } else {
+                return {
+                    tickArray0,
+                    tickArray1: new PublicKey("2B48L1ACPvVb67UKeSMkUGdzrnhvNMm6pFt2nspGKxs4"),
+                    tickArray2: new PublicKey("BMGfBaW69aUm6hRdmsfAcNEmAW59C2rWJ9EX7gWnrVN9"),
+                };
+            }
+        } else {
+            throw new Error("Unrecognized whirlpool");
+        }
+    })();
+    const swapAccounts = [
+        {
+            pubkey: splToken.TOKEN_PROGRAM_ID,
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: tokenAuthority,
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: whirlpool,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: splToken.getAssociatedTokenAddressSync(
+                tokenMintA,
+                tokenAuthority,
+                true, // allowOwnerOffCurve
+            ),
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: tokenVaultA,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: splToken.getAssociatedTokenAddressSync(
+                tokenMintB,
+                tokenAuthority,
+                true, // allowOwnerOffCurve
+            ),
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: tokenVaultB,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: tickArray0,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: tickArray1,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: tickArray2,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: PublicKey.findProgramAddressSync(
+                [Buffer.from("oracle"), whirlpool.toBuffer()],
+                whirlpoolProgram.programId,
+            )[0],
+            isWritable: false,
+            isSigner: false,
+        },
+    ];
+
+    return [{ pubkey: WHIRLPOOL_PROGRAM_ID, isWritable: false, isSigner: false }].concat(
+        swapAccounts,
+    );
+}
+
+function jupiterV6SwapIx(
+    accounts: {
+        user: PublicKey;
+        transferAuthority: PublicKey;
+        inputMint: PublicKey;
+        outputMint: PublicKey;
+        platformFee?: PublicKey;
+    },
+    composedDexAccountMetas: AccountMeta[],
+    ixData: Buffer,
+): TransactionInstruction {
+    const { user, transferAuthority, inputMint, outputMint } = accounts;
+
+    let { platformFee } = accounts;
+
+    platformFee ??= JUPITER_V6_PROGRAM_ID;
+    const platformFeeIsWritable = platformFee.equals(JUPITER_V6_PROGRAM_ID);
+
+    const token2022Program = JUPITER_V6_PROGRAM_ID; // disables this option
+
+    const sourceToken = splToken.getAssociatedTokenAddressSync(
+        inputMint,
+        user,
+        //true, // allowOwnerOffCurve
+    );
+    console.log("wtf", inputMint.toString(), sourceToken.toString());
+    const destinationToken = splToken.getAssociatedTokenAddressSync(
+        outputMint,
+        user,
+        true, // allowOwnerOffCurve
+    );
+
+    const programSourceToken = splToken.getAssociatedTokenAddressSync(
+        inputMint,
+        transferAuthority,
+        true, // allowOwnerOffCurve
+    );
+    const programDestinationToken = splToken.getAssociatedTokenAddressSync(
+        outputMint,
+        transferAuthority,
+        true, // allowOwnerOffCurve
+    );
+
+    const eventAuthority = eventAuthorityAddress(JUPITER_V6_PROGRAM_ID);
+
+    const jupiterV6Keys = [
+        { pubkey: splToken.TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: transferAuthority, isSigner: false, isWritable: false },
+        { pubkey: user, isSigner: true, isWritable: false },
+        { pubkey: sourceToken, isSigner: false, isWritable: true },
+        { pubkey: programSourceToken, isSigner: false, isWritable: true },
+        { pubkey: programDestinationToken, isSigner: false, isWritable: true },
+        { pubkey: destinationToken, isSigner: false, isWritable: true },
+        { pubkey: inputMint, isSigner: false, isWritable: false },
+        { pubkey: outputMint, isSigner: false, isWritable: false },
+        { pubkey: platformFee, isSigner: false, isWritable: platformFeeIsWritable },
+        { pubkey: token2022Program, isSigner: false, isWritable: false },
+        { pubkey: eventAuthority, isSigner: false, isWritable: false },
+        { pubkey: JUPITER_V6_PROGRAM_ID, isSigner: false, isWritable: false },
+    ];
+
+    return {
+        programId: JUPITER_V6_PROGRAM_ID,
+        keys: jupiterV6Keys.concat(composedDexAccountMetas),
+        data: ixData,
+    };
+}
+
+// TODO: look into shared account swap w/ token ledger
+const JUPITER_V6_TOKEN_LEDGERS = [
+    new PublicKey("HtncvpUBGhSrs48KtC58ntJcTDw53sn78Lpq71zVwiez"),
+    new PublicKey("HxTk98CmBcxmtkrBWqRszYxrnDpqAsbitQBc2QjVBG3j"),
+    new PublicKey("CnUPHtfUVw3D2s4FB8H6QBuLwoes8YxauVgDtFybm7rz"),
+    new PublicKey("FhLPkpFmszHtSyyayj7KsXNZeBTqfQbUPmvgWAyJHBXh"),
+];

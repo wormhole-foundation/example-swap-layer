@@ -1,6 +1,8 @@
 use crate::utils::{JupiterV6, RoutePlanStep};
 use anchor_lang::prelude::*;
 
+const SHARED_ACCOUNTS_ROUTE_SELECTOR: [u8; 8] = [193, 32, 155, 51, 65, 214, 156, 129];
+
 #[derive(Accounts)]
 pub struct SwapJupiterV6SharedAccountsRoute<'info> {
     jupiter_v6_program: Program<'info, JupiterV6>,

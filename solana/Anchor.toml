@@ -22,7 +22,7 @@ cluster = "Localnet"
 wallet = "ts/tests/keys/pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ.json"
 
 [scripts]
-test = "npx ts-mocha -p ./tsconfig.json -t 1000000 ts/tests/[0-9]*.ts"
+test = "npx ts-mocha -p ./tsconfig.json -t 1000000 ts/tests/[1-9]*.ts"
 
 [test]
 startup_wait = 20000
@@ -141,16 +141,26 @@ address = "7GKCHT6kxRGmJJYuKXUkBzzxKXbnyEHa79nuQeeHKVxW"
 [[test.validator.clone]]
 address = "EPEpG3P1Vvak3stx7RnwQD9vWFLpWzpXnbfXc1owrD7o"
 
+### Payer USDC Token Account
+[[test.validator.account]]
+address = "4tKtuvtQ4TzkkrkESnRpbfSXCEZPkZe3eL5tCFUdpxtf"
+filename = "ts/tests/accounts/payer_usdc_token.json"
+
+### Payer USDT Token Account
+[[test.validator.account]]
+address = "4MXG73DEVVRN9xiJavCkFVFtZdYBrKmD1hjxmTtNoZnA"
+filename = "ts/tests/accounts/payer_usdt_token.json"
+
 ### NOTE: The accounts below are from mainnet.
 
 ### USDC Mint (Mainnet)
 [[test.validator.account]]
-address = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 filename = "ts/tests/accounts/usdc_mint.json"
 
 ### USDT Mint (Mainnet)
 [[test.validator.account]]
-address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+address = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
 filename = "ts/tests/accounts/usdt_mint.json"
 
 ### Wormhole Core Bridge Program (Mainnet)
@@ -170,17 +180,17 @@ program = "ts/tests/artifacts/mainnet_whirlpool.so"
 
 ### Jupiter V6 -- Custody Token Owner
 [[test.validator.account]]
-address = "6U91aKa8pmMxkJwBCfPTmUEfZi6dHe7DcFq2ALvB2tbB"
+address = "BQ72nSv9f3PRyRKCBnHLVrerrv37CYTHm5h3s9VSGQDV"
 filename = "ts/tests/accounts/jupiter/jupiter_custody_owner.json"
 
 ### Jupiter V6 -- USDC Custody Token
 [[test.validator.account]]
-address = "4mdQgodP1CZsx6fZEQWesU7BtPpGdYn69gCCGYAEYqUj"
+address = "7u7cD7NxcZEuzRCBaYo8uVpotRdqZwez47vvuwzCov43"
 filename = "ts/tests/accounts/jupiter/jupiter_usdc_custody_token.json"
 
 ### Jupiter V6 -- USDT Custody Token
 [[test.validator.account]]
-address = "59v2cSbCsnyaWymLnsq6TWzE6cEN5KJYNTBNrcP4smRH"
+address = "6pXVFSACE5BND2C3ibGRWMG1fNtV7hfynWrfNKtCXhN3"
 filename = "ts/tests/accounts/jupiter/jupiter_usdt_custody_token.json"
 
 ### Jupiter V6 -- LUT #1
@@ -193,12 +203,37 @@ filename = "ts/tests/accounts/jupiter/jupiter_lut1.json"
 address = "4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4"
 filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_pool.json"
 
-### Whirlpool -- USDC Vault
+### Whirlpool -- USDC-USDT Pool -- USDC Vault
 [[test.validator.account]]
 address = "4oY1eVHJrt7ywuFoQnAZwto4qcQip1QhYMAhD11PU4QL"
 filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_vault.json"
 
-### Whirlpool -- USDT Vault
+### Whirlpool -- USDC-USDT Pool -- USDT Vault
 [[test.validator.account]]
 address = "4dSG9tKHZR4CAictyEnH9XuGZyKapodWXq5xyg7uFwE9"
 filename = "ts/tests/accounts/whirlpool/whirlpool_usdt_vault.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 0
+[[test.validator.account]]
+address = "8kZSTVuV7C4GD9ZVR4wDtRSXv1SvsSQPfqUbthueRNGV"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array_0.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 1A
+[[test.validator.account]]
+address = "2B48L1ACPvVb67UKeSMkUGdzrnhvNMm6pFt2nspGKxs4"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array_1a.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 2A
+[[test.validator.account]]
+address = "BMGfBaW69aUm6hRdmsfAcNEmAW59C2rWJ9EX7gWnrVN9"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array_2a.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 1B
+[[test.validator.account]]
+address = "FqFkv2xNNCUyx1RYV61pGZ9AMzGfgcD8uXC9zCF5JKnR"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array_1b.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 2B
+[[test.validator.account]]
+address = "A7sdy3NoAZp49cQNpreMGARAb9QJjYrrSyDALhThgk3D"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array_2b.json"
