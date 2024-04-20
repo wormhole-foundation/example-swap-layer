@@ -10,7 +10,7 @@ clean:
 	anchor clean
 	rm -rf node_modules artifacts-mainnet artifacts-testnet artifacts-localnet ts/tests/artifacts
 
-node_modules: package-lock.json
+node_modules: package-lock.json ../lib/example-liquidity-layer/solana/node_modules
 	npm ci
 
 .PHONY: clippy
@@ -26,14 +26,15 @@ lint:
 cargo-test:
 	cargo test --workspace --all-targets --features $(NETWORK) -- --nocapture
 
+CLONED_PROGRAMS=\
+	ts/tests/artifacts/mainnet_core_bridge.so \
+	ts/tests/artifacts/mainnet_cctp_token_messenger_minter.so \
+	ts/tests/artifacts/mainnet_cctp_message_transmitter.so \
+	ts/tests/artifacts/mainnet_jupiter_v6.so \
+	ts/tests/artifacts/mainnet_whirlpool.so
+
 .PHONY: integration-test
-integration-test: node_modules ../lib/example-liquidity-layer/solana/node_modules
-	mkdir -p ts/tests/artifacts
-	solana program dump -u m worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth ts/tests/artifacts/mainnet_core_bridge.so
-	solana program dump -u m CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3 ts/tests/artifacts/mainnet_cctp_token_messenger_minter.so
-	solana program dump -u m CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd ts/tests/artifacts/mainnet_cctp_message_transmitter.so
-	solana program dump -u m JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 ts/tests/artifacts/mainnet_jupiter_v6.so
-	solana program dump -u m whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc ts/tests/artifacts/mainnet_whirlpool.so
+integration-test: node_modules $(CLONED_PROGRAMS)
 	anchor test --arch sbf -- --features integration-test
 
 ../lib/example-liquidity-layer/solana/node_modules:
@@ -43,3 +44,21 @@ integration-test: node_modules ../lib/example-liquidity-layer/solana/node_module
 test:
 	NETWORK=localnet $(MAKE) cargo-test
 	NETWORK=testnet $(MAKE) cargo-test
+
+ts/tests/artifacts:
+	mkdir ts/tests/artifacts
+
+ts/tests/artifacts/mainnet_core_bridge.so: ts/tests/artifacts
+	solana program dump -u m worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth ts/tests/artifacts/mainnet_core_bridge.so
+
+ts/tests/artifacts/mainnet_cctp_token_messenger_minter.so: ts/tests/artifacts
+	solana program dump -u m CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3 ts/tests/artifacts/mainnet_cctp_token_messenger_minter.so
+
+ts/tests/artifacts/mainnet_cctp_message_transmitter.so: ts/tests/artifacts
+	solana program dump -u m CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd ts/tests/artifacts/mainnet_cctp_message_transmitter.so
+
+ts/tests/artifacts/mainnet_jupiter_v6.so: ts/tests/artifacts
+	solana program dump -u m JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 ts/tests/artifacts/mainnet_jupiter_v6.so
+
+ts/tests/artifacts/mainnet_whirlpool.so: ts/tests/artifacts
+	solana program dump -u m whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc ts/tests/artifacts/mainnet_whirlpool.so
