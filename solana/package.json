@@ -10,9 +10,9 @@
         "@solana/spl-token": "^0.4.3",
         "@solana/web3.js": "^1.91.6",
         "@types/node-fetch": "^2.6.11",
-        "@wormhole-foundation/sdk-base": "^0.5.3",
-        "@wormhole-foundation/sdk-definitions": "^0.5.3",
-        "@wormhole-foundation/sdk-evm": "^0.5.3",
+        "@wormhole-foundation/sdk-base": "0.6.0-beta.0",
+        "@wormhole-foundation/sdk-definitions": "0.6.0-beta.0",
+        "@wormhole-foundation/sdk-evm": "0.6.0-beta.0",
         "chai-as-promised": "^7.1.1",
         "ts-results": "^3.3.0"
     },

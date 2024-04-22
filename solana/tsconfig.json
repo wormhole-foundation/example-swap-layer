@@ -3,7 +3,8 @@
     "types": ["mocha", "chai", "node"],
     "typeRoots": ["./node_modules/@types"],
     "lib": ["es2020"],
-    "module": "commonjs",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "target": "es2020",
     "strict": true,
     "esModuleInterop": true
