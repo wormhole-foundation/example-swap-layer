@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 import { MockERC20 } from "forge-std/mocks/MockERC20.sol";
 import { StdUtils } from "forge-std/StdUtils.sol";
 import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
+import { IERC20Permit } from "@openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
 import { Math } from "@openzeppelin/utils/math/Math.sol";
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
@@ -43,6 +44,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
   INonfungiblePositionManager immutable uniswapPosMan;
   address immutable user;
   uint256 immutable userSecret;
+  bytes32 immutable permitHashStruct;
 
   MockERC20 mockToken;
 
@@ -51,6 +53,9 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
       vm.envAddress("TEST_UNISWAP_V3_POSITION_MANAGER_ADDRESS")
     );
     (user, userSecret) = makeAddrAndKey("user");
+    permitHashStruct = keccak256(
+      "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+    );
   }
 
   struct PoolParams {
@@ -58,6 +63,10 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     uint amount0;
     address token1;
     uint amount1;
+  }
+
+  function _deadline() internal view returns (uint) {
+    return block.timestamp + 1800;
   }
 
   function _makePoolParams(
@@ -118,7 +127,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
       amount0Min: 0,
       amount1Min: 0,
       recipient: address(this),
-      deadline: block.timestamp + 1800
+      deadline: _deadline()
     }));
   }
 
@@ -170,7 +179,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
         distributionY: distributionY,
         to: address(this),
         refundTo: address(this),
-        deadline: block.timestamp + 1800
+        deadline: _deadline()
       }));
 
     assertEq(amount0Added, amount0);
@@ -202,6 +211,46 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
     vm.stopPrank();
   }
 
+  function testInitiatePermitUsdc() public {
+    uint amount = USER_AMOUNT * 1e6;
+    _dealOverride(address(usdc), user, amount);
+
+    IERC20Permit usdcPermit = IERC20Permit(address(usdc));
+    bytes32 permitHash = keccak256(abi.encodePacked(
+      hex"1901",
+      usdcPermit.DOMAIN_SEPARATOR(),
+      keccak256(abi.encode(
+        permitHashStruct,
+        user,
+        address(swapLayer),
+        amount,
+        usdcPermit.nonces(user),
+        _deadline()
+      ))
+    ));
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(userSecret, permitHash);
+    vm.startPrank(user);
+    bytes memory swapReturn = swapLayer.initiate(
+      FOREIGN_CHAIN_ID,
+      user.toUniversalAddress(),
+      abi.encodePacked(
+        false,           //fast transfer
+        RedeemMode.Direct,
+        true,            //isExactIn
+        IoToken.Usdc,    //input token
+        uint128(amount), //input amount
+        AcquireMode.Permit,
+        amount,          //permit value
+        _deadline(),     //permit deadline
+        r, s, v,         //permit signature
+        IoToken.Usdc     //output token
+      )
+    );
+    (uint amountOut, ) = swapReturn.asUint256Unchecked(0);
+    assertEq(amount, amountOut);
+    vm.stopPrank();
+  }
+
   function testInitiateUniswapEthSwap() public {
     hoax(user);
     bytes memory swapReturn = swapLayer.initiate{value: USER_AMOUNT * 1e18}(
@@ -212,7 +261,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
         RedeemMode.Direct,
         true,         //isExactIn
         IoToken.Gas,  //input token
-        uint32(block.timestamp + 1800), //deadline
+        uint32(_deadline()), //deadline
         uint128(0),   //minOutputAmount
         uint8(SWAP_TYPE_UNISWAPV3),
         UNISWAP_FEE,
@@ -236,7 +285,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
         RedeemMode.Direct,
         true,         //isExactIn
         IoToken.Gas,  //input token
-        uint32(block.timestamp + 1800), //deadline
+        uint32(_deadline()), //deadline
         uint128(0),   //minOutputAmount
         uint8(SWAP_TYPE_TRADERJOE),
         TRADERJOE_VERSION,
@@ -264,7 +313,7 @@ contract SwapLayerSwapTest is SwapLayerTestBase {
         uint48(1e9),  //max relayer fee
         true,         //isExactIn
         IoToken.Gas,  //input token
-        uint32(block.timestamp + 1800), //deadline
+        uint32(_deadline()), //deadline
         uint128(0),   //minOutputAmount
         uint8(SWAP_TYPE_UNISWAPV3),
         UNISWAP_FEE,

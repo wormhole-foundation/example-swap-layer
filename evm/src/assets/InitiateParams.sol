@@ -215,7 +215,7 @@ function parseFastTransferMode(
 
 //gas optimization - cheaper than if else branch
 uint constant _ACQUIRE_MODE_SIZES_ARRAY =
-  PERMIT_SIZE << 8 + PERMIT2_PERMIT_SIZE << 16 + PERMIT2_TRANSFER_SIZE << 24;
+  (PERMIT_SIZE << 8) + (PERMIT2_PERMIT_SIZE << 16) + (PERMIT2_TRANSFER_SIZE << 24);
 function skipAcquire(
   bytes memory params,
   uint offset
