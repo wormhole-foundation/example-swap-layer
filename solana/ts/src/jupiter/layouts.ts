@@ -84,6 +84,6 @@ const sharedAccountsRouteInstructionData = [
     { name: "platformFeeBps", binary: "uint", size: 1 },
 ] as const satisfies Layout;
 
-export function decodeSharedAccountsRouteIxData(data: Buffer): any {
-    deserializeLayout(sharedAccountsRouteInstructionData, data);
+export function decodeSharedAccountsRouteIxData(data: Buffer) {
+    return deserializeLayout(sharedAccountsRouteInstructionData, data);
 }
