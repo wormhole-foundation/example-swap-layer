@@ -1,4 +1,8 @@
-use crate::{composite::*, error::SwapLayerError, state::Custodian};
+use crate::{
+    composite::*,
+    error::SwapLayerError,
+    state::{Custodian, Peer},
+};
 use anchor_lang::prelude::*;
 use anchor_spl::token;
 use common::wormhole_io::TypePrefixedPayload;
@@ -13,6 +17,10 @@ pub struct CompleteTransferRelay<'info> {
     payer: Signer<'info>,
 
     custodian: CheckedCustodian<'info>,
+
+    /// CHECK: Recipient of lamports from closing the prepared_fill account.
+    #[account(mut)]
+    beneficiary: UncheckedAccount<'info>,
 
     #[account(
         init,
@@ -53,14 +61,24 @@ pub struct CompleteTransferRelay<'info> {
 
     usdc: Usdc<'info>,
 
-    /// CHECK: Recipient of lamports from closing the prepared_fill account.
-    #[account(mut)]
-    beneficiary: UncheckedAccount<'info>,
+    #[account(
+        seeds = [
+            Peer::SEED_PREFIX,
+            &prepared_fill.source_chain.to_be_bytes()
+        ],
+        bump,
+    )]
+    pub peer: Box<Account<'info, Peer>>,
 
     /// Prepared fill account.
     #[account(mut, constraint = {
         let swap_msg = SwapMessageV1::read_slice(&prepared_fill.redeemer_message)
                 .map_err(|_| SwapLayerError::InvalidSwapMessage)?;
+
+        require!(
+            prepared_fill.order_sender == peer.address,
+            SwapLayerError::InvalidPeer
+        );
 
         require!(
             matches!(
@@ -107,9 +125,6 @@ fn handle_complete_transfer_relay(
     let prepared_fill = &ctx.accounts.prepared_fill;
     let fill_amount = ctx.accounts.token_router_custody.amount;
     let token_program = &ctx.accounts.token_program;
-
-    // TODO: Add account constraint that order sender is a registered swap layer.
-    // Check the order sender and from chain.
 
     // CPI Call token router.
     token_router::cpi::consume_prepared_fill(CpiContext::new_with_signer(

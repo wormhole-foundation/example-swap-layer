@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use common::admin;
 
 #[account]
 #[derive(Debug, InitSpace)]
@@ -21,6 +22,36 @@ impl Custodian {
     pub const SEED_PREFIX: &'static [u8] = b"custodian";
     pub const BUMP: u8 = crate::CUSTODIAN_BUMP;
     pub const SIGNER_SEEDS: &'static [&'static [u8]] = &[Self::SEED_PREFIX, &[Self::BUMP]];
+}
+
+impl admin::Ownable for Custodian {
+    fn owner(&self) -> &Pubkey {
+        &self.owner
+    }
+
+    fn owner_mut(&mut self) -> &mut Pubkey {
+        &mut self.owner
+    }
+}
+
+impl admin::PendingOwner for Custodian {
+    fn pending_owner(&self) -> &Option<Pubkey> {
+        &self.pending_owner
+    }
+
+    fn pending_owner_mut(&mut self) -> &mut Option<Pubkey> {
+        &mut self.pending_owner
+    }
+}
+
+impl admin::OwnerAssistant for Custodian {
+    fn owner_assistant(&self) -> &Pubkey {
+        &self.owner_assistant
+    }
+
+    fn owner_assistant_mut(&mut self) -> &mut Pubkey {
+        &mut self.owner_assistant
+    }
 }
 
 #[cfg(test)]
