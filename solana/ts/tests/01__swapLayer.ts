@@ -155,7 +155,7 @@ describe("swap-layer", () => {
         let testCctpNonce = 2n ** 64n - 20n * 6400n;
 
         let wormholeSequence = 2000n;
-        describe("USDC Transfer (Relay Redeem Type)", function () {
+        describe("USDC Transfer (Relay)", function () {
             it("Self Redeem Fill", async function () {
                 const result = await createAndRedeemCctpFillForTest(
                     connection,
@@ -335,6 +335,91 @@ describe("swap-layer", () => {
             });
         });
 
+        describe("USDC Transfer (Direct)", function () {
+            it("Redeem Fill (Recipient Not Payer)", async function () {
+                const result = await createAndRedeemCctpFillForTest(
+                    connection,
+                    tokenRouter,
+                    swapLayer,
+                    tokenRouterLkupTable,
+                    payer,
+                    testCctpNonce++,
+                    foreignChain,
+                    foreignEndpointAddress,
+                    wormholeSequence,
+                    encodeDirectUsdcTransfer(recipient.publicKey),
+                );
+                const { vaa, message } = result!;
+
+                const vaaAccount = await VaaAccount.fetch(connection, vaa);
+                const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                const beneficiary = Keypair.generate();
+
+                // Balance check.
+                const recipientBefore = await getUsdcAtaBalance(connection, recipient.publicKey);
+                const beneficiaryBefore = await connection.getBalance(beneficiary.publicKey);
+
+                const transferIx = await swapLayer.completeTransferDirectIx({
+                    payer: payer.publicKey,
+                    beneficiary: beneficiary.publicKey,
+                    preparedFill,
+                    tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                    tokenRouterProgram: tokenRouter.ID,
+                    recipient: recipient.publicKey,
+                });
+
+                await expectIxOk(connection, [transferIx], [payer]);
+
+                // Balance check.
+                const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
+                const beneficiaryAfter = await connection.getBalance(beneficiary.publicKey);
+
+                expect(recipientAfter).to.equal(recipientBefore + message.deposit!.header.amount);
+                expect(beneficiaryAfter).to.be.greaterThan(beneficiaryBefore);
+            });
+
+            it("Redeem Fill (Recipient Is Payer)", async function () {
+                const result = await createAndRedeemCctpFillForTest(
+                    connection,
+                    tokenRouter,
+                    swapLayer,
+                    tokenRouterLkupTable,
+                    payer,
+                    testCctpNonce++,
+                    foreignChain,
+                    foreignEndpointAddress,
+                    wormholeSequence,
+                    encodeDirectUsdcTransfer(payer.publicKey),
+                );
+                const { vaa, message } = result!;
+
+                const vaaAccount = await VaaAccount.fetch(connection, vaa);
+                const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                const beneficiary = Keypair.generate();
+
+                // Balance check.
+                const recipientBefore = await getUsdcAtaBalance(connection, payer.publicKey);
+                const beneficiaryBefore = await connection.getBalance(beneficiary.publicKey);
+
+                const transferIx = await swapLayer.completeTransferDirectIx({
+                    payer: payer.publicKey,
+                    beneficiary: beneficiary.publicKey,
+                    preparedFill,
+                    tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                    tokenRouterProgram: tokenRouter.ID,
+                });
+
+                await expectIxOk(connection, [transferIx], [payer]);
+
+                // Balance check.
+                const recipientAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                const beneficiaryAfter = await connection.getBalance(beneficiary.publicKey);
+
+                expect(recipientAfter).to.equal(recipientBefore + message.deposit!.header.amount);
+                expect(beneficiaryAfter).to.be.greaterThan(beneficiaryBefore);
+            });
+        });
+
         describe("Jupiter V6 Swap", function () {
             // TODO
 
@@ -482,4 +567,22 @@ async function craftCctpTokenBurnMessage(
         encodedCctpMessage,
         cctpAttestation,
     };
+}
+
+function encodeDirectUsdcTransfer(recipient: PublicKey): Buffer {
+    let buf = Buffer.alloc(35);
+
+    // Version
+    buf.writeUInt8(1, 0);
+
+    // 32 byte address.
+    Buffer.from(recipient.toBuffer().toString("hex"), "hex").copy(buf, 1);
+
+    // Redeem mode.
+    buf.writeUInt8(0, 33);
+
+    // USDC Token Type
+    buf.writeUInt8(0, 34);
+
+    return buf;
 }

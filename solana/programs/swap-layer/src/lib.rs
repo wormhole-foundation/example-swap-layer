@@ -28,6 +28,10 @@ pub mod swap_layer {
         processor::complete_transfer_relay(ctx)
     }
 
+    pub fn complete_transfer_direct(ctx: Context<CompleteTransferDirect>) -> Result<()> {
+        processor::complete_transfer_direct(ctx)
+    }
+
     pub fn swap_jupiter_v6_shared_accounts_route_passthrough(
         ctx: Context<SwapJupiterV6SharedAccountsRoutePassthrough>,
         selector: [u8; 8],

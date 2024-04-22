@@ -84,11 +84,11 @@ export class SwapLayerProgram {
 
     async completeTransferRelayIx(accounts: {
         payer: PublicKey;
-        beneficiary: PublicKey;
         preparedFill: PublicKey;
         tokenRouterCustody: PublicKey;
         tokenRouterProgram: PublicKey;
         recipient: PublicKey;
+        beneficiary?: PublicKey;
         recipientTokenAccount?: PublicKey;
         feeRecipientToken?: PublicKey;
     }) {
@@ -103,6 +103,7 @@ export class SwapLayerProgram {
             feeRecipientToken,
         } = accounts;
 
+        beneficiary ??= payer;
         recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.mint, recipient);
 
         if (feeRecipientToken === undefined) {
@@ -121,6 +122,45 @@ export class SwapLayerProgram {
                 beneficiary,
                 preparedFill,
                 feeRecipientToken,
+                tokenRouterCustody,
+                tokenRouterProgram,
+            })
+            .instruction();
+    }
+
+    async completeTransferDirectIx(accounts: {
+        payer: PublicKey;
+        preparedFill: PublicKey;
+        tokenRouterCustody: PublicKey;
+        tokenRouterProgram: PublicKey;
+        recipient?: PublicKey;
+        beneficiary?: PublicKey;
+        recipientTokenAccount?: PublicKey;
+    }) {
+        let {
+            payer,
+            beneficiary,
+            preparedFill,
+            tokenRouterCustody,
+            tokenRouterProgram,
+            recipient,
+            recipientTokenAccount,
+        } = accounts;
+
+        beneficiary ??= payer;
+        recipient ??= payer;
+        recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.mint, recipient);
+
+        return this.program.methods
+            .completeTransferDirect()
+            .accounts({
+                payer,
+                custodian: this.checkedCustodianComposite(),
+                beneficiary,
+                recipient,
+                recipientTokenAccount,
+                usdc: this.usdcComposite(this.mint),
+                preparedFill,
                 tokenRouterCustody,
                 tokenRouterProgram,
             })

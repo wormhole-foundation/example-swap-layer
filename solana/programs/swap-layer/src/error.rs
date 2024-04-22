@@ -8,4 +8,5 @@ pub enum SwapLayerError {
     InvalidOutputToken = 0x104,
     InvalidRelayerFee = 0x105,
     InvalidSwapMessage = 0x106,
+    InvalidRecipient = 0x107,
 }
