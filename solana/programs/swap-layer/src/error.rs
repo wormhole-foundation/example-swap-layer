@@ -9,4 +9,7 @@ pub enum SwapLayerError {
     InvalidRelayerFee = 0x105,
     InvalidSwapMessage = 0x106,
     InvalidRecipient = 0x107,
+    OwnerOrAssistantOnly = 0x108,
+    ChainNotAllowed = 0x109,
+    InvalidPeer = 0x10a,
 }

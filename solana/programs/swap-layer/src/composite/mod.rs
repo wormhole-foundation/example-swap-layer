@@ -1,5 +1,6 @@
-use crate::state::Custodian;
+use crate::{error::SwapLayerError, state::Custodian};
 use anchor_lang::prelude::*;
+use common::admin::utils::assistant;
 use common::USDC_MINT;
 use std::ops::Deref;
 
@@ -33,4 +34,18 @@ impl<'info> Deref for CheckedCustodian<'info> {
     fn deref(&self) -> &Self::Target {
         &self.custodian
     }
+}
+
+#[derive(Accounts)]
+pub struct Admin<'info> {
+    #[account(
+        constraint = assistant::only_authorized(
+            &custodian,
+            &owner_or_assistant,
+            error!(SwapLayerError::OwnerOrAssistantOnly)
+        )?
+    )]
+    pub owner_or_assistant: Signer<'info>,
+
+    pub custodian: CheckedCustodian<'info>,
 }

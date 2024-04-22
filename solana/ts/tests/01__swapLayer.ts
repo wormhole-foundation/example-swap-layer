@@ -11,7 +11,7 @@ import {
 } from "@solana/web3.js";
 import { expectIxOk, getUsdcAtaBalance, hackedExpectDeepEqual } from "./helpers";
 import { FEE_UPDATER_KEYPAIR } from "./helpers";
-import { SwapLayerProgram, localnet, Custodian } from "../src/swapLayer";
+import { SwapLayerProgram, localnet, Custodian, Peer } from "../src/swapLayer";
 import { use as chaiUse, expect } from "chai";
 import * as tokenRouterSdk from "../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
 import {
@@ -49,8 +49,11 @@ describe("swap-layer", () => {
 
     // Sending chain information.
     const foreignChain = wormholeSdk.CHAINS.sepolia;
-    const foreignEndpointAddress = Array.from(
+    const foreignTokenRouterAddress = Array.from(
         Buffer.alloc(32, "000000000000000000000000603541d1Cf7178C407aA7369b67CB7e0274952e2", "hex"),
+    );
+    const foreignSwapLayerAddress = Array.from(
+        Buffer.alloc(32, "000000000000000000000000deadbeefCf7178C407aA7369b67CB7e0274952e2", "hex"),
     );
     const foreignCctpDomain = 0;
 
@@ -149,6 +152,26 @@ describe("swap-layer", () => {
                 tokenRouterLkupTable = lookupTable;
             });
         });
+
+        describe("Peer Registration", () => {
+            it("Add Peer As Owner", async () => {
+                const ix = await swapLayer.addPeerIxx(
+                    {
+                        ownerOrAssistant: payer.publicKey,
+                        payer: payer.publicKey,
+                    },
+                    {
+                        chain: foreignChain,
+                        address: foreignSwapLayerAddress,
+                    },
+                );
+
+                await expectIxOk(connection, [ix], [payer]);
+
+                const routerEndpointData = await swapLayer.fetchPeer(foreignChain);
+                expect(routerEndpointData).to.eql(new Peer(foreignChain, foreignSwapLayerAddress));
+            });
+        });
     });
 
     describe("Business Logic", function () {
@@ -165,7 +188,8 @@ describe("swap-layer", () => {
                     payer,
                     testCctpNonce++,
                     foreignChain,
-                    foreignEndpointAddress,
+                    foreignTokenRouterAddress,
+                    foreignSwapLayerAddress,
                     wormholeSequence,
                     Buffer.from(
                         "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000000000000000f424000",
@@ -186,14 +210,17 @@ describe("swap-layer", () => {
                     feeRecipient.publicKey,
                 );
 
-                const transferIx = await swapLayer.completeTransferRelayIx({
-                    payer: payer.publicKey,
-                    beneficiary: beneficiary.publicKey,
-                    preparedFill,
-                    tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                    tokenRouterProgram: tokenRouter.ID,
-                    recipient: payer.publicKey,
-                });
+                const transferIx = await swapLayer.completeTransferRelayIx(
+                    {
+                        payer: payer.publicKey,
+                        beneficiary: beneficiary.publicKey,
+                        preparedFill,
+                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                        tokenRouterProgram: tokenRouter.ID,
+                        recipient: payer.publicKey,
+                    },
+                    foreignChain,
+                );
 
                 await expectIxOk(connection, [transferIx], [payer]);
 
@@ -222,7 +249,8 @@ describe("swap-layer", () => {
                     payer,
                     testCctpNonce++,
                     foreignChain,
-                    foreignEndpointAddress,
+                    foreignTokenRouterAddress,
+                    foreignSwapLayerAddress,
                     wormholeSequence,
                     Buffer.from(
                         "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02041CDB400000000f424000",
@@ -244,14 +272,17 @@ describe("swap-layer", () => {
                     feeRecipient.publicKey,
                 );
 
-                const transferIx = await swapLayer.completeTransferRelayIx({
-                    payer: payer.publicKey,
-                    beneficiary: beneficiary.publicKey,
-                    preparedFill,
-                    tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                    tokenRouterProgram: tokenRouter.ID,
-                    recipient: recipient.publicKey,
-                });
+                const transferIx = await swapLayer.completeTransferRelayIx(
+                    {
+                        payer: payer.publicKey,
+                        beneficiary: beneficiary.publicKey,
+                        preparedFill,
+                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                        tokenRouterProgram: tokenRouter.ID,
+                        recipient: recipient.publicKey,
+                    },
+                    foreignChain,
+                );
 
                 await expectIxOk(connection, [transferIx], [payer]);
 
@@ -284,7 +315,8 @@ describe("swap-layer", () => {
                     payer,
                     testCctpNonce++,
                     foreignChain,
-                    foreignEndpointAddress,
+                    foreignTokenRouterAddress,
+                    foreignSwapLayerAddress,
                     wormholeSequence,
                     Buffer.from(
                         "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000000000000000f424000",
@@ -306,14 +338,17 @@ describe("swap-layer", () => {
                     feeRecipient.publicKey,
                 );
 
-                const transferIx = await swapLayer.completeTransferRelayIx({
-                    payer: payer.publicKey,
-                    beneficiary: beneficiary.publicKey,
-                    preparedFill,
-                    tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                    tokenRouterProgram: tokenRouter.ID,
-                    recipient: recipient.publicKey,
-                });
+                const transferIx = await swapLayer.completeTransferRelayIx(
+                    {
+                        payer: payer.publicKey,
+                        beneficiary: beneficiary.publicKey,
+                        preparedFill,
+                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                        tokenRouterProgram: tokenRouter.ID,
+                        recipient: recipient.publicKey,
+                    },
+                    foreignChain,
+                );
 
                 await expectIxOk(connection, [transferIx], [payer]);
 
@@ -345,7 +380,8 @@ describe("swap-layer", () => {
                     payer,
                     testCctpNonce++,
                     foreignChain,
-                    foreignEndpointAddress,
+                    foreignTokenRouterAddress,
+                    foreignSwapLayerAddress,
                     wormholeSequence,
                     encodeDirectUsdcTransfer(recipient.publicKey),
                 );
@@ -359,14 +395,17 @@ describe("swap-layer", () => {
                 const recipientBefore = await getUsdcAtaBalance(connection, recipient.publicKey);
                 const beneficiaryBefore = await connection.getBalance(beneficiary.publicKey);
 
-                const transferIx = await swapLayer.completeTransferDirectIx({
-                    payer: payer.publicKey,
-                    beneficiary: beneficiary.publicKey,
-                    preparedFill,
-                    tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                    tokenRouterProgram: tokenRouter.ID,
-                    recipient: recipient.publicKey,
-                });
+                const transferIx = await swapLayer.completeTransferDirectIx(
+                    {
+                        payer: payer.publicKey,
+                        beneficiary: beneficiary.publicKey,
+                        preparedFill,
+                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                        tokenRouterProgram: tokenRouter.ID,
+                        recipient: recipient.publicKey,
+                    },
+                    foreignChain,
+                );
 
                 await expectIxOk(connection, [transferIx], [payer]);
 
@@ -387,7 +426,8 @@ describe("swap-layer", () => {
                     payer,
                     testCctpNonce++,
                     foreignChain,
-                    foreignEndpointAddress,
+                    foreignTokenRouterAddress,
+                    foreignSwapLayerAddress,
                     wormholeSequence,
                     encodeDirectUsdcTransfer(payer.publicKey),
                 );
@@ -401,13 +441,16 @@ describe("swap-layer", () => {
                 const recipientBefore = await getUsdcAtaBalance(connection, payer.publicKey);
                 const beneficiaryBefore = await connection.getBalance(beneficiary.publicKey);
 
-                const transferIx = await swapLayer.completeTransferDirectIx({
-                    payer: payer.publicKey,
-                    beneficiary: beneficiary.publicKey,
-                    preparedFill,
-                    tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                    tokenRouterProgram: tokenRouter.ID,
-                });
+                const transferIx = await swapLayer.completeTransferDirectIx(
+                    {
+                        payer: payer.publicKey,
+                        beneficiary: beneficiary.publicKey,
+                        preparedFill,
+                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                        tokenRouterProgram: tokenRouter.ID,
+                    },
+                    foreignChain,
+                );
 
                 await expectIxOk(connection, [transferIx], [payer]);
 
@@ -440,6 +483,7 @@ async function createAndRedeemCctpFillForTest(
     cctpNonce: bigint,
     foreignChain: number,
     foreignEndpointAddress: number[],
+    orderSender: number[],
     wormholeSequence: bigint,
     redeemerMessage: Buffer,
 ): Promise<void | { vaa: PublicKey; message: LiquidityLayerMessage }> {
@@ -474,7 +518,7 @@ async function createAndRedeemCctpFillForTest(
             {
                 fill: {
                     sourceChain: foreignChain as wormholeSdk.ChainId,
-                    orderSender: Array.from(Buffer.alloc(32, "d00d", "hex")),
+                    orderSender,
                     redeemer: Array.from(redeemer.toBuffer()),
                     redeemerMessage: redeemerMessage,
                 },

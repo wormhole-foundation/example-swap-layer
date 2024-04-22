@@ -24,6 +24,10 @@ pub mod swap_layer {
         processor::initialize(ctx)
     }
 
+    pub fn add_peer(ctx: Context<AddPeer>, args: AddPeerArgs) -> Result<()> {
+        processor::add_peer(ctx, args)
+    }
+
     pub fn complete_transfer_relay(ctx: Context<CompleteTransferRelay>) -> Result<()> {
         processor::complete_transfer_relay(ctx)
     }

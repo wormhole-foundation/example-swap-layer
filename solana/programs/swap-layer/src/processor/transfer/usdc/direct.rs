@@ -1,4 +1,8 @@
-use crate::{composite::*, error::SwapLayerError, state::Custodian};
+use crate::{
+    composite::*,
+    error::SwapLayerError,
+    state::{Custodian, Peer},
+};
 use anchor_lang::prelude::*;
 use anchor_spl::token;
 use common::wormhole_io::TypePrefixedPayload;
@@ -33,6 +37,15 @@ pub struct CompleteTransferDirect<'info> {
 
     usdc: Usdc<'info>,
 
+    #[account(
+        seeds = [
+            Peer::SEED_PREFIX,
+            &prepared_fill.source_chain.to_be_bytes()
+        ],
+        bump,
+    )]
+    pub peer: Box<Account<'info, Peer>>,
+
     /// Prepared fill account.
     #[account(mut, constraint = {
         let swap_msg = SwapMessageV1::read_slice(&prepared_fill.redeemer_message)
@@ -42,6 +55,11 @@ pub struct CompleteTransferDirect<'info> {
             Pubkey::from(swap_msg.recipient),
             recipient.key(),
             SwapLayerError::InvalidRecipient
+        );
+
+        require!(
+            prepared_fill.order_sender == peer.address,
+            SwapLayerError::InvalidPeer
         );
 
         require!(
@@ -79,9 +97,6 @@ pub fn complete_transfer_direct(ctx: Context<CompleteTransferDirect>) -> Result<
 }
 
 fn handle_complete_transfer_direct(ctx: Context<CompleteTransferDirect>) -> Result<()> {
-    // TODO: Add account constraint that order sender is a registered swap layer.
-    // Check the order sender and from chain.
-
     // CPI Call token router.
     token_router::cpi::consume_prepared_fill(CpiContext::new_with_signer(
         ctx.accounts.token_router_program.to_account_info(),
