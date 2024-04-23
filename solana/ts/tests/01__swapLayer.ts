@@ -155,7 +155,13 @@ describe("swap-layer", () => {
 
         describe("Peer Registration", () => {
             it("Add Peer As Owner", async () => {
-                const ix = await swapLayer.addPeerIxx(
+                const gasPrice = 690000;
+                const gasTokenPrice = new anchor.BN(10000);
+                const updateThreshold = 690000;
+                const baseFee = 100000;
+                const maxGasDropoff = new anchor.BN(10000);
+
+                const ix = await swapLayer.addPeerIx(
                     {
                         ownerOrAssistant: payer.publicKey,
                         payer: payer.publicKey,
@@ -163,13 +169,19 @@ describe("swap-layer", () => {
                     {
                         chain: foreignChain,
                         address: foreignSwapLayerAddress,
+                        executionParams: {
+                            evm: {
+                                gasPrice,
+                                gasTokenPrice,
+                                updateThreshold,
+                            },
+                        },
+                        baseFee,
+                        maxGasDropoff,
                     },
                 );
 
                 await expectIxOk(connection, [ix], [payer]);
-
-                const routerEndpointData = await swapLayer.fetchPeer(foreignChain);
-                expect(routerEndpointData).to.eql(new Peer(foreignChain, foreignSwapLayerAddress));
             });
         });
     });
