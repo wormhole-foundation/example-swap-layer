@@ -1,11 +1,10 @@
 export * from "./state";
 
 import { Connection, PublicKey, TransactionInstruction } from "@solana/web3.js";
-import { Program } from "@coral-xyz/anchor";
+import { BN, Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import { IDL, SwapLayer } from "../../../target/types/swap_layer";
-import { Custodian, Peer } from "./state";
-import * as tokenRouterSdk from "../../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
+import { Custodian, ExecutionParams, Peer } from "./state";
 import * as wormholeSdk from "@certusone/wormhole-sdk";
 
 export const PROGRAM_IDS = ["AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m"] as const;
@@ -15,6 +14,9 @@ export type ProgramId = (typeof PROGRAM_IDS)[number];
 export type AddPeerArgs = {
     chain: wormholeSdk.ChainId;
     address: Array<number>;
+    executionParams: ExecutionParams;
+    baseFee: number;
+    maxGasDropoff: BN;
 };
 export class SwapLayerProgram {
     private _programId: ProgramId;
@@ -106,7 +108,7 @@ export class SwapLayerProgram {
             .instruction();
     }
 
-    async addPeerIxx(
+    async addPeerIx(
         accounts: {
             ownerOrAssistant: PublicKey;
             payer?: PublicKey;
@@ -119,14 +121,17 @@ export class SwapLayerProgram {
         payer ??= ownerOrAssistant;
         peer ??= this.peerAddress(args.chain);
 
-        return this.program.methods
-            .addPeer(args)
-            .accounts({
-                payer,
-                admin: this.adminComposite(ownerOrAssistant, custodian),
-                peer,
-            })
-            .instruction();
+        return (
+            this.program.methods
+                // @ts-ignore
+                .addPeer(args)
+                .accounts({
+                    payer,
+                    admin: this.adminComposite(ownerOrAssistant, custodian),
+                    peer,
+                })
+                .instruction()
+        );
     }
 
     async completeTransferRelayIx(

@@ -12,4 +12,9 @@ pub enum SwapLayerError {
     OwnerOrAssistantOnly = 0x108,
     ChainNotAllowed = 0x109,
     InvalidPeer = 0x10a,
+
+    // EVM Execution Param errors
+    InvalidGasPrice = 0x200,
+    InvalidGasTokenPrice = 0x201,
+    InvalidUpdateThreshold = 0x202,
 }
