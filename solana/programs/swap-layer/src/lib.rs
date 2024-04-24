@@ -14,7 +14,7 @@ pub mod utils;
 declare_id!("AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m");
 
 const CUSTODIAN_BUMP: u8 = 255;
-const SEED_PREFIX_TMP: &[u8] = b"tmp";
+const SEED_PREFIX_COMPLETE: &[u8] = b"complete";
 
 #[program]
 pub mod swap_layer {

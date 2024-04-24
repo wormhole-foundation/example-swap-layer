@@ -28,14 +28,14 @@ pub struct CompleteTransferRelay<'info> {
         init,
         payer = payer,
         seeds = [
-            crate::SEED_PREFIX_TMP,
-            usdc.key().as_ref(),
+            crate::SEED_PREFIX_COMPLETE,
+            prepared_fill.key().as_ref(),
         ],
         bump,
         token::mint = usdc,
         token::authority = custodian
     )]
-    pub tmp_token_account: Account<'info, token::TokenAccount>,
+    pub complete_token_account: Account<'info, token::TokenAccount>,
 
     #[account(
         mut,
@@ -135,7 +135,7 @@ fn handle_complete_transfer_relay(
             redeemer: ctx.accounts.custodian.to_account_info(),
             beneficiary: ctx.accounts.beneficiary.to_account_info(),
             prepared_fill: prepared_fill.to_account_info(),
-            dst_token: ctx.accounts.tmp_token_account.to_account_info(),
+            dst_token: ctx.accounts.complete_token_account.to_account_info(),
             prepared_custody_token: ctx.accounts.token_router_custody.to_account_info(),
             token_program: token_program.to_account_info(),
         },
@@ -175,7 +175,7 @@ fn handle_complete_transfer_relay(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             anchor_spl::token::Transfer {
-                from: ctx.accounts.tmp_token_account.to_account_info(),
+                from: ctx.accounts.complete_token_account.to_account_info(),
                 to: ctx.accounts.recipient_token_account.to_account_info(),
                 authority: ctx.accounts.custodian.to_account_info(),
             },
@@ -190,7 +190,7 @@ fn handle_complete_transfer_relay(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 anchor_spl::token::Transfer {
-                    from: ctx.accounts.tmp_token_account.to_account_info(),
+                    from: ctx.accounts.complete_token_account.to_account_info(),
                     to: ctx.accounts.fee_recipient_token.to_account_info(),
                     authority: ctx.accounts.custodian.to_account_info(),
                 },
@@ -204,7 +204,7 @@ fn handle_complete_transfer_relay(
     token::close_account(CpiContext::new_with_signer(
         token_program.to_account_info(),
         token::CloseAccount {
-            account: ctx.accounts.tmp_token_account.to_account_info(),
+            account: ctx.accounts.complete_token_account.to_account_info(),
             destination: payer.to_account_info(),
             authority: ctx.accounts.custodian.to_account_info(),
         },

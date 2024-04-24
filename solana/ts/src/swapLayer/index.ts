@@ -54,9 +54,9 @@ export class SwapLayerProgram {
         };
     }
 
-    tmpTokenAccountKey() {
+    completeTokenAccountKey(preparedFill: PublicKey) {
         return PublicKey.findProgramAddressSync(
-            [Buffer.from("tmp"), this.mint.toBuffer()],
+            [Buffer.from("complete"), preparedFill.toBuffer()],
             this.ID,
         )[0];
     }
@@ -177,7 +177,7 @@ export class SwapLayerProgram {
             .accounts({
                 payer,
                 custodian: this.checkedCustodianComposite(),
-                tmpTokenAccount: this.tmpTokenAccountKey(),
+                completeTokenAccount: this.completeTokenAccountKey(preparedFill),
                 recipient,
                 recipientTokenAccount,
                 usdc: this.usdcComposite(this.mint),
