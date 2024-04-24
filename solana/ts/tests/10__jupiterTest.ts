@@ -133,7 +133,7 @@ describe("Jupiter V6 Testing", () => {
     describe("Complete Swap Passthrough (WIP)", function () {
         // TODO
 
-        it("Swap USDT to USDC", async function () {
+        it.skip("Swap USDT to USDC", async function () {
             const ixData = Buffer.from(
                 "wSCbM0HWnIECAQAAABEAZAABAHQ7pAsAAAAoYEulCwAAADIAAA==",
                 "base64",

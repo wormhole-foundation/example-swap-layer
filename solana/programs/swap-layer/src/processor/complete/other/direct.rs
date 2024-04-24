@@ -1,5 +1,7 @@
 use crate::{
+    composite::*,
     error::SwapLayerError,
+    state::Peer,
     utils::{
         jupiter_v6::{self, cpi::SharedAccountsRouteArgs},
         AnchorInstructionData,
@@ -7,11 +9,78 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token;
+use swap_layer_messages::{
+    messages::SwapMessageV1, types::OutputToken, wormhole_io::TypePrefixedPayload,
+};
+use token_router::state::PreparedFill;
 
 #[derive(Accounts)]
 pub struct CompleteSwap<'info> {
     #[account(mut)]
-    src_token: Account<'info, token::TokenAccount>,
+    payer: Signer<'info>,
+
+    custodian: CheckedCustodian<'info>,
+
+    /// CHECK: Recipient of lamports from closing the prepared_fill account.
+    #[account(mut)]
+    beneficiary: UncheckedAccount<'info>,
+
+    #[account(
+        init,
+        payer = payer,
+        seeds = [
+            crate::SEED_PREFIX_COMPLETE,
+            prepared_fill.key().as_ref(),
+        ],
+        bump,
+        token::mint = usdc,
+        token::authority = custodian
+    )]
+    complete_token: Box<Account<'info, token::TokenAccount>>,
+
+    #[account(
+        seeds = [
+            Peer::SEED_PREFIX,
+            &prepared_fill.source_chain.to_be_bytes()
+        ],
+        bump,
+    )]
+    peer: Account<'info, Peer>,
+
+    /// Prepared fill account.
+    #[account(mut, constraint = {
+        let swap_msg = SwapMessageV1::read_slice(&prepared_fill.redeemer_message)
+                .map_err(|_| SwapLayerError::InvalidSwapMessage)?;
+
+        require!(
+            prepared_fill.order_sender == peer.address,
+            SwapLayerError::InvalidPeer
+        );
+
+        require!(
+            matches!(
+                swap_msg.output_token,
+                OutputToken::Token(_)
+            ),
+            SwapLayerError::InvalidOutputToken
+        );
+
+        true
+    })]
+    prepared_fill: Account<'info, PreparedFill>,
+
+    /// Custody token account. This account will be closed at the end of this instruction. It just
+    /// acts as a conduit to allow this program to be the transfer initiator in the CCTP message.
+    ///
+    /// CHECK: Mutable. Seeds must be \["custody"\].
+    #[account(mut)]
+    token_router_custody: Account<'info, token::TokenAccount>,
+
+    usdc: Usdc<'info>,
+
+    token_router_program: Program<'info, token_router::program::TokenRouter>,
+    token_program: Program<'info, token::Token>,
+    system_program: Program<'info, System>,
 }
 
 pub fn complete_swap<'a, 'b, 'c, 'info>(
@@ -47,7 +116,7 @@ where
         &mut CheckedSharedAccountsRouteBumps {
             jupiter_v6_authority: Default::default(),
         },
-        &mut std::collections::BTreeSet::new(),
+        &mut Default::default(),
     )?;
 
     // Execute swap.
@@ -69,7 +138,8 @@ where
                 event_authority: jupiter_v6_event_authority.to_account_info(),
                 program: jupiter_v6_program.to_account_info(),
             },
-        ).with_remaining_accounts(cpi_account_infos.to_vec()),
+        )
+        .with_remaining_accounts(cpi_account_infos.to_vec()),
         SharedAccountsRouteArgs::deserialize(ix_data)?,
     )
 }
