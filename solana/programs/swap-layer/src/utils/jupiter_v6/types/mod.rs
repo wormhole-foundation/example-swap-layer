@@ -1,12 +1,6 @@
 use anchor_lang::prelude::*;
 
 #[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
-pub enum Side {
-    Bid,
-    Ask,
-}
-
-#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
 pub struct RoutePlanStep {
     swap: Swap,
     percent: u8,
@@ -91,11 +85,8 @@ pub enum Swap {
     },
 }
 
-#[derive(Debug, Clone)]
-pub struct JupiterV6;
-
-impl Id for JupiterV6 {
-    fn id() -> Pubkey {
-        solana_program::pubkey!("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4")
-    }
+#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
+pub enum Side {
+    Bid,
+    Ask,
 }

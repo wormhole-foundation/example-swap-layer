@@ -17,4 +17,8 @@ pub enum SwapLayerError {
     InvalidGasPrice = 0x200,
     InvalidGasTokenPrice = 0x201,
     InvalidUpdateThreshold = 0x202,
+
+    #[msg("Jupiter V6 Authority ID must be >= 0 and < 8")]
+    InvalidJupiterV6AuthorityId = 0x300,
+    SameMint = 0x302,
 }

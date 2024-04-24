@@ -5,9 +5,11 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token;
-use common::wormhole_io::TypePrefixedPayload;
-use swap_layer_messages::messages::SwapMessageV1;
-use swap_layer_messages::types::{OutputToken, RedeemMode};
+use swap_layer_messages::{
+    messages::SwapMessageV1,
+    types::{OutputToken, RedeemMode},
+    wormhole_io::TypePrefixedPayload,
+};
 use token_router::state::PreparedFill;
 
 #[derive(Accounts)]

@@ -68,8 +68,17 @@ const routePlanStep = [
     { name: "outputIndex", binary: "uint", size: 1 },
 ] as const satisfies Layout;
 
+export type AnchorSelector = [number, number, number, number, number, number, number, number];
+
+export const selectorItem = (selector: AnchorSelector) =>
+    ({
+        name: "prefix",
+        binary: "bytes",
+        custom: Uint8Array.from(selector),
+    } as const);
+
 const sharedAccountsRouteInstructionData = [
-    { name: "selector", binary: "bytes", size: 8 },
+    selectorItem([193, 32, 155, 51, 65, 214, 156, 129]),
     { name: "id", binary: "uint", size: 1 },
     {
         name: "routePlan",

@@ -21,13 +21,17 @@ integration-test = ["localnet"]
 
 [dependencies]
 swap-layer-messages.workspace = true
+
 token-router.workspace = true
 common.workspace = true
+
+wormhole-solana-utils.workspace = true
 
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 solana-program.workspace = true
 
+hex.workspace = true
 ruint.workspace = true
 
 [dev-dependencies]
