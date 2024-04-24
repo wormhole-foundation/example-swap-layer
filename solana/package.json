@@ -14,7 +14,8 @@
         "@wormhole-foundation/sdk-definitions": "0.6.0-beta.0",
         "@wormhole-foundation/sdk-evm": "0.6.0-beta.0",
         "chai-as-promised": "^7.1.1",
-        "ts-results": "^3.3.0"
+        "ts-results": "^3.3.0",
+        "tsx": "^4.7.2"
     },
     "devDependencies": {
         "@types/bn.js": "^5.1.0",

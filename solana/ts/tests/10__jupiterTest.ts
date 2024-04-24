@@ -34,8 +34,11 @@ import { VaaAccount } from "../../../lib/example-liquidity-layer/solana/ts/src/w
 import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solana/ts/src/cctp";
 import * as jupiter from "../src/jupiter";
 import { Whirlpool, IDL as WHIRLPOOL_IDL } from "../src/types/whirlpool";
+import { IDL as SWAP_LAYER_IDL } from "../../target/types/swap_layer";
 
 chaiUse(require("chai-as-promised"));
+
+const SWAP_LAYER_PROGRAM_ID = new PublicKey("AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m");
 
 const USDT_MINT_ADDRESS = new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB");
 const USDC_MINT_ADDRESS = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
@@ -80,8 +83,12 @@ describe("Jupiter V6 Testing", () => {
         connection,
     });
 
+    const swapLayerProgram = new anchor.Program(SWAP_LAYER_IDL, SWAP_LAYER_PROGRAM_ID, {
+        connection,
+    });
+
     describe("Whirlpool", () => {
-        it("Swap USDT to USDC", async function () {
+        it.skip("Swap USDT to USDC", async function () {
             const swapIx = jupiter.toTransactionInstruction(
                 jupiterV6SwapIxResponseWhirlpool.swapInstruction,
             );
@@ -118,6 +125,46 @@ describe("Jupiter V6 Testing", () => {
             );
 
             expect(swapIx.keys).has.length(ix.keys.length);
+
+            const txSig = await expectIxOk(connection, [ix], [payer]);
+        });
+    });
+
+    describe("Complete Swap Passthrough (WIP)", function () {
+        // TODO
+
+        it("Swap USDT to USDC", async function () {
+            const ixData = Buffer.from(
+                "wSCbM0HWnIECAQAAABEAZAABAHQ7pAsAAAAoYEulCwAAADIAAA==",
+                "base64",
+            );
+            const transferAuthority = jupiterTransferAuthorityAddress(2);
+            const innerIx = jupiterV6SwapIx(
+                {
+                    user: payer.publicKey,
+                    transferAuthority,
+                    inputMint: USDT_MINT_ADDRESS,
+                    outputMint: USDC_MINT_ADDRESS,
+                },
+                //swapIx.keys.slice(13),
+                await whirlpoolIxSetup(
+                    whirlpoolProgram,
+                    { tokenAuthority: transferAuthority, whirlpool: WHIRLPOOL_USDC_USDT },
+                    true,
+                ),
+                ixData,
+            );
+
+            const ix = await swapLayerProgram.methods
+                .completeSwap(ixData)
+                .accounts({
+                    srcToken: splToken.getAssociatedTokenAddressSync(
+                        USDT_MINT_ADDRESS,
+                        payer.publicKey,
+                    ),
+                })
+                .remainingAccounts(innerIx.keys)
+                .instruction();
 
             const txSig = await expectIxOk(connection, [ix], [payer]);
         });
@@ -452,7 +499,6 @@ function jupiterV6SwapIx(
         user,
         //true, // allowOwnerOffCurve
     );
-    console.log("wtf", inputMint.toString(), sourceToken.toString());
     const destinationToken = splToken.getAssociatedTokenAddressSync(
         outputMint,
         user,

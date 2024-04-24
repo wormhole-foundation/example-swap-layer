@@ -2315,12 +2315,14 @@ version = "0.0.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "hex",
  "hex-literal",
  "liquidity-layer-common-solana",
  "ruint",
  "solana-program",
  "swap-layer-messages",
  "token-router",
+ "wormhole-solana-utils",
 ]
 
 [[package]]
