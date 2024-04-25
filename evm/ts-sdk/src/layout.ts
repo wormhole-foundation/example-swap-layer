@@ -158,16 +158,16 @@ const acquireModeItem = {
       { name: "deadline",    binary: "uint",  size: 32 },
       { name: "signature",   binary: "bytes", size: 65 },
     ]],
-    [[2, "Permit2Permit"], [
-      { name: "amount",      binary: "uint",  size: 20 },
-      { name: "expiration",  binary: "uint",  size:  6 },
-      { name: "nonce",       binary: "uint",  size:  6 },
+    [[2, "Permit2Transfer"], [
+      { name: "amount",      binary: "uint",  size: 32 },
+      { name: "nonce",       binary: "uint",  size: 32 },
       { name: "sigDeadline", binary: "uint",  size: 32 },
       { name: "signature",   binary: "bytes", size: 65 },
     ]],
-    [[3, "Permit2Transfer"], [
-      { name: "amount",      binary: "uint",  size: 32 },
-      { name: "nonce",       binary: "uint",  size: 32 },
+    [[3, "Permit2Permit"], [
+      { name: "amount",      binary: "uint",  size: 20 },
+      { name: "expiration",  binary: "uint",  size:  6 },
+      { name: "nonce",       binary: "uint",  size:  6 },
       { name: "sigDeadline", binary: "uint",  size: 32 },
       { name: "signature",   binary: "bytes", size: 65 },
     ]],

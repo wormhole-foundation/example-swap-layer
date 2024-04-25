@@ -11,7 +11,6 @@ import "wormhole-sdk/interfaces/IWormhole.sol";
 import "wormhole-sdk/interfaces/token/IWETH.sol";
 import "wormhole-sdk/interfaces/token/IUSDC.sol";
 import "wormhole-sdk/proxy/Proxy.sol";
-import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 import "wormhole-sdk/testing/UsdcDealer.sol";
 import "wormhole-sdk/testing/WormholeCctpSimulator.sol";
 
@@ -28,7 +27,6 @@ import "swap-layer/assets/GasDropoff.sol";
 
 contract SwapLayerTestBase is Test {
   using UsdcDealer for IUSDC;
-  using { toUniversalAddress } for address;
 
   uint16  constant FOREIGN_CHAIN_ID               = 0xF00F;
   bytes32 constant FOREIGN_LIQUIDITY_LAYER        = bytes32(uint256(uint160(address(1))));
@@ -83,7 +81,7 @@ contract SwapLayerTestBase is Test {
     );
   }
 
-  function deployBase() public {
+  function deployBase() internal {
     vm.startPrank(llOwner);
     {
       liquidityLayer = ITokenRouter(address(new ERC1967Proxy(

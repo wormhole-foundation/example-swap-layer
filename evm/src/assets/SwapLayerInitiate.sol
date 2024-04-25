@@ -194,22 +194,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       IERC20Permit(address(inputToken)).permit(msg.sender, address(this), value, deadline, v, r, s);
       inputToken.safeTransferFrom(msg.sender, address(this), inputAmount);
     }
-    else if (acquireMode == AcquireMode.Permit2Permit) {
-      uint160 amount; uint48 expiration; uint48 nonce; uint256 sigDeadline; bytes memory signature;
-      (amount, expiration, nonce, sigDeadline, signature, offset) =
-        parsePermit2Permit(params, offset);
-      _permit2.permit(
-        msg.sender,
-        IAllowanceTransfer.PermitSingle({
-          details: IAllowanceTransfer.PermitDetails(address(inputToken), amount, expiration, nonce),
-          spender: address(this),
-          sigDeadline: sigDeadline
-        }),
-        signature
-      );
-      inputToken.safeTransferFrom(msg.sender, address(this), inputAmount);
-    }
-    else { //must be AcquireMode.Permit2Transfer)
+    else if (acquireMode == AcquireMode.Permit2Transfer) {
       uint256 amount; uint256 nonce; uint256 sigDeadline; bytes memory signature;
       (amount, nonce, sigDeadline, signature, offset) = parsePermit2Transfer(params, offset);
       _permit2.permitTransferFrom(
@@ -222,6 +207,21 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         msg.sender,
         signature
       );
+    }
+    else { //must be AcquireMode.Permit2Permit
+      uint160 amount; uint48 expiration; uint48 nonce; uint256 sigDeadline; bytes memory signature;
+      (amount, expiration, nonce, sigDeadline, signature, offset) =
+        parsePermit2Permit(params, offset);
+      _permit2.permit(
+        msg.sender,
+        IAllowanceTransfer.PermitSingle({
+          details: IAllowanceTransfer.PermitDetails(address(inputToken), amount, expiration, nonce),
+          spender: address(this),
+          sigDeadline: sigDeadline
+        }),
+        signature
+      );
+      _permit2.transferFrom(msg.sender, address(this), uint160(inputAmount), address(inputToken));
     }
     return offset;
   }

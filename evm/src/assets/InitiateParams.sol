@@ -18,8 +18,8 @@ enum FastTransferMode {
 enum AcquireMode {
   Preapproved,
   Permit,
-  Permit2Permit,
-  Permit2Transfer
+  Permit2Transfer,
+  Permit2Permit
 }
 
 uint constant FAST_TRANSFER_MAX_FEE_SIZE  = 6;
@@ -32,6 +32,15 @@ uint constant PERMIT_VALUE_SIZE = 32;
 uint constant PERMIT_DEADLINE_SIZE = 32;
 uint constant PERMIT_SIZE = PERMIT_VALUE_SIZE + PERMIT_DEADLINE_SIZE + SIGNATURE_SIZE;
 
+uint constant PERMIT2_TRANSFER_AMOUNT_SIZE = 32;
+uint constant PERMIT2_TRANSFER_NONCE_SIZE = 32;
+uint constant PERMIT2_TRANSFER_SIG_DEADLINE_SIZE = 32;
+uint constant PERMIT2_TRANSFER_SIZE =
+  PERMIT2_TRANSFER_AMOUNT_SIZE +
+  PERMIT2_TRANSFER_NONCE_SIZE +
+  PERMIT2_TRANSFER_SIG_DEADLINE_SIZE +
+  SIGNATURE_SIZE;
+
 uint constant PERMIT2_PERMIT_AMOUNT_SIZE = 20;
 uint constant PERMIT2_PERMIT_EXPIRATION_SIZE = 6;
 uint constant PERMIT2_PERMIT_NONCE_SIZE = 6;
@@ -41,15 +50,6 @@ uint constant PERMIT2_PERMIT_SIZE =
   PERMIT2_PERMIT_EXPIRATION_SIZE +
   PERMIT2_PERMIT_NONCE_SIZE +
   PERMIT2_PERMIT_SIG_DEADLINE_SIZE +
-  SIGNATURE_SIZE;
-
-uint constant PERMIT2_TRANSFER_AMOUNT_SIZE = 32;
-uint constant PERMIT2_TRANSFER_NONCE_SIZE = 32;
-uint constant PERMIT2_TRANSFER_SIG_DEADLINE_SIZE = 32;
-uint constant PERMIT2_TRANSFER_SIZE =
-  PERMIT2_TRANSFER_AMOUNT_SIZE +
-  PERMIT2_TRANSFER_NONCE_SIZE +
-  PERMIT2_TRANSFER_SIG_DEADLINE_SIZE +
   SIGNATURE_SIZE;
 
 //we don't support DAI's non-standard permit so it has to go through the permit2 interface
@@ -63,15 +63,15 @@ uint constant PERMIT2_TRANSFER_SIZE =
 //    32 bytes  value
 //    32 bytes  deadline
 //    65 bytes  signature (r, s, v)
+//  PERMIT2_TRANSFER:
+//    32 bytes  amount
+//    32 bytes  nonce
+//    32 bytes  sigDeadline
+//    65 bytes  signature (r, s, v)
 //  PERMIT2_PERMIT:
 //    20 bytes  amount
 //     6 bytes  expiration
 //     6 bytes  nonce
-//    32 bytes  sigDeadline
-//    65 bytes  signature (r, s, v)
-//  PERMIT2_TRANSFER:
-//    32 bytes  amount
-//    32 bytes  nonce
 //    32 bytes  sigDeadline
 //    65 bytes  signature (r, s, v)
 
@@ -215,7 +215,11 @@ function parseFastTransferMode(
 
 //gas optimization - cheaper than if else branch
 uint constant _ACQUIRE_MODE_SIZES_ARRAY =
-  (PERMIT_SIZE << 8) + (PERMIT2_PERMIT_SIZE << 16) + (PERMIT2_TRANSFER_SIZE << 24);
+  (                    0 << (uint8(AcquireMode.Preapproved    ) * 8)) +
+  (          PERMIT_SIZE << (uint8(AcquireMode.Permit         ) * 8)) +
+  (PERMIT2_TRANSFER_SIZE << (uint8(AcquireMode.Permit2Transfer) * 8)) +
+  (  PERMIT2_PERMIT_SIZE << (uint8(AcquireMode.Permit2Permit  ) * 8));
+
 function skipAcquire(
   bytes memory params,
   uint offset
