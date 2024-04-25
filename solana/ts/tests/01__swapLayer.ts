@@ -34,7 +34,7 @@ import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solan
 
 chaiUse(require("chai-as-promised"));
 
-describe("swap-layer", () => {
+describe("Swap Layer", () => {
     const connection = new Connection(LOCALHOST, "processed");
     const payer = PAYER_KEYPAIR;
     const owner = OWNER_KEYPAIR;
@@ -157,9 +157,9 @@ describe("swap-layer", () => {
             it("Add Peer As Owner", async () => {
                 const gasPrice = 690000;
                 const gasTokenPrice = new anchor.BN(10000);
-                const updateThreshold = 690000;
                 const baseFee = 100000;
                 const maxGasDropoff = new anchor.BN(10000);
+                const margin = 10000; // 1%
 
                 const ix = await swapLayer.addPeerIx(
                     {
@@ -169,15 +169,18 @@ describe("swap-layer", () => {
                     {
                         chain: foreignChain,
                         address: foreignSwapLayerAddress,
-                        executionParams: {
-                            evm: {
-                                gasPrice,
-                                gasTokenPrice,
-                                updateThreshold,
+                        relayParams: {
+                            baseFee,
+                            nativeTokenPrice: gasTokenPrice,
+                            maxGasDropoff,
+                            gasDropoffMargin: margin,
+                            executionParams: {
+                                evm: {
+                                    gasPrice,
+                                    gasPriceMargin: margin,
+                                },
                             },
                         },
-                        baseFee,
-                        maxGasDropoff,
                     },
                 );
 
@@ -251,7 +254,7 @@ describe("swap-layer", () => {
 
             it("Fill With Gas Dropoff", async function () {
                 const relayerFee = 1000000n;
-                const gasAmount = 69000000n;
+                const gasAmount = 690000000n;
 
                 const result = await createAndRedeemCctpFillForTest(
                     connection,
@@ -265,7 +268,7 @@ describe("swap-layer", () => {
                     foreignSwapLayerAddress,
                     wormholeSequence,
                     Buffer.from(
-                        "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02041CDB400000000f424000",
+                        "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000A87500000000f424000",
                         "hex",
                     ),
                 );
