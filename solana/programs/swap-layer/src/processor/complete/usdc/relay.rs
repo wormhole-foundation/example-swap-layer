@@ -1,3 +1,4 @@
+use crate::utils::gas_dropoff::scale_gas_dropoff;
 use crate::{
     composite::*,
     error::SwapLayerError,
@@ -110,18 +111,21 @@ pub fn complete_transfer_relay(ctx: Context<CompleteTransferRelay>) -> Result<()
     // Parse the redeemer message.
     let swap_msg = SwapMessageV1::read_slice(&ctx.accounts.prepared_fill.redeemer_message).unwrap();
 
+    // Gas dropoff needs to be scaled by 1e3 to convert into lamports.
     match swap_msg.redeem_mode {
         RedeemMode::Relay {
             gas_dropoff,
             relaying_fee,
-        } => handle_complete_transfer_relay(ctx, gas_dropoff, relaying_fee.into()),
+        } => {
+            handle_complete_transfer_relay(ctx, scale_gas_dropoff(gas_dropoff), relaying_fee.into())
+        }
         _ => err!(SwapLayerError::InvalidRedeemMode),
     }
 }
 
 fn handle_complete_transfer_relay(
     ctx: Context<CompleteTransferRelay>,
-    gas_dropoff: u32,
+    gas_dropoff: u64,
     relaying_fee: u64,
 ) -> Result<()> {
     let prepared_fill = &ctx.accounts.prepared_fill;

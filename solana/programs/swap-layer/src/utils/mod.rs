@@ -1,3 +1,4 @@
+pub mod gas_dropoff;
 pub mod jupiter_v6;
 
 use std::fmt;

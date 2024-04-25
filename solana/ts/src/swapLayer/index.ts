@@ -4,7 +4,7 @@ import { Connection, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { BN, Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import { IDL, SwapLayer } from "../../../target/types/swap_layer";
-import { Custodian, ExecutionParams, Peer } from "./state";
+import { Custodian, RelayParams, Peer } from "./state";
 import * as wormholeSdk from "@certusone/wormhole-sdk";
 
 export const PROGRAM_IDS = ["AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m"] as const;
@@ -14,9 +14,7 @@ export type ProgramId = (typeof PROGRAM_IDS)[number];
 export type AddPeerArgs = {
     chain: wormholeSdk.ChainId;
     address: Array<number>;
-    executionParams: ExecutionParams;
-    baseFee: number;
-    maxGasDropoff: BN;
+    relayParams: RelayParams;
 };
 export class SwapLayerProgram {
     private _programId: ProgramId;

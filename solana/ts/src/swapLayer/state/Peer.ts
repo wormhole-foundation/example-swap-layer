@@ -5,15 +5,15 @@ export type ExecutionParams = {
     none?: {};
     evm?: {
         gasPrice: number;
-        gasTokenPrice: BN;
-        updateThreshold: number;
+        gasPriceMargin: number;
     };
 };
 
 export type RelayParams = {
-    lastUpdate: number;
     baseFee: number;
+    nativeTokenPrice: BN;
     maxGasDropoff: BN;
+    gasDropoffMargin: number;
     executionParams: ExecutionParams;
 };
 
