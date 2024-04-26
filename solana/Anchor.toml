@@ -28,32 +28,35 @@ test = "npx ts-mocha -p ./tsconfig.anchor-test.json -t 1000000 ts/tests/[0-9]*.t
 startup_wait = 20000
 
 [test.validator]
-url = "https://api.devnet.solana.com"
+url = "https://api.mainnet-beta.solana.com"
 
 ### At 160 ticks/s, 64 ticks per slot implies that leader rotation and voting will happen
 ### every 400 ms. A fast voting cadence ensures faster finality and convergence
 ticks_per_slot = 16
 
 ### Wormhole Core Bridge Program
-[[test.validator.clone]]
-address = "3u8hJUVTA4jH1wYAyUur7FFZVQ8H635K3tSHHF4ssjQ5"
+[[test.genesis]]
+address = "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
+program = "ts/tests/artifacts/mainnet_core_bridge.so"
 
 ### Circle Message Transmitter Program
-[[test.validator.clone]]
+[[test.genesis]]
 address = "CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd"
+program = "ts/tests/artifacts/mainnet_cctp_message_transmitter.so"
 
 ### Circle Token Messenger Minter Program
-[[test.validator.clone]]
+[[test.genesis]]
 address = "CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3"
+program = "ts/tests/artifacts/mainnet_cctp_token_messenger_minter.so"
 
-### Mint -- USDC
+### USDC Mint
 [[test.validator.account]]
-address = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/usdc_mint.json"
 
 ### Payer Token Account -- USDC
 [[test.validator.account]]
-address = "6s9vuDVXZsJY1Qp29cFxKgbSmpTH2QWnrjZzPHWmFXCz"
+address = "4tKtuvtQ4TzkkrkESnRpbfSXCEZPkZe3eL5tCFUdpxtf"
 filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/usdc_payer_token.json"
 
 ### Circle Token Messenger Minter PDA -- Token Messenger
@@ -68,17 +71,17 @@ filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messen
 
 ### Circle Token Messenger Minter PDA -- USDC Custody Token Account
 [[test.validator.account]]
-address = "AEfKU8wHGtYgsXpymQ6e1cGHJJeKqCj95pw82iyRUKEs"
+address = "FSxJ85FXVsXSr51SeWf9ciJWTcRnqKFSmBgRDeL3KyWw"
 filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_custody_token.json"
 
 ### Circle Token Messenger Minter PDA -- USDC Local Token
 [[test.validator.account]]
-address = "4xt9P42CcMHXAgvemTnzineHp6owfGUcrg1xD9V7mdk1"
+address = "72bvEFk2Usi2uYc1SnaTNhBcQPc6tiJWXr9oKk7rkd4C"
 filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_local_token.json"
 
 ### Circle Token Messenger Minter PDA -- USDC Token Pair
 [[test.validator.account]]
-address = "ADcG1d7znq6wR73BJgEh7dR4vTJcETLLyfXMNZjJVwk4"
+address = "8d1jdvvMFhJfxSzPXcDGtifcGMTvUxc2EpWFstbNzcTL"
 filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_token_pair.json"
 
 ### Circle Token Messenger Minter PDA -- Ethereum Remote Token Messenger
@@ -103,77 +106,65 @@ filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/message_tran
 
 ### Wormhole Core Bridge -- Config
 [[test.validator.account]]
-address = "6bi4JGDoRwUs9TYBuvoA7dUVyikTJDrJsJU1ew6KVLiu"
+address = "2yVjuQwpsvdsrywzsJJVs9Ueh4zayyo5DYJbBNc3DDpn"
 filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/config.json"
 
 ### Wormhole Core Bridge -- Fee Collector
 [[test.validator.account]]
-address = "7s3a1ycs16d6SNDumaRtjcoyMaTDZPavzgsmS3uUZYWX"
+address = "9bFNrXNb2WTx8fMHXCheaZqkLZ3YCCaiqTftHxeintHy"
 filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/fee_collector.json"
 
 ### Wormhole Core Bridge -- Guardian Set 0
 [[test.validator.account]]
-address = "dxZtypiKT5D9LYzdPxjvSZER9MgYfeRVU5qpMTMTRs4"
+address = "DS7qfSAgYsonPpKoAjcGhX9VFjXdGkiHjEDkTidf8H2P"
 filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/guardian_set_0.json"
 
-### Testnet Matching Engine Program
-[[test.validator.clone]]
-address = "mPydpGUWxzERTNpyvTKdvS7v8kvw5sgwfiP8WQFrXVS"
+### Localnet Matching Engine Program
+[[test.genesis]]
+address = "MatchingEngine11111111111111111111111111111"
+program = "../lib/example-liquidity-layer/solana/artifacts-localnet/matching_engine.so"
 
-### Testnet Matching Engine -- Custodian
+### Localnet Matching Engine -- Custodian
 [[test.validator.account]]
-address = "5BsCKkzuZXLygduw6RorCqEB61AdzNkxp5VzQrFGzYWr"
-filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/testnet/matching_engine_custodian.json"
+address = "8h2y1vLbZGtjuiULKf7aXTE43xDVepegFCpdsvyGfjna"
+filename = "ts/tests/accounts/matching_engine/matching_engine_custodian.json"
 
-### Testnet Token Router Program
-[[test.validator.clone]]
-address = "tD8RmtdcV7bzBeuFgyrFc8wvayj988ChccEzRQzo6md"
-
-### Testnet Token Router -- Custodian
-[[test.validator.clone]]
-address = "CFYdtHYDnQgCAcwetWVjVg5V8Uiy1CpJaoYJxmV19Z7N"
-
-### Testnet Token Router - Sepolia Endpoint
-[[test.validator.clone]]
-address = "7GKCHT6kxRGmJJYuKXUkBzzxKXbnyEHa79nuQeeHKVxW"
-
-### Testnet Token Router - Mint Recipient
-[[test.validator.clone]]
-address = "EPEpG3P1Vvak3stx7RnwQD9vWFLpWzpXnbfXc1owrD7o"
-
-### Payer USDC Token Account
+### Localnet Matching Engine - Ethereum Endpoint
 [[test.validator.account]]
-address = "4tKtuvtQ4TzkkrkESnRpbfSXCEZPkZe3eL5tCFUdpxtf"
-filename = "ts/tests/accounts/payer_usdc_token.json"
+address = "BCyuV2SuRRfVBcCG82mtK9svwH9kTFtqGHdhLrfGJbzS"
+filename = "ts/tests/accounts/matching_engine/ethereum_token_router_endpoint.json"
+
+### Localnet Token Router Program
+[[test.genesis]]
+address = "TokenRouter11111111111111111111111111111111"
+program = "../lib/example-liquidity-layer/solana/artifacts-localnet/token_router.so"
+
+### Localnet Token Router -- Custodian
+[[test.validator.account]]
+address = "EfVKoFHtCktpNTk3NbayPpRNo8rR7prvcV4M9Mvxd6ko"
+filename = "ts/tests/accounts/token_router/token_router_custodian.json"
+
+### Localnet Token Router - Mint Recipient
+[[test.validator.account]]
+address = "4TTRh2xhgbxnJC1y3EdcPC6MMYyLyasaQqkYDEgnaF8i"
+filename = "ts/tests/accounts/token_router/token_router_mint_recipient.json"
 
 ### Payer USDT Token Account
 [[test.validator.account]]
 address = "4MXG73DEVVRN9xiJavCkFVFtZdYBrKmD1hjxmTtNoZnA"
 filename = "ts/tests/accounts/payer_usdt_token.json"
 
-### NOTE: The accounts below are from mainnet.
-
-### USDC Mint (Mainnet)
-[[test.validator.account]]
-address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-filename = "ts/tests/accounts/usdc_mint.json"
-
-### USDT Mint (Mainnet)
+### USDT Mint
 [[test.validator.account]]
 address = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
 filename = "ts/tests/accounts/usdt_mint.json"
 
-### Wormhole Core Bridge Program (Mainnet)
-[[test.genesis]]
-address = "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
-program = "ts/tests/artifacts/mainnet_core_bridge.so"
-
-### Jupiter V6 Program (Mainnet)
+### Jupiter V6 Program
 [[test.genesis]]
 address = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
 program = "ts/tests/artifacts/mainnet_jupiter_v6.so"
 
-### Whirlpool Program (Mainnet)
+### Whirlpool Program
 [[test.genesis]]
 address = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
 program = "ts/tests/artifacts/mainnet_whirlpool.so"

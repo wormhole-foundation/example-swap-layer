@@ -34,11 +34,11 @@ CLONED_PROGRAMS=\
 	ts/tests/artifacts/mainnet_whirlpool.so
 
 .PHONY: integration-test
-integration-test: node_modules $(CLONED_PROGRAMS)
-	anchor test --arch sbf -- --features integration-test
+integration-test: node_modules $(CLONED_PROGRAMS) ../lib/example-liquidity-layer/solana/artifacts-localnet
+	anchor test --arch sbf -- --features integration-test 
 
 ../lib/example-liquidity-layer/solana/node_modules:
-	cd .. && $(MAKE) lib/example-liquidity-layer/solana/node_modules
+	cd ../lib/example-liquidity-layer/solana && $(MAKE) node_modules
 
 .PHONY: test
 test:
@@ -62,3 +62,6 @@ ts/tests/artifacts/mainnet_jupiter_v6.so: ts/tests/artifacts
 
 ts/tests/artifacts/mainnet_whirlpool.so: ts/tests/artifacts
 	solana program dump -u m whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc ts/tests/artifacts/mainnet_whirlpool.so
+
+../lib/example-liquidity-layer/solana/artifacts-localnet:
+	cd ../lib/example-liquidity-layer/solana && NETWORK=localnet $(MAKE) build

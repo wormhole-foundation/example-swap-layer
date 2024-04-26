@@ -15,7 +15,10 @@ import {
 import { expect } from "chai";
 import { execSync } from "child_process";
 import { Err, Ok } from "ts-results";
-import { CORE_BRIDGE_PID, USDC_MINT_ADDRESS } from "./consts";
+import {
+    CORE_BRIDGE_PID,
+    USDC_MINT_ADDRESS,
+} from "../../../../lib/example-liquidity-layer/solana/ts/tests/helpers";
 
 async function confirmLatest(connection: Connection, signature: string) {
     return connection.getLatestBlockhash().then(({ blockhash, lastValidBlockHeight }) =>
