@@ -17,6 +17,7 @@ const CUSTODIAN_BUMP: u8 = 255;
 const SEED_PREFIX_COMPLETE: &[u8] = b"complete";
 const MAX_BPS: u32 = 1_000_000; // 10,000.00 bps (100%)
 const GAS_DROPOFF_SCALAR: u32 = 1_000;
+const ONE_SOL: u64 = 1_000_000_000;
 
 #[program]
 pub mod swap_layer {

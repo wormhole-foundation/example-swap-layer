@@ -5,17 +5,25 @@ pub enum ExecutionParams {
     #[default]
     None,
     Evm {
+        // Wei/gas scaled by 1e6 (i.e. 1e3 = 1 gwei)
         gas_price: u32,
+        // Margin for gas dropoff. This value is scaled 1e4 (e.g. 1000000 = 100.00%).
         gas_price_margin: u32,
     },
 }
 
 #[derive(Debug, Default, Clone, InitSpace, AnchorSerialize, AnchorDeserialize)]
 pub struct RelayParams {
+    // Atomic usdc (i.e. 6 decimals -> 1e6 = 1 usdc), max=disabled
     pub base_fee: u32,
+    // Atomic usdc/token (e.g. 1e9 = 1000 usdc/ether (or sol))
     pub native_token_price: u64,
-    pub max_gas_dropoff: u64,
+    // Specified in micro-ether (i.e. 1e6 = 1 ether && 1e6 = 1 sol). The receiving
+    // contract will scale the gas dropoff values based on the native decimals.
+    pub max_gas_dropoff: u32,
+    // Margin for gas dropoff. This value is scaled 1e4 (e.g. 1000000 = 100.00%).
     pub gas_dropoff_margin: u32,
+    // Execution parameters specific to the target chain's execution environment.
     pub execution_params: ExecutionParams,
 }
 

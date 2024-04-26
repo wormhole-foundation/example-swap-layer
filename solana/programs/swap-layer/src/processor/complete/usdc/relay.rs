@@ -1,4 +1,4 @@
-use crate::utils::gas_dropoff::scale_gas_dropoff;
+use crate::utils::gas_dropoff::denormalize_gas_dropoff;
 use crate::{
     composite::*,
     error::SwapLayerError,
@@ -116,9 +116,11 @@ pub fn complete_transfer_relay(ctx: Context<CompleteTransferRelay>) -> Result<()
         RedeemMode::Relay {
             gas_dropoff,
             relaying_fee,
-        } => {
-            handle_complete_transfer_relay(ctx, scale_gas_dropoff(gas_dropoff), relaying_fee.into())
-        }
+        } => handle_complete_transfer_relay(
+            ctx,
+            denormalize_gas_dropoff(gas_dropoff),
+            relaying_fee.into(),
+        ),
         _ => err!(SwapLayerError::InvalidRedeemMode),
     }
 }

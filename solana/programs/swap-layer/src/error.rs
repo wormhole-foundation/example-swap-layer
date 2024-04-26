@@ -13,6 +13,11 @@ pub enum SwapLayerError {
     ChainNotAllowed = 0x109,
     InvalidPeer = 0x10a,
     InvalidGasDropoff = 0x10b,
+    RelayingDisabled = 0x10c,
+    InvalidExecutionParams = 0x10d,
+    UnsupportedExecutionParams = 0x10e,
+    GasConversionOverflow = 0x10f,
+    GasDropoffCalculationFailed = 0x110,
 
     // EVM Execution Param errors
     InvalidBaseFee = 0x200,
@@ -21,6 +26,7 @@ pub enum SwapLayerError {
     InvalidUpdateThreshold = 0x203,
     InvalidNativeTokenPrice = 0x204,
     InvalidMargin = 0x205,
+    EvmGasCalculationFailed = 0x206,
 
     #[msg("Jupiter V6 Authority ID must be >= 0 and < 8")]
     InvalidJupiterV6AuthorityId = 0x300,
