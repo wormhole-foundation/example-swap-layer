@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { Create2Factory__factory } from "../../ethers-contracts-external/Create2Factory.sol/Create2Factory__factory";
 import { SwapLayer__factory } from "../../ethers-contracts";
 import { Proxy__factory } from "../../ethers-contracts";
-import { encodeProxyConstructorArgs } from "../../ts-sdk";
+import { encodeProxyConstructorArgs } from "@xlabs/wh-swap-layer-ts-sdk";
 
 export const setupContractSalt = Buffer.from("0xSetup");
 export const proxyContractSalt = Buffer.from("0xGenericRelayer");
@@ -23,10 +23,6 @@ export async function deploySwapLayerImplementation(
     signer
   );
 
-  //TODO these need to be adjusted, at least for the actual contract
-  const majorDelay = 1;
-  const minorDelay = 0;
-
   console.log(
     "contracts:" +
       "\nwethAddress: " +
@@ -41,9 +37,9 @@ export async function deploySwapLayerImplementation(
 
   //TODO use the ones off the ts-sdk instead
 
+  //Note, you have to compile differently dependent on if you are using trader joe's or not.
+
   const contract = await factory.deploy(
-    majorDelay,
-    minorDelay,
     chain.liquidityLayerAddress,
     chain.permit2Address,
     chain.wethAddress,
@@ -75,10 +71,10 @@ export async function deploySwapLayerProxy(
 
   const swapLayerProxyConstructorParams = encodeProxyConstructorArgs({
     owner: signerAddress,
-    admin: signerAddress,
     assistant: signerAddress,
+    feeUpdater: signerAddress,
     feeRecipient: signerAddress,
-    adminCanUpgrade: true,
+    assistantIsEmpowered: true,
   });
 
   //TODO if using create2 factory that uses OpenZeppelin's proxy, be sure to include the call

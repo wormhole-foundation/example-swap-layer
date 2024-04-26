@@ -48,8 +48,7 @@ export type FeeConfig = {
 };
 
 export type SwapLayerConfig = {
-  shouldProposeUpdateEndpoints: boolean;
-  shouldRegisterEndpoints: boolean;
+  shouldUpdatePeers: boolean;
   shouldUpdateAssistant: boolean;
   shouldSweepTokens: boolean;
   shouldUpdateFeeRecipient: boolean;
@@ -88,6 +87,8 @@ export function init(overrides: { lastRunOverride?: boolean } = {}): string {
   require("dotenv").config({
     path: `./ts-scripts/.env${env != DEFAULT_ENV ? "." + env : ""}`,
   });
+
+  console.log("Using environment: " + env);
   return env;
 }
 
