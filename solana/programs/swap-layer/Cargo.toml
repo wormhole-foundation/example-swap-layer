@@ -15,7 +15,7 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
-localnet = ["token-router/testnet"]
+localnet = ["token-router/localnet"]
 testnet = ["token-router/testnet"]
 integration-test = ["localnet"]
 

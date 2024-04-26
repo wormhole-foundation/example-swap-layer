@@ -13,6 +13,7 @@ import { expectIxOk, getUsdcAtaBalance, hackedExpectDeepEqual } from "./helpers"
 import { FEE_UPDATER_KEYPAIR } from "./helpers";
 import { SwapLayerProgram, localnet, Custodian, Peer } from "../src/swapLayer";
 import { use as chaiUse, expect } from "chai";
+import * as matchingEngineSdk from "../../../lib/example-liquidity-layer/solana/ts/src/matchingEngine";
 import * as tokenRouterSdk from "../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
 import {
     LiquidityLayerDeposit,
@@ -48,10 +49,8 @@ describe("Swap Layer", () => {
     );
 
     // Sending chain information.
-    const foreignChain = wormholeSdk.CHAINS.sepolia;
-    const foreignTokenRouterAddress = Array.from(
-        Buffer.alloc(32, "000000000000000000000000603541d1Cf7178C407aA7369b67CB7e0274952e2", "hex"),
-    );
+    const foreignChain = wormholeSdk.CHAINS.ethereum;
+    const foreignTokenRouterAddress = Array.from(Buffer.alloc(32, "f0", "hex"));
     const foreignSwapLayerAddress = Array.from(
         Buffer.alloc(32, "000000000000000000000000deadbeefCf7178C407aA7369b67CB7e0274952e2", "hex"),
     );
@@ -61,7 +60,12 @@ describe("Swap Layer", () => {
     const swapLayer = new SwapLayerProgram(connection, localnet(), USDC_MINT_ADDRESS);
     const tokenRouter = new tokenRouterSdk.TokenRouterProgram(
         connection,
-        tokenRouterSdk.testnet(),
+        tokenRouterSdk.localnet(),
+        USDC_MINT_ADDRESS,
+    );
+    const matchingEngine = new matchingEngineSdk.MatchingEngineProgram(
+        connection,
+        matchingEngineSdk.localnet(),
         USDC_MINT_ADDRESS,
     );
 
@@ -548,7 +552,7 @@ async function createAndRedeemCctpFillForTest(
         foreignEndpointAddress,
         wormholeSequence++,
         message,
-        { sourceChain: "sepolia" },
+        { sourceChain: "ethereum" },
     );
 
     const ix = await tokenRouter.redeemCctpFillIx(
