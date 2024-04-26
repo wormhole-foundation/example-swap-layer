@@ -12,7 +12,7 @@ export type ExecutionParams = {
 export type RelayParams = {
     baseFee: number;
     nativeTokenPrice: BN;
-    maxGasDropoff: BN;
+    maxGasDropoff: number;
     gasDropoffMargin: number;
     executionParams: ExecutionParams;
 };

@@ -162,7 +162,7 @@ describe("Swap Layer", () => {
                 const gasPrice = 690000;
                 const gasTokenPrice = new anchor.BN(10000);
                 const baseFee = 100000;
-                const maxGasDropoff = new anchor.BN(10000);
+                const maxGasDropoff = 100000;
                 const margin = 10000; // 1%
 
                 const ix = await swapLayer.addPeerIx(
