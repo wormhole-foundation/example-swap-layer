@@ -2329,8 +2329,10 @@ dependencies = [
 name = "swap-layer-messages"
 version = "0.0.0"
 dependencies = [
+ "anchor-lang",
  "liquidity-layer-messages",
  "ruint",
+ "wormhole-io",
 ]
 
 [[package]]

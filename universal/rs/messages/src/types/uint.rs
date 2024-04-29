@@ -3,8 +3,10 @@ use std::{io, ops::Deref};
 use crate::wormhole_io::{Readable, Writeable};
 use ruint::{ToUintError, Uint};
 
+#[cfg(feature = "idl-build")]
+use anchor_lang::prelude::IdlBuild;
 #[cfg(feature = "anchor")]
-use anchor_lang::prelude::{AnchorDeserialize, AnchorSerialize, IdlBuild};
+use anchor_lang::prelude::{AnchorDeserialize, AnchorSerialize};
 
 /// New type for a 3-byte unsigned integer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
