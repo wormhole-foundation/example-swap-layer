@@ -11,10 +11,14 @@ use std::io;
 
 use crate::wormhole_io::{Readable, Writeable, WriteableBytes};
 
+#[cfg(feature = "anchor")]
+use anchor_lang::prelude::{borsh, AnchorDeserialize, AnchorSerialize};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub enum RedeemMode {
     Direct,
-    Payload(WriteableBytes),
+    Payload(Vec<u8>),
     Relay {
         gas_dropoff: u32,
         relaying_fee: crate::types::Uint48,
@@ -37,7 +41,7 @@ impl Readable for RedeemMode {
     {
         match u8::read(reader)? {
             Self::DIRECT => Ok(Self::Direct),
-            Self::PAYLOAD => Ok(Self::Payload(Readable::read(reader)?)),
+            Self::PAYLOAD => Ok(Self::Payload(WriteableBytes::read(reader).map(Into::into)?)),
             Self::RELAY => Ok(Self::Relay {
                 gas_dropoff: Readable::read(reader)?,
                 relaying_fee: Readable::read(reader)?,
@@ -54,7 +58,9 @@ impl Writeable for RedeemMode {
     fn written_size(&self) -> usize {
         match self {
             Self::Direct => 1,
-            Self::Payload(payload) => payload.written_size().saturating_add(1),
+            Self::Payload(payload) => unsafe_writeable_bytes_ref(payload)
+                .written_size()
+                .saturating_add(1),
             Self::Relay {
                 gas_dropoff,
                 relaying_fee,
@@ -73,7 +79,7 @@ impl Writeable for RedeemMode {
             Self::Direct => Self::DIRECT.write(writer),
             Self::Payload(payload) => {
                 Self::PAYLOAD.write(writer)?;
-                payload.write(writer)
+                unsafe_writeable_bytes_ref(payload).write(writer)
             }
             Self::Relay {
                 gas_dropoff,
@@ -85,4 +91,8 @@ impl Writeable for RedeemMode {
             }
         }
     }
+}
+
+fn unsafe_writeable_bytes_ref(bytes: &Vec<u8>) -> &WriteableBytes {
+    unsafe { std::mem::transmute::<&Vec<u8>, &WriteableBytes>(bytes) }
 }
