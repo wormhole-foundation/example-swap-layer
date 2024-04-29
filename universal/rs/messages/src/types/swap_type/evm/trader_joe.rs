@@ -2,7 +2,11 @@ use std::io::{self, ErrorKind};
 
 use crate::wormhole_io::{Readable, Writeable};
 
+#[cfg(feature = "anchor")]
+use anchor_lang::prelude::{borsh, AnchorDeserialize, AnchorSerialize};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub struct TraderJoeSwapParameters {
     pub first_pool_id: TraderJoePoolId,
     pub path: Vec<TraderJoeSwapPath>,
@@ -54,6 +58,7 @@ impl Writeable for TraderJoeSwapParameters {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub struct TraderJoeSwapPath {
     pub evm_address: [u8; 20],
     pub pool_id: TraderJoePoolId,
@@ -88,6 +93,7 @@ impl Writeable for TraderJoeSwapPath {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub struct TraderJoePoolId {
     pub version: u8,
     pub bin_size: u16,

@@ -2,7 +2,11 @@ use std::io;
 
 use crate::wormhole_io::{Readable, Writeable};
 
+#[cfg(feature = "anchor")]
+use anchor_lang::prelude::{borsh, AnchorDeserialize, AnchorSerialize};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub struct JupiterV6SwapParameters {
     // pub route_plan: Vec<JupiterV6SwapRoutePlanStep>,
     // pub in_amount: u64,
