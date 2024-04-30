@@ -5,7 +5,7 @@
     },
     "dependencies": {
         "@certusone/wormhole-sdk": "^0.10.10",
-        "@coral-xyz/anchor": "^0.29.0",
+        "@coral-xyz/anchor": "^0.30.0",
         "@jup-ag/api": "^6.0.20-test",
         "@solana/spl-token": "^0.4.3",
         "@solana/web3.js": "^1.91.6",
@@ -13,6 +13,7 @@
         "@wormhole-foundation/sdk-base": "0.6.0-beta.0",
         "@wormhole-foundation/sdk-definitions": "0.6.0-beta.0",
         "@wormhole-foundation/sdk-evm": "0.6.0-beta.0",
+        "anchor-0.29.0": "npm:@coral-xyz/anchor@^0.29.0",
         "chai-as-promised": "^7.1.1",
         "ts-results": "^3.3.0",
         "tsx": "^4.7.2"

@@ -29,18 +29,18 @@ path = "../universal/rs/messages"
 features = ["anchor"]
 
 [workspace.dependencies]
-anchor-lang = "=0.29.0"
-anchor-spl = "=0.29.0"
-solana-program = "=1.17.20"
+anchor-lang = "=0.30.0"
+anchor-spl = "=0.30.0"
+solana-program = "=1.18.11"
 hex = "0.4.3"
 ruint = "1.9.0"
 cfg-if = "1.0"
 hex-literal = "0.4.1"
 
-wormhole-raw-vaas = "0.2.0-alpha.2"
-wormhole-solana-consts = "0.2.0-alpha.11"
-wormhole-solana-utils = "0.2.0-alpha.15"
-wormhole-cctp-solana = "0.1.0-alpha.6"
+wormhole-raw-vaas = "0.3.0-alpha.0"
+wormhole-solana-consts = "0.3.0-alpha.0"
+wormhole-solana-utils = "0.3.0-alpha.0"
+wormhole-cctp-solana = "0.3.0-alpha.0"
 
 [profile.release]
 overflow-checks = true

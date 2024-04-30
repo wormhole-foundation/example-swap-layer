@@ -1,3 +1,10 @@
+CLONED_PROGRAMS=\
+	ts/tests/artifacts/mainnet_core_bridge.so \
+	ts/tests/artifacts/mainnet_cctp_token_messenger_minter.so \
+	ts/tests/artifacts/mainnet_cctp_message_transmitter.so \
+	ts/tests/artifacts/mainnet_jupiter_v6.so \
+	ts/tests/artifacts/mainnet_whirlpool.so
+
 .PHONY: all
 all: check
 
@@ -24,24 +31,17 @@ lint:
 
 .PHONY: cargo-test
 cargo-test:
-	cargo test --workspace --all-targets --features $(NETWORK) -- --nocapture
+	cargo test --workspace --all-targets --features $(NETWORK)
 
-CLONED_PROGRAMS=\
-	ts/tests/artifacts/mainnet_core_bridge.so \
-	ts/tests/artifacts/mainnet_cctp_token_messenger_minter.so \
-	ts/tests/artifacts/mainnet_cctp_message_transmitter.so \
-	ts/tests/artifacts/mainnet_jupiter_v6.so \
-	ts/tests/artifacts/mainnet_whirlpool.so
-
-.PHONY: integration-test
-integration-test: node_modules $(CLONED_PROGRAMS) ../lib/example-liquidity-layer/solana/artifacts-localnet
-	anchor test --arch sbf -- --features integration-test 
+.PHONY: anchor-test
+anchor-test: node_modules $(CLONED_PROGRAMS) ../lib/example-liquidity-layer/solana/artifacts-localnet
+	anchor test -- --features integration-test
 
 ../lib/example-liquidity-layer/solana/node_modules:
 	cd ../lib/example-liquidity-layer/solana && $(MAKE) node_modules
 
-.PHONY: test
-test:
+.PHONY: cargo-test-all
+cargo-test-all:
 	NETWORK=localnet $(MAKE) cargo-test
 	NETWORK=testnet $(MAKE) cargo-test
 

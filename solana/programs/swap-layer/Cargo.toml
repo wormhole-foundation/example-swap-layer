@@ -18,6 +18,13 @@ cpi = ["no-entrypoint"]
 localnet = ["token-router/localnet"]
 testnet = ["token-router/testnet"]
 integration-test = ["localnet"]
+idl-build = [
+    "localnet",
+    "token-router/idl-build",
+    "swap-layer-messages/idl-build",
+    "anchor-lang/idl-build",
+    "anchor-spl/idl-build"
+]
 
 [dependencies]
 swap-layer-messages.workspace = true

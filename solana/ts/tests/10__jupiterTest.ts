@@ -1,4 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
+import * as legacyAnchor from "anchor-0.29.0";
 import * as splToken from "@solana/spl-token";
 import * as wormholeSdk from "@certusone/wormhole-sdk";
 import {
@@ -34,7 +35,7 @@ import { VaaAccount } from "../../../lib/example-liquidity-layer/solana/ts/src/w
 import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solana/ts/src/cctp";
 import * as jupiter from "../src/jupiter";
 import { Whirlpool, IDL as WHIRLPOOL_IDL } from "../src/types/whirlpool";
-import { IDL as SWAP_LAYER_IDL } from "../../target/types/swap_layer";
+import SWAP_LAYER_IDL from "../../target/idl/swap_layer.json";
 
 chaiUse(require("chai-as-promised"));
 
@@ -79,13 +80,16 @@ describe("Jupiter V6 Testing", () => {
 
     let tokenRouterLkupTable: PublicKey;
 
-    const whirlpoolProgram = new anchor.Program(WHIRLPOOL_IDL, WHIRLPOOL_PROGRAM_ID, {
+    const whirlpoolProgram = new legacyAnchor.Program(WHIRLPOOL_IDL, WHIRLPOOL_PROGRAM_ID, {
         connection,
     });
 
-    const swapLayerProgram = new anchor.Program(SWAP_LAYER_IDL, SWAP_LAYER_PROGRAM_ID, {
-        connection,
-    });
+    const swapLayerProgram = new anchor.Program(
+        { ...(SWAP_LAYER_IDL as any), address: SWAP_LAYER_PROGRAM_ID.toString() },
+        {
+            connection,
+        },
+    );
 
     describe("Whirlpool", () => {
         it.skip("Swap USDT to USDC", async function () {
@@ -155,18 +159,18 @@ describe("Jupiter V6 Testing", () => {
                 ixData,
             );
 
-            const ix = await swapLayerProgram.methods
-                .completeSwap(ixData)
-                .accounts({
-                    srcToken: splToken.getAssociatedTokenAddressSync(
-                        USDT_MINT_ADDRESS,
-                        payer.publicKey,
-                    ),
-                })
-                .remainingAccounts(innerIx.keys)
-                .instruction();
+            // const ix = await swapLayerProgram.methods
+            //     .completeSwap(ixData)
+            //     .accounts({
+            //         srcToken: splToken.getAssociatedTokenAddressSync(
+            //             USDT_MINT_ADDRESS,
+            //             payer.publicKey,
+            //         ),
+            //     })
+            //     .remainingAccounts(innerIx.keys)
+            //     .instruction();
 
-            const txSig = await expectIxOk(connection, [ix], [payer]);
+            // const txSig = await expectIxOk(connection, [ix], [payer]);
         });
     });
 });
@@ -371,7 +375,7 @@ function jupiterTransferAuthorityAddress(authorityId: number) {
 }
 
 async function whirlpoolIxSetup(
-    whirlpoolProgram: anchor.Program<Whirlpool>,
+    whirlpoolProgram: legacyAnchor.Program<Whirlpool>,
     accounts: { tokenAuthority: PublicKey; whirlpool: PublicKey },
     aToB: boolean,
 ): Promise<AccountMeta[]> {

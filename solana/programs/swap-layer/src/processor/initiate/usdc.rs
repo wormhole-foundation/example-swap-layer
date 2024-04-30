@@ -51,14 +51,14 @@ pub struct InitiateTransfer<'info> {
     system_program: Program<'info, System>,
 }
 
-#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct RelayOptions {
     pub gas_dropoff: u32,
     pub max_relayer_fee: u64,
 }
 
 /// Arguments for [prepare_market_order].
-#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct InitiateTransferArgs {
     /// Amount of tokens to transfer.
     pub amount_in: u64,
@@ -134,7 +134,7 @@ pub fn initiate_transfer(ctx: Context<InitiateTransfer>, args: InitiateTransferA
             redeemer: ctx.accounts.peer.address,
             redeemer_message: swap_message.try_to_vec().unwrap(),
         },
-    );
+    )?;
 
     Ok(())
 }
