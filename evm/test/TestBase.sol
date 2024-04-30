@@ -123,8 +123,6 @@ contract SwapLayerTestBase is Test {
     feeParams = feeParams.baseFee(1e4); //1 cent
     feeParams = feeParams.gasPrice(GasPriceLib.to(1e10)); //10 gwei
     feeParams = feeParams.gasPriceMargin(PercentageLib.to(25, 0)); //25 % volatility margin
-    feeParams = feeParams.gasPriceTimestamp(uint32(block.timestamp));
-    feeParams = feeParams.gasPriceUpdateThreshold(PercentageLib.to(10, 0));
     feeParams = feeParams.maxGasDropoff(GasDropoffLib.to(1 ether));
     feeParams = feeParams.gasDropoffMargin(PercentageLib.to(1, 0)); //1 % volatility margin
     feeParams = feeParams.gasTokenPrice(1e5); //10 cent per fictional gas token

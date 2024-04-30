@@ -100,7 +100,7 @@ const percentageItem = {
   } satisfies CustomConversion<number, number>,
 } as const satisfies UintLayoutItem;
 
-const gasTokenPriceItem = { binary: "uint", size: 10 } as const satisfies UintLayoutItem;
+const gasTokenPriceItem = { binary: "uint", size: 8 } as const satisfies UintLayoutItem;
 
 //this layout reflects the FeeParams type in SwapLayerRelayingFees.sol which uses a packed layout
 //  to fit into a single storage slot
@@ -108,8 +108,6 @@ export const feeParamsLayout = [
   { name: "baseFee",                 ...baseFeeItem       },
   { name: "gasPrice",                ...gasPriceItem      },
   { name: "gasPriceMargin",          ...percentageItem    },
-  { name: "gasPriceTimestamp",       ...timestampItem     },
-  { name: "gasPriceUpdateThreshold", ...percentageItem    },
   { name: "maxGasDropoff",           ...gasDropoffItem    },
   { name: "gasDropoffMargin",        ...percentageItem    },
   { name: "gasTokenPrice",           ...gasTokenPriceItem },
@@ -316,10 +314,9 @@ export const feeParamUpdateItem = {
     [[0, "GasPrice"],                [{ name: "value", ...timestampedGasPriceItem }]],
     [[1, "GasTokenPrice"],           [{ name: "value", ...gasTokenPriceItem       }]],
     [[2, "BaseFee"],                 [{ name: "value", ...baseFeeItem             }]],
-    [[3, "GasPriceUpdateThreshold"], [{ name: "value", ...percentageItem          }]],
-    [[4, "GasPriceMargin"],          [{ name: "value", ...percentageItem          }]],
-    [[5, "GasDropoffMargin"],        [{ name: "value", ...percentageItem          }]],
-    [[6, "MaxGasDropoff"],           [{ name: "value", ...gasDropoffItem          }]],
+    [[3, "GasPriceMargin"],          [{ name: "value", ...percentageItem          }]],
+    [[4, "GasDropoffMargin"],        [{ name: "value", ...percentageItem          }]],
+    [[5, "MaxGasDropoff"],           [{ name: "value", ...gasDropoffItem          }]],
   ],
 } as const satisfies LayoutItem;
 
