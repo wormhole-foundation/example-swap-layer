@@ -24,11 +24,18 @@ impl SwapType {
     const UNISWAP_V3: u8 = 1;
     const TRADER_JOE: u8 = 2;
     const JUPITER_V6: u8 = 16;
+
+    pub fn written_size(&self) -> usize {
+        match self {
+            Self::Invalid => 0,
+            Self::UniswapV3(parameters) => parameters.written_size().saturating_add(1),
+            Self::TraderJoe(parameters) => parameters.written_size().saturating_add(1),
+            Self::JupiterV6(parameters) => parameters.written_size().saturating_add(1),
+        }
+    }
 }
 
 impl Readable for SwapType {
-    const SIZE: Option<usize> = None;
-
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
@@ -47,22 +54,11 @@ impl Readable for SwapType {
 }
 
 impl Writeable for SwapType {
-    fn written_size(&self) -> usize {
-        match self {
-            Self::Invalid => 0,
-            Self::UniswapV3(parameters) => parameters.written_size(),
-            Self::TraderJoe(parameters) => parameters.written_size(),
-            Self::JupiterV6(parameters) => parameters.written_size(),
-        }
-        .saturating_add(1)
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
     {
         match self {
-            Self::Invalid => Self::Invalid.write(writer),
             Self::UniswapV3(parameters) => {
                 Self::UNISWAP_V3.write(writer)?;
                 parameters.write(writer)
@@ -75,6 +71,10 @@ impl Writeable for SwapType {
                 Self::JUPITER_V6.write(writer)?;
                 parameters.write(writer)
             }
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Invalid SwapType",
+            )),
         }
     }
 }
