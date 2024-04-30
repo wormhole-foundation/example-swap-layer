@@ -152,7 +152,7 @@ function parseParamBaseStructure(
       offset += FAST_TRANSFER_PARAM_SIZE;
 
     mos.fastTransfer =
-      FastTransferMOS(fastTransferMode, paramBlockOffset, paramBlockOffset - offset);
+      FastTransferMOS(fastTransferMode, paramBlockOffset, offset - paramBlockOffset);
   }
   {
     RedeemMode redeemMode;
@@ -166,7 +166,7 @@ function parseParamBaseStructure(
     else if (redeemMode == RedeemMode.Relay)
       offset += RELAY_PARAM_SIZE;
 
-    mos.redeem = RedeemMOS(redeemMode, paramBlockOffset, paramBlockOffset - offset);
+    mos.redeem = RedeemMOS(redeemMode, paramBlockOffset, offset - paramBlockOffset);
   }
   {
     (mos.isExactIn, offset) = params.asBoolUnchecked(offset);
@@ -185,7 +185,7 @@ function parseParamBaseStructure(
       offset = skipSwap(params, offset);
     }
 
-    mos.input = IoTokenMOS(inputTokenType, paramBlockOffset, paramBlockOffset - offset);
+    mos.input = IoTokenMOS(inputTokenType, paramBlockOffset, offset - paramBlockOffset);
   }
   {
     IoToken outputTokenType;
@@ -198,7 +198,7 @@ function parseParamBaseStructure(
       offset = skipSwap(params, offset);
     }
 
-    mos.output = IoTokenMOS(outputTokenType, paramBlockOffset, paramBlockOffset - offset);
+    mos.output = IoTokenMOS(outputTokenType, paramBlockOffset, offset - paramBlockOffset);
   }
 
   params.checkLength(offset);
