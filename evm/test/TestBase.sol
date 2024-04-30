@@ -140,7 +140,6 @@ contract SwapLayerTestBase is Test {
         assistant,
         feeUpdater,
         feeRecipient,
-        false, //assistantIsEmpowered
         FOREIGN_CHAIN_ID,
         FOREIGN_SWAP_LAYER,
         feeParams

@@ -25,7 +25,6 @@ struct GovernanceState {
   address  assistant;
   address  feeUpdater;
   address  feeRecipient;
-  bool     assistantIsEmpowered;
 }
 
 // we use the designated eip1967 admin storage slot: keccak256("eip1967.proxy.admin") - 1
@@ -47,17 +46,14 @@ enum Role {
 }
 
 enum GovernanceCommand {
-  //assistant can add new peers, but only empowered assistant can change existing registrations
+  //assistant can add new peers, but only owner can change existing registrations
   UpdatePeer,
   SweepTokens,
   UpdateFeeUpdater,
   UpdateAssistant,
-  DisempowerAssistant,
-  //only available to assistant when empowered:
+  //only available to owner:
   UpdateFeeRecipient,
   UpgradeContract,
-  //only available to owner:
-  EmpowerAssistant,
   ProposeOwnershipTransfer,
   RelinquishOwnership
 }
@@ -74,8 +70,7 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
     address owner,
     address assistant,
     address feeUpdater,
-    address feeRecipient,
-    bool    assistantIsEmpowered
+    address feeRecipient
   ) internal {
     if (feeRecipient == address(0))
       revert InvalidFeeRecipient();
@@ -85,7 +80,6 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
     state.assistant      = assistant;
     state.feeUpdater     = feeUpdater;
     state.feeRecipient   = feeRecipient;
-    state.assistantIsEmpowered = assistantIsEmpowered;
   }
 
   // ---- externals ----
@@ -128,7 +122,7 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
         (newPeer,   offset) = commands.asBytes32Unchecked(offset);
         bytes32 curPeer = _getPeer(peerChain);
         if (newPeer != curPeer) {
-          if (curPeer != bytes32(0) && !isOwner && !state.assistantIsEmpowered)
+          if (curPeer != bytes32(0) && !isOwner)
             revert NotAuthorized();
 
           _setPeer(peerChain, newPeer);
@@ -161,10 +155,8 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
         (newAssistant, offset) = commands.asAddressUnchecked(offset);
         _updateRole(Role.Assistant, newAssistant);
       }
-      else if (command == GovernanceCommand.DisempowerAssistant)
-        state.assistantIsEmpowered = false;
-      else { //owner or empowered assistant only commands
-        if (!isOwner && !state.assistantIsEmpowered)
+      else { //owner only commands
+        if (!isOwner)
           revert NotAuthorized();
 
         if (command == GovernanceCommand.UpdateFeeRecipient) {
@@ -180,24 +172,17 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
 
           _upgradeTo(newImplementation, new bytes(0));
         }
-        else { //owner only commands
-          if (!isOwner)
-            revert NotAuthorized();
+        else if (command == GovernanceCommand.ProposeOwnershipTransfer) {
+          address newOwner;
+          (newOwner, offset) = commands.asAddressUnchecked(offset);
 
-          if (command == GovernanceCommand.EmpowerAssistant)
-            state.assistantIsEmpowered = true;
-          else if (command == GovernanceCommand.ProposeOwnershipTransfer) {
-            address newOwner;
-            (newOwner, offset) = commands.asAddressUnchecked(offset);
+          state.pendingOwner = newOwner;
+        }
+        else { //must be GovernanceCommand.RelinquishOwnership
+          _updateRole(Role.Owner, address(0));
 
-            state.pendingOwner = newOwner;
-          }
-          else { //must be GovernanceCommand.RelinquishOwnership
-            _updateRole(Role.Owner, address(0));
-
-            //ownership relinquishment must be the last command in the batch
-            commands.checkLength(offset);
-          }
+          //ownership relinquishment must be the last command in the batch
+          commands.checkLength(offset);
         }
       }
     }
@@ -224,10 +209,6 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
 
   function _getFeeRecipient() internal view returns (address) {
     return governanceState().feeRecipient;
-  }
-
-  function _getAssistantIsEmpowered() internal view returns (bool) {
-    return governanceState().assistantIsEmpowered;
   }
 
   // ---- private ----

@@ -36,14 +36,12 @@ abstract contract SwapLayerSansRouterImpls is SwapLayerQuery, SwapLayerInitiate,
     address admin;
     address assistant;
     address feeRecipient;
-    bool    adminCanUpgradeContract;
     (owner,                   offset) = args.asAddressUnchecked(offset);
     (admin,                   offset) = args.asAddressUnchecked(offset);
     (assistant,               offset) = args.asAddressUnchecked(offset);
     (feeRecipient,            offset) = args.asAddressUnchecked(offset);
-    (adminCanUpgradeContract, offset) = args.asBoolUnchecked(offset);
 
-    _governanceConstruction(owner, admin, assistant, feeRecipient, adminCanUpgradeContract);
+    _governanceConstruction(owner, admin, assistant, feeRecipient);
 
     while (offset < args.length) {
       uint16 chain;

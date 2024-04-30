@@ -20,7 +20,6 @@ enum QueryType {
   FeeParams,
   Peer,
   Immutable,
-  AssistantIsEmpowered,
   Owner,
   PendingOwner,
   Assistant,
@@ -69,8 +68,6 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
           addr = address(_liquidityLayer);
         ret = abi.encodePacked(ret, addr);
       }
-      else if (query == QueryType.AssistantIsEmpowered)
-        ret = abi.encodePacked(ret, _getAssistantIsEmpowered());
       else { //query must be one of Admin, Owner, FeeRecipient, Implementation
         address addr;
         if (query == QueryType.Owner)

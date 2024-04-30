@@ -281,13 +281,12 @@ export const queryLayout = {
     [[0, "FeeParams"],            [{ name: "chain", ...layoutItems.chainItem() }]],
     [[1, "Peer"],                 [{ name: "chain", ...layoutItems.chainItem() }]],
     [[2, "Immutable"],            [{ name: "immutable", ...immutableTypeItem   }]],
-    [[3, "AssistantIsEmpowered"], []],
-    [[4, "Owner"],                []],
-    [[5, "PendingOwner"],         []],
-    [[6, "Assistant"],            []],
-    [[7, "FeeUpdater"],           []],
-    [[8, "FeeRecipient"],         []],
-    [[9, "Implementation"],       []],
+    [[3, "Owner"],                []],
+    [[4, "PendingOwner"],         []],
+    [[5, "Assistant"],            []],
+    [[6, "FeeUpdater"],           []],
+    [[7, "FeeRecipient"],         []],
+    [[8, "Implementation"],       []],
   ],
 } as const satisfies LayoutItem;
 
@@ -335,7 +334,6 @@ export const proxyConstructorArgsLayout = [
   { name: "assistant",            ...evmAddressItem },
   { name: "feeUpdater",           ...evmAddressItem },
   { name: "feeRecipient",         ...evmAddressItem },
-  { name: "assistantIsEmpowered", ...boolItem       },
 ] as const satisfies Layout;
 
 export const governanceCommandLayout = {
@@ -349,12 +347,10 @@ export const governanceCommandLayout = {
     [[1, "SweepTokens"],              [{ name: "token",           ...evmAddressItem }]],
     [[2, "UpdateFeeUpdater"],         [{ name: "newFeeUpdater",   ...evmAddressItem }]],
     [[3, "UpdateAssistant"],          [{ name: "newAssistant",    ...evmAddressItem }]],
-    [[4, "DisempowerAssistant"],      []],
-    [[5, "UpdateFeeRecipient"],       [{ name: "newFeeRecipient", ...evmAddressItem }]],
-    [[6, "UpgradeContract"],          [{ name: "implementation",  ...evmAddressItem }]],
-    [[7, "EmpowerAssistant"],         []],
-    [[8, "ProposeOwnershipTransfer"], [{ name: "pendingOwner",    ...evmAddressItem }]],
-    [[9, "RelinquishOwnership"],      []],
+    [[4, "UpdateFeeRecipient"],       [{ name: "newFeeRecipient", ...evmAddressItem }]],
+    [[5, "UpgradeContract"],          [{ name: "implementation",  ...evmAddressItem }]],
+    [[6, "ProposeOwnershipTransfer"], [{ name: "pendingOwner",    ...evmAddressItem }]],
+    [[7, "RelinquishOwnership"],      []],
   ],
 } as const satisfies Layout;
 
