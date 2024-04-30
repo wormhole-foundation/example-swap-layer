@@ -1,9 +1,10 @@
 export * from "./state";
 
-import { Connection, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { Connection, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { BN, Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
-import { IDL, SwapLayer } from "../../../target/types/swap_layer";
+import IDL from "../../../target/idl/swap_layer.json";
+import { SwapLayer } from "../../../target/types/swap_layer";
 import { Custodian, RelayParams, Peer } from "./state";
 import * as wormholeSdk from "@certusone/wormhole-sdk";
 
@@ -33,9 +34,12 @@ export class SwapLayerProgram {
     constructor(connection: Connection, programId: ProgramId, mint: PublicKey) {
         this._programId = programId;
         this._mint = mint;
-        this.program = new Program(IDL as any, new PublicKey(this._programId), {
-            connection,
-        });
+        this.program = new Program(
+            { ...(IDL as any), address: this._programId },
+            {
+                connection,
+            },
+        );
     }
 
     custodianAddress(): PublicKey {
@@ -102,6 +106,7 @@ export class SwapLayerProgram {
                 feeRecipientToken: splToken.getAssociatedTokenAddressSync(this.mint, feeRecipient),
                 feeUpdater,
                 usdc: this.usdcComposite(this.mint),
+                systemProgram: SystemProgram.programId,
             })
             .instruction();
     }
@@ -127,6 +132,7 @@ export class SwapLayerProgram {
                     payer,
                     admin: this.adminComposite(ownerOrAssistant, custodian),
                     peer,
+                    systemProgram: SystemProgram.programId,
                 })
                 .instruction()
         );
@@ -185,6 +191,8 @@ export class SwapLayerProgram {
                 feeRecipientToken,
                 tokenRouterCustody,
                 tokenRouterProgram,
+                tokenProgram: splToken.TOKEN_PROGRAM_ID,
+                systemProgram: SystemProgram.programId,
             })
             .instruction();
     }
@@ -236,6 +244,8 @@ export class SwapLayerProgram {
                 peer,
                 tokenRouterCustody,
                 tokenRouterProgram,
+                tokenProgram: splToken.TOKEN_PROGRAM_ID,
+                systemProgram: SystemProgram.programId,
             })
             .instruction();
     }
