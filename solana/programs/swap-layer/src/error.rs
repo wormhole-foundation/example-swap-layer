@@ -18,6 +18,7 @@ pub enum SwapLayerError {
     UnsupportedExecutionParams = 0x10e,
     GasConversionOverflow = 0x10f,
     GasDropoffCalculationFailed = 0x110,
+    ExceedsMaxRelayingFee = 0x111,
 
     // EVM Execution Param errors
     InvalidBaseFee = 0x200,
