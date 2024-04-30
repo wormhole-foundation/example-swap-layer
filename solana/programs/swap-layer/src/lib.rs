@@ -16,8 +16,6 @@ declare_id!("AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m");
 const CUSTODIAN_BUMP: u8 = 255;
 const SEED_PREFIX_COMPLETE: &[u8] = b"complete";
 const MAX_BPS: u32 = 1_000_000; // 10,000.00 bps (100%)
-const GAS_DROPOFF_SCALAR: u32 = 1_000;
-const ONE_SOL: u64 = 1_000_000_000;
 
 #[program]
 pub mod swap_layer {
@@ -37,6 +35,13 @@ pub mod swap_layer {
 
     pub fn complete_transfer_direct(ctx: Context<CompleteTransferDirect>) -> Result<()> {
         processor::complete_transfer_direct(ctx)
+    }
+
+    pub fn initiate_transfer(
+        ctx: Context<InitiateTransfer>,
+        args: InitiateTransferArgs,
+    ) -> Result<()> {
+        processor::initiate_transfer(ctx, args)
     }
 
     pub fn complete_swap<'a, 'b, 'c, 'info>(

@@ -14,7 +14,7 @@ const UNISWAP_GAS_PER_SWAP: u64 = 100_000;
 const TRADERJOE_GAS_OVERHEAD: u64 = 100_000;
 const TRADERJOE_GAS_PER_SWAP: u64 = 100_000;
 
-// Gas price scalar to convert GWEI to WEI.
+const ONE_SOL: u64 = 1_000_000_000;
 const GAS_PRICE_SCALAR: u32 = 1_000_000;
 
 // 1 ETH in WEI.
@@ -77,7 +77,7 @@ fn calculate_gas_dropoff_cost(
     // one of the inputs is grossly incorrect/misconfigured.
     let dropoff_cost = u128::from(denorm_gas_dropoff)
         .checked_mul(u128::from(native_token_price))?
-        .saturating_div(u128::from(crate::ONE_SOL));
+        .saturating_div(u128::from(ONE_SOL));
 
     compound(gas_dropoff_margin, u64::try_from(dropoff_cost).ok()?)
 }
