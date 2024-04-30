@@ -29,11 +29,26 @@ impl RedeemMode {
     const DIRECT: u8 = 0;
     const PAYLOAD: u8 = 1;
     const RELAY: u8 = 2;
+
+    pub fn written_size(&self) -> usize {
+        match self {
+            Self::Direct => 1,
+            Self::Payload(payload) => payload.len().saturating_add(
+                1 // discriminant
+                + 4, // payload len
+            ),
+            Self::Relay { .. } => {
+                const FIXED: usize = 1 // discriminant
+                    + 4 // gas_dropoff
+                    + Uint48::BYTES; // relaying_fee
+
+                FIXED
+            }
+        }
+    }
 }
 
 impl Readable for RedeemMode {
-    const SIZE: Option<usize> = None;
-
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
@@ -41,7 +56,9 @@ impl Readable for RedeemMode {
     {
         match u8::read(reader)? {
             Self::DIRECT => Ok(Self::Direct),
-            Self::PAYLOAD => Ok(Self::Payload(WriteableBytes::read(reader).map(Into::into)?)),
+            Self::PAYLOAD => Ok(Self::Payload(
+                WriteableBytes::<u32>::read(reader).map(Into::into)?,
+            )),
             Self::RELAY => Ok(Self::Relay {
                 gas_dropoff: Readable::read(reader)?,
                 relaying_fee: Readable::read(reader)?,
@@ -55,22 +72,6 @@ impl Readable for RedeemMode {
 }
 
 impl Writeable for RedeemMode {
-    fn written_size(&self) -> usize {
-        match self {
-            Self::Direct => 1,
-            Self::Payload(payload) => unsafe_writeable_bytes_ref(payload)
-                .written_size()
-                .saturating_add(1),
-            Self::Relay {
-                gas_dropoff,
-                relaying_fee,
-            } => gas_dropoff
-                .written_size()
-                .saturating_add(relaying_fee.written_size())
-                .saturating_add(1),
-        }
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
@@ -79,7 +80,12 @@ impl Writeable for RedeemMode {
             Self::Direct => Self::DIRECT.write(writer),
             Self::Payload(payload) => {
                 Self::PAYLOAD.write(writer)?;
-                unsafe_writeable_bytes_ref(payload).write(writer)
+
+                let writeable = unsafe_writeable_bytes_ref(payload);
+
+                // Check whether length can be encoded.
+                writeable.try_encoded_len()?;
+                writeable.write(writer)
             }
             Self::Relay {
                 gas_dropoff,
@@ -93,6 +99,6 @@ impl Writeable for RedeemMode {
     }
 }
 
-fn unsafe_writeable_bytes_ref(bytes: &Vec<u8>) -> &WriteableBytes {
-    unsafe { std::mem::transmute::<&Vec<u8>, &WriteableBytes>(bytes) }
+fn unsafe_writeable_bytes_ref(bytes: &Vec<u8>) -> &WriteableBytes<u32> {
+    unsafe { std::mem::transmute::<&Vec<u8>, &WriteableBytes<u32>>(bytes) }
 }

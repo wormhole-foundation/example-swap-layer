@@ -12,9 +12,19 @@ pub struct TraderJoeSwapParameters {
     pub path: Vec<TraderJoeSwapPath>,
 }
 
-impl Readable for TraderJoeSwapParameters {
-    const SIZE: Option<usize> = None;
+impl TraderJoeSwapParameters {
+    pub fn written_size(&self) -> usize {
+        const FIXED: usize = TraderJoePoolId::ENCODED_SIZE
+            + 1 // path_len
+        ;
+        self.path
+            .len()
+            .saturating_mul(TraderJoeSwapPath::ENCODED_SIZE)
+            .saturating_add(FIXED)
+    }
+}
 
+impl Readable for TraderJoeSwapParameters {
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
@@ -35,13 +45,6 @@ impl Readable for TraderJoeSwapParameters {
 }
 
 impl Writeable for TraderJoeSwapParameters {
-    fn written_size(&self) -> usize {
-        self.first_pool_id
-            .written_size()
-            .saturating_add(self.path.iter().map(Writeable::written_size).sum::<usize>())
-            .saturating_add(1)
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
@@ -64,9 +67,11 @@ pub struct TraderJoeSwapPath {
     pub pool_id: TraderJoePoolId,
 }
 
-impl Readable for TraderJoeSwapPath {
-    const SIZE: Option<usize> = Some(23);
+impl TraderJoeSwapPath {
+    const ENCODED_SIZE: usize = 20 + TraderJoePoolId::ENCODED_SIZE;
+}
 
+impl Readable for TraderJoeSwapPath {
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
@@ -79,10 +84,6 @@ impl Readable for TraderJoeSwapPath {
     }
 }
 impl Writeable for TraderJoeSwapPath {
-    fn written_size(&self) -> usize {
-        self.pool_id.written_size().saturating_add(20)
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
@@ -99,9 +100,11 @@ pub struct TraderJoePoolId {
     pub bin_size: u16,
 }
 
-impl Readable for TraderJoePoolId {
-    const SIZE: Option<usize> = Some(3);
+impl TraderJoePoolId {
+    const ENCODED_SIZE: usize = 3;
+}
 
+impl Readable for TraderJoePoolId {
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
@@ -115,10 +118,6 @@ impl Readable for TraderJoePoolId {
 }
 
 impl Writeable for TraderJoePoolId {
-    fn written_size(&self) -> usize {
-        Self::SIZE.unwrap()
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,

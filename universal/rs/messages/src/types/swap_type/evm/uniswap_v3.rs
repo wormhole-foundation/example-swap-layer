@@ -13,9 +13,19 @@ pub struct UniswapSwapParameters {
     pub path: Vec<UniswapSwapPath>,
 }
 
-impl Readable for UniswapSwapParameters {
-    const SIZE: Option<usize> = None;
+impl UniswapSwapParameters {
+    pub fn written_size(&self) -> usize {
+        const FIXED: usize = Uint24::BYTES
+            + 1 // path_len
+        ;
+        self.path
+            .len()
+            .saturating_mul(UniswapSwapPath::ENCODED_SIZE)
+            .saturating_add(FIXED)
+    }
+}
 
+impl Readable for UniswapSwapParameters {
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
@@ -36,13 +46,6 @@ impl Readable for UniswapSwapParameters {
 }
 
 impl Writeable for UniswapSwapParameters {
-    fn written_size(&self) -> usize {
-        self.first_leg_fee
-            .written_size()
-            .saturating_add(self.path.iter().map(Writeable::written_size).sum::<usize>())
-            .saturating_add(1)
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
@@ -65,9 +68,11 @@ pub struct UniswapSwapPath {
     pub fee: Uint24,
 }
 
-impl Readable for UniswapSwapPath {
-    const SIZE: Option<usize> = Some(23);
+impl UniswapSwapPath {
+    const ENCODED_SIZE: usize = 20 + Uint24::BYTES;
+}
 
+impl Readable for UniswapSwapPath {
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
@@ -80,10 +85,6 @@ impl Readable for UniswapSwapPath {
     }
 }
 impl Writeable for UniswapSwapPath {
-    fn written_size(&self) -> usize {
-        self.fee.written_size().saturating_add(20)
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,

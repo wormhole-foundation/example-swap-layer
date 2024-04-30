@@ -90,8 +90,6 @@ impl TryFrom<u64> for Uint24 {
 }
 
 impl Readable for Uint24 {
-    const SIZE: Option<usize> = Some(Self::BYTES);
-
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         R: io::Read,
@@ -103,10 +101,6 @@ impl Readable for Uint24 {
 }
 
 impl Writeable for Uint24 {
-    fn written_size(&self) -> usize {
-        Self::BYTES
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
@@ -216,8 +210,6 @@ impl TryFrom<u64> for Uint48 {
 }
 
 impl Readable for Uint48 {
-    const SIZE: Option<usize> = Some(Self::BYTES);
-
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         R: io::Read,
@@ -229,10 +221,6 @@ impl Readable for Uint48 {
 }
 
 impl Writeable for Uint48 {
-    fn written_size(&self) -> usize {
-        Self::BYTES
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,

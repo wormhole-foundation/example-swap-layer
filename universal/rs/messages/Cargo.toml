@@ -8,7 +8,7 @@ homepage.workspace = true
 repository.workspace = true
 
 [features]
-default = []
+default = ["anchor"]
 anchor = ["dep:anchor-lang"]
 idl-build = ["anchor", "anchor-lang/idl-build"]
 
@@ -21,6 +21,7 @@ anchor-lang = { workspace = true, optional = true }
 
 [dev-dependencies]
 hex-literal.workspace = true
+solana-program.workspace = true
 
 [lints]
 workspace = true

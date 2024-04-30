@@ -1,6 +1,9 @@
 use std::io;
 
-use crate::wormhole_io::{Readable, TypePrefixedPayload, Writeable};
+use crate::{
+    types::{OutputToken, RedeemMode},
+    wormhole_io::{Readable, TypePrefixedPayload, Writeable},
+};
 
 #[cfg(feature = "anchor")]
 use anchor_lang::prelude::{borsh, AnchorDeserialize, AnchorSerialize};
@@ -9,13 +12,11 @@ use anchor_lang::prelude::{borsh, AnchorDeserialize, AnchorSerialize};
 #[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub struct SwapMessageV1 {
     pub recipient: [u8; 32],
-    pub redeem_mode: crate::types::RedeemMode,
-    pub output_token: crate::types::OutputToken,
+    pub redeem_mode: RedeemMode,
+    pub output_token: OutputToken,
 }
 
 impl Readable for SwapMessageV1 {
-    const SIZE: Option<usize> = None;
-
     fn read<R>(reader: &mut R) -> io::Result<Self>
     where
         Self: Sized,
@@ -30,13 +31,6 @@ impl Readable for SwapMessageV1 {
 }
 
 impl Writeable for SwapMessageV1 {
-    fn written_size(&self) -> usize {
-        self.recipient
-            .written_size()
-            .saturating_add(self.redeem_mode.written_size())
-            .saturating_add(self.output_token.written_size())
-    }
-
     fn write<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
@@ -47,8 +41,15 @@ impl Writeable for SwapMessageV1 {
     }
 }
 
-impl TypePrefixedPayload for SwapMessageV1 {
-    const TYPE: Option<u8> = Some(1);
+impl TypePrefixedPayload<1> for SwapMessageV1 {
+    const TYPE: Option<[u8; 1]> = Some([1]);
+
+    fn written_size(&self) -> usize {
+        self.redeem_mode
+            .written_size()
+            .saturating_add(self.output_token.written_size())
+            .saturating_add(32) // recipient
+    }
 }
 
 #[cfg(test)]
@@ -78,7 +79,7 @@ mod test {
                     "0000000000000000000000000000000000000000000000000000000000000002"
                 ),
                 redeemer: hex!("000000000000000000000000f62849f9a0b5bf2913b396098f7c7019b51a820a"),
-                redeemer_message: redeemer_message.to_vec().into()
+                redeemer_message: redeemer_message.to_vec().try_into().unwrap()
             }
         );
 
@@ -109,7 +110,7 @@ mod test {
                     "0000000000000000000000000000000000000000000000000000000000000002"
                 ),
                 redeemer: hex!("000000000000000000000000f62849f9a0b5bf2913b396098f7c7019b51a820a"),
-                redeemer_message: redeemer_message.to_vec().into()
+                redeemer_message: redeemer_message.to_vec().try_into().unwrap()
             }
         );
 
@@ -150,7 +151,7 @@ mod test {
                     "0000000000000000000000000000000000000000000000000000000000000002"
                 ),
                 redeemer: hex!("000000000000000000000000f62849f9a0b5bf2913b396098f7c7019b51a820a"),
-                redeemer_message: redeemer_message.to_vec().into()
+                redeemer_message: redeemer_message.to_vec().try_into().unwrap()
             }
         );
 
@@ -184,7 +185,7 @@ mod test {
                     "0000000000000000000000000000000000000000000000000000000000000002"
                 ),
                 redeemer: hex!("000000000000000000000000f62849f9a0b5bf2913b396098f7c7019b51a820a"),
-                redeemer_message: redeemer_message.to_vec().into()
+                redeemer_message: redeemer_message.to_vec().try_into().unwrap()
             }
         );
 
@@ -193,7 +194,7 @@ mod test {
             swap_message,
             SwapMessageV1 {
                 recipient: hex!("0000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d"),
-                redeem_mode: RedeemMode::Payload(hex!("deadbeef").to_vec().into()),
+                redeem_mode: RedeemMode::Payload(hex!("deadbeef").to_vec()),
                 output_token: OutputToken::Usdc,
             }
         );
