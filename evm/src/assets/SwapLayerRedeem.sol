@@ -57,15 +57,13 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       params.checkLength(0);
     }
     else {
-      if (sms.redeemMode == RedeemMode.Payload) {
-        if (!senderIsRecipient)
+      if (!senderIsRecipient) {
+        if (sms.redeemMode == RedeemMode.Payload)
           revert SenderNotRecipient(msg.sender, sms.recipient);
-
-        //no extra params when redeeming with payload
-        params.checkLength(0);
+        else
+          //no extra params when redeeming for someone else
+          params.checkLength(0);
       }
-      else if (!senderIsRecipient)
-        params.checkLength(0);
       else
         overrideMsg = params.length > 0;
 
