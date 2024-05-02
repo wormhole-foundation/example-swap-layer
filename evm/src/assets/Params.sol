@@ -65,8 +65,8 @@ enum RedeemMode {
 //   TODO
 
 function parseEvmSwapParams(
-  IERC20 inputToken,
-  IERC20 outputToken,
+  address inputToken,
+  address outputToken,
   bytes memory params,
   uint offset
 ) pure returns (uint, uint256, uint, bytes memory, uint) { unchecked {
@@ -88,12 +88,7 @@ function parseEvmSwapParams(
   sliceLen = pathLength * SHARED_PATH_ELEMENT_SIZE;
   bytes memory partialPath;
   (partialPath, offset) = params.sliceUnchecked(offset, sliceLen);
-  bytes memory path = abi.encodePacked(
-    address(inputToken),
-    firstPoolId,
-    partialPath,
-    address(outputToken)
-  );
+  bytes memory path = abi.encodePacked(inputToken, firstPoolId, partialPath, outputToken);
   return (deadline, limitAmount, swapType, path, offset);
 }}
 

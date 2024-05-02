@@ -140,7 +140,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       }
 
       (uint256 deadline, uint outputAmount, uint swapType, bytes memory path, ) =
-        parseEvmSwapParams(inputToken, _usdc, params, offset);
+        parseEvmSwapParams(address(inputToken), address(_usdc), params, offset);
 
       //adjust outputAmount to ensure that the received usdc amount on the target chain is at least
       //  the specified outputAmount

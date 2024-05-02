@@ -99,7 +99,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       uint swapType;
       bytes memory path;
       (deadline, minOutputAmount, swapType, path, offset) =
-        parseEvmSwapParams(_usdc, outputToken, swapParams, offset);
+        parseEvmSwapParams(address(_usdc), address(outputToken), swapParams, offset);
 
       outputAmount = _swap(
         swapType,
