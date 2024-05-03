@@ -39,7 +39,9 @@ cargo-test: fast-transfer-sync
 
 .PHONY: anchor-test
 anchor-test: node_modules $(CLONED_PROGRAMS)
+ifndef SKIP_SUBMODULE_BUILD
 	cd .. && $(MAKE) fast-transfer-setup
+endif
 	anchor test -- --features integration-test
 
 .PHONY: cargo-test-all
