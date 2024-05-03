@@ -42,7 +42,7 @@ pub struct InitiateTransfer<'info> {
             require!(*prepared_order.owner != payer.key(), SwapLayerError::PreparedOrderCannotBePayer);
 
             true
-        } 
+        }
     )]
     prepared_order: Signer<'info>,
 
@@ -96,7 +96,7 @@ pub fn initiate_transfer(ctx: Context<InitiateTransfer>, args: InitiateTransferA
             SwapLayerError::ExceedsMaxRelayingFee
         );
 
-        transfer_amount += relaying_fee;
+        transfer_amount = transfer_amount.saturating_add(relaying_fee);
 
         SwapMessageV1 {
             recipient: args.recipient,

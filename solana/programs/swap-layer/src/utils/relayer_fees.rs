@@ -58,12 +58,15 @@ fn calculate_evm_gas_cost(
     total_gas: u64,
     native_token_price: u64,
 ) -> Option<u64> {
+    #[allow(clippy::as_conversions)]
+    const ONE_ETHER_U128: u128 = ONE_ETHER as u128;
+
     // Using u128 to prevent overflow. If this calculation does overflow,
     // one of the inputs is grossly incorrect/misconfigured.
     let gas_cost = u128::from(total_gas)
         .checked_mul(u128::from(denormalize_gas_price(gas_price)))?
         .checked_mul(u128::from(native_token_price))?
-        .saturating_div(u128::from(ONE_ETHER));
+        .saturating_div(ONE_ETHER_U128);
 
     compound(gas_price_margin, u64::try_from(gas_cost).ok()?)
 }
@@ -73,11 +76,14 @@ fn calculate_gas_dropoff_cost(
     gas_dropoff_margin: u32,
     native_token_price: u64,
 ) -> Option<u64> {
+    #[allow(clippy::as_conversions)]
+    const ONE_SOL_U128: u128 = ONE_SOL as u128;
+
     // Using u128 to prevent overflow. If this calculation does overflow,
     // one of the inputs is grossly incorrect/misconfigured.
     let dropoff_cost = u128::from(denorm_gas_dropoff)
         .checked_mul(u128::from(native_token_price))?
-        .saturating_div(u128::from(ONE_SOL));
+        .saturating_div(ONE_SOL_U128);
 
     compound(gas_dropoff_margin, u64::try_from(dropoff_cost).ok()?)
 }
@@ -103,12 +109,13 @@ pub fn calculate_relayer_fee(
             SwapLayerError::InvalidGasDropoff
         );
 
-        relayer_fee += calculate_gas_dropoff_cost(
+        let gas_dropoff_cost = calculate_gas_dropoff_cost(
             denorm_gas_dropoff,
             relay_params.gas_dropoff_margin,
             relay_params.native_token_price,
         )
         .ok_or(SwapLayerError::GasDropoffCalculationFailed)?;
+        relayer_fee = relayer_fee.saturating_add(gas_dropoff_cost);
     }
 
     // Compute the relayer fee based on the cost of the relay in the
@@ -124,21 +131,23 @@ pub fn calculate_relayer_fee(
             let mut total_gas = EVM_GAS_OVERHEAD;
 
             if denorm_gas_dropoff > 0 {
-                total_gas += DROPOFF_GAS_OVERHEAD;
+                total_gas = total_gas.saturating_add(DROPOFF_GAS_OVERHEAD);
             }
 
             if swap_count > 0 {
-                total_gas += calculate_evm_swap_overhead(swap_type, swap_count)
+                let overhead = calculate_evm_swap_overhead(swap_type, swap_count)
                     .ok_or(SwapLayerError::EvmGasCalculationFailed)?;
+                total_gas = total_gas.saturating_add(overhead);
             }
 
-            relayer_fee += calculate_evm_gas_cost(
+            let evm_gas_cost = calculate_evm_gas_cost(
                 gas_price,
                 gas_price_margin,
                 total_gas,
                 relay_params.native_token_price,
             )
             .ok_or(SwapLayerError::EvmGasCalculationFailed)?;
+            relayer_fee = relayer_fee.saturating_add(evm_gas_cost);
 
             Ok(())
         }

@@ -112,7 +112,7 @@ where
     } = CheckedSharedAccountsRoute::try_accounts(
         &jupiter_v6::JUPITER_V6_PROGRAM_ID,
         &mut cpi_account_infos,
-        &mut &ix_data[..],
+        ix_data,
         &mut CheckedSharedAccountsRouteBumps {
             jupiter_v6_authority: Default::default(),
         },
