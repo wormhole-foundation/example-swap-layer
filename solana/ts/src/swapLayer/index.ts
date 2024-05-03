@@ -17,6 +17,19 @@ export type AddPeerArgs = {
     address: Array<number>;
     relayParams: RelayParams;
 };
+
+export type RelayOptions = {
+    gasDropoff: number;
+    maxRelayerFee: BN;
+};
+
+export type InitiateTransferArgs = {
+    amountIn: BN;
+    targetChain: number;
+    relayOptions: RelayOptions | null;
+    recipient: Array<number>;
+};
+
 export class SwapLayerProgram {
     private _programId: ProgramId;
     private _mint: PublicKey;
@@ -138,6 +151,48 @@ export class SwapLayerProgram {
         );
     }
 
+    async initiateTransferIx(
+        accounts: {
+            payer: PublicKey;
+            preparedOrder: PublicKey; // Just generate a keypair.
+            tokenRouterCustodian: PublicKey;
+            tokenRouterProgram: PublicKey;
+            preparedCustodyToken: PublicKey;
+            payerToken?: PublicKey;
+            peer?: PublicKey;
+        },
+        args: InitiateTransferArgs,
+    ) {
+        let {
+            payer,
+            preparedOrder,
+            tokenRouterCustodian,
+            tokenRouterProgram,
+            preparedCustodyToken,
+            payerToken,
+            peer,
+        } = accounts;
+
+        payerToken ??= splToken.getAssociatedTokenAddressSync(this.mint, payer);
+        peer ??= this.peerAddress(args.targetChain as wormholeSdk.ChainId);
+
+        return this.program.methods
+            .initiateTransfer(args)
+            .accounts({
+                payer,
+                payerToken,
+                usdc: this.usdcComposite(this.mint),
+                peer,
+                tokenRouterCustodian,
+                preparedOrder,
+                preparedCustodyToken,
+                tokenRouterProgram,
+                tokenProgram: splToken.TOKEN_PROGRAM_ID,
+                systemProgram: SystemProgram.programId,
+            })
+            .instruction();
+    }
+
     async completeTransferRelayIx(
         accounts: {
             payer: PublicKey;
@@ -172,8 +227,10 @@ export class SwapLayerProgram {
         beneficiary ??= payer;
         recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.mint, recipient);
 
+        // Need the undefined check to satisfy the type checker.
+        feeRecipientToken ??= await this.fetchCustodian().then((c) => c.feeRecipientToken);
         if (feeRecipientToken === undefined) {
-            feeRecipientToken = await this.fetchCustodian().then((c) => c.feeRecipientToken);
+            throw new Error("fee recipient token account not found");
         }
 
         return this.program.methods

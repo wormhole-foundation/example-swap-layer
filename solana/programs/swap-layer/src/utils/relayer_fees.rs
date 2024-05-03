@@ -319,6 +319,25 @@ mod test {
         assert_eq!(relayer_fee.unwrap(), 17525000);
     }
 
+    #[test]
+    fn test_es() {
+        let relay_params = RelayParams {
+            base_fee: 100000,
+            native_token_price: 1000000, 
+            max_gas_dropoff: 500_000,    
+            gas_dropoff_margin: 10000,  
+            execution_params: ExecutionParams::Evm {
+                gas_price: 100000,        
+                gas_price_margin: 10000, 
+            },
+        };
+
+        let relayer_fee =
+            calculate_relayer_fee(&relay_params, 0, &SwapType::Invalid, 0);
+        
+        msg!("relayer_fee: {:?}", relayer_fee);
+    }
+
     // TODO: Add boundary tests.
 
     fn test_relay_params() -> RelayParams {

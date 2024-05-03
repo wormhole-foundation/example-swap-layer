@@ -9,6 +9,7 @@ import {
     SystemProgram,
     ComputeBudgetProgram,
 } from "@solana/web3.js";
+import { BN, Program } from "@coral-xyz/anchor";
 import { expectIxOk, getUsdcAtaBalance, hackedExpectDeepEqual } from "./helpers";
 import { FEE_UPDATER_KEYPAIR } from "./helpers";
 import { SwapLayerProgram, localnet, Custodian, Peer } from "../src/swapLayer";
@@ -32,6 +33,8 @@ import {
 } from "../../../lib/example-liquidity-layer/solana/ts/tests/helpers";
 import { VaaAccount } from "../../../lib/example-liquidity-layer/solana/ts/src/wormhole";
 import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solana/ts/src/cctp";
+import { uint64ToBN } from "../src/common";
+import { encode } from "punycode";
 
 chaiUse(require("chai-as-promised"));
 
@@ -54,7 +57,9 @@ describe("Swap Layer", () => {
     const foreignSwapLayerAddress = Array.from(
         Buffer.alloc(32, "000000000000000000000000deadbeefCf7178C407aA7369b67CB7e0274952e2", "hex"),
     );
-    const foreignCctpDomain = 0;
+    const foreignRecipientAddress = Array.from(
+        Buffer.alloc(32, "000000000000000000000000beefdeadCf7178C407aA7369b67CB7edeadbeef", "hex"),
+    );
 
     // Program SDKs
     const swapLayer = new SwapLayerProgram(connection, localnet(), USDC_MINT_ADDRESS);
@@ -159,10 +164,10 @@ describe("Swap Layer", () => {
 
         describe("Peer Registration", () => {
             it("Add Peer As Owner", async () => {
-                const gasPrice = 690000;
-                const gasTokenPrice = new anchor.BN(10000);
+                const gasPrice = 100000; // 100 gwei
+                const gasTokenPrice = new anchor.BN(1000000);
                 const baseFee = 100000;
-                const maxGasDropoff = 100000;
+                const maxGasDropoff = 500000;
                 const margin = 10000; // 1%
 
                 const ix = await swapLayer.addPeerIx(
@@ -198,287 +203,568 @@ describe("Swap Layer", () => {
 
         let wormholeSequence = 2000n;
         describe("USDC Transfer (Relay)", function () {
-            it("Self Redeem Fill", async function () {
-                const result = await createAndRedeemCctpFillForTest(
-                    connection,
-                    tokenRouter,
-                    swapLayer,
-                    tokenRouterLkupTable,
-                    payer,
-                    testCctpNonce++,
-                    foreignChain,
-                    foreignTokenRouterAddress,
-                    foreignSwapLayerAddress,
-                    wormholeSequence,
-                    Buffer.from(
-                        "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000000000000000f424000",
-                        "hex",
-                    ),
-                );
-                const { vaa, message } = result!;
+            describe("Outbound", function () {
+                it("Initiate Transfer With Gas Dropoff", async function () {
+                    const amountIn = 6900000000n;
+                    const gasDropoff = 100000;
+                    const maxRelayerFee = 9999999999999;
+                    // TODO: calculate this in the test.
+                    const expectedRelayerFee = 212110n;
 
-                const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
-                const beneficiary = Keypair.generate();
+                    // Balance check.
+                    const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
+                        connection,
+                        payer,
+                        USDC_MINT_ADDRESS,
+                        payer.publicKey,
+                    );
+                    const payerBefore = await getUsdcAtaBalance(connection, payer.publicKey);
 
-                // Balance check.
-                const recipientBefore = await getUsdcAtaBalance(connection, payer.publicKey);
-                const payerLamportBefore = await connection.getBalance(payer.publicKey);
-                const feeRecipientBefore = await getUsdcAtaBalance(
-                    connection,
-                    feeRecipient.publicKey,
-                );
+                    const preparedOrder = Keypair.generate();
 
-                const transferIx = await swapLayer.completeTransferRelayIx(
-                    {
-                        payer: payer.publicKey,
-                        beneficiary: beneficiary.publicKey,
-                        preparedFill,
-                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                        tokenRouterProgram: tokenRouter.ID,
-                        recipient: payer.publicKey,
-                    },
-                    foreignChain,
-                );
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                            tokenRouterCustodian: tokenRouter.custodianAddress(),
+                            tokenRouterProgram: tokenRouter.ID,
+                            preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(
+                                preparedOrder.publicKey,
+                            ),
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain as wormholeSdk.ChainId,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: foreignRecipientAddress,
+                        },
+                    );
 
-                await expectIxOk(connection, [transferIx], [payer]);
+                    await expectIxOk(connection, [ix], [payer, preparedOrder]);
 
-                // Balance check.
-                const recipientAfter = await getUsdcAtaBalance(connection, payer.publicKey);
-                const payerLamportAfter = await connection.getBalance(payer.publicKey);
-                const feeRecipientAfter = await getUsdcAtaBalance(
-                    connection,
-                    feeRecipient.publicKey,
-                );
+                    // Balance check.
+                    const payerAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                    expect(payerAfter).to.equal(payerBefore - amountIn - expectedRelayerFee);
 
-                expect(recipientAfter).to.equal(recipientBefore + message.deposit!.header.amount);
-                expect(payerLamportAfter).to.be.lessThan(payerLamportBefore);
-                expect(feeRecipientAfter).to.equal(feeRecipientBefore);
+                    // Verify the relevant information in the prepared order.
+                    const preparedOrderData = await tokenRouter.fetchPreparedOrder(
+                        preparedOrder.publicKey,
+                    );
+
+                    const {
+                        info: { preparedCustodyTokenBump },
+                    } = preparedOrderData;
+
+                    hackedExpectDeepEqual(
+                        preparedOrderData,
+                        new tokenRouterSdk.PreparedOrder(
+                            {
+                                orderSender: payer.publicKey,
+                                preparedBy: payer.publicKey,
+                                orderType: {
+                                    market: {
+                                        minAmountOut: null,
+                                    },
+                                },
+                                srcToken: payerToken.address,
+                                refundToken: payerToken.address,
+                                targetChain: foreignChain,
+                                redeemer: foreignSwapLayerAddress,
+                                preparedCustodyTokenBump,
+                            },
+                            encodeRelayUsdcTransfer(
+                                foreignRecipientAddress,
+                                gasDropoff,
+                                expectedRelayerFee,
+                            ),
+                        ),
+                    );
+
+                    // Verify the prepared custody token balance.
+                    const { amount: preparedCustodyTokenBalance } = await splToken.getAccount(
+                        connection,
+                        tokenRouter.preparedCustodyTokenAddress(preparedOrder.publicKey),
+                    );
+                    expect(preparedCustodyTokenBalance).equals(amountIn + expectedRelayerFee);
+                });
+
+                it("Initiate Transfer Without Gas Dropoff", async function () {
+                    const amountIn = 6900000000n;
+                    const gasDropoff = 0;
+                    const maxRelayerFee = 9999999999999;
+                    // TODO: calculate this in the test.
+                    const expectedRelayerFee = 110100n;
+
+                    // Balance check.
+                    const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
+                        connection,
+                        payer,
+                        USDC_MINT_ADDRESS,
+                        payer.publicKey,
+                    );
+                    const payerBefore = await getUsdcAtaBalance(connection, payer.publicKey);
+
+                    const preparedOrder = Keypair.generate();
+
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                            tokenRouterCustodian: tokenRouter.custodianAddress(),
+                            tokenRouterProgram: tokenRouter.ID,
+                            preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(
+                                preparedOrder.publicKey,
+                            ),
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain as wormholeSdk.ChainId,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: foreignRecipientAddress,
+                        },
+                    );
+
+                    await expectIxOk(connection, [ix], [payer, preparedOrder]);
+
+                    // Balance check.
+                    const payerAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                    expect(payerAfter).to.equal(payerBefore - amountIn - expectedRelayerFee);
+
+                    // Verify the relevant information in the prepared order.
+                    const preparedOrderData = await tokenRouter.fetchPreparedOrder(
+                        preparedOrder.publicKey,
+                    );
+
+                    const {
+                        info: { preparedCustodyTokenBump },
+                    } = preparedOrderData;
+
+                    hackedExpectDeepEqual(
+                        preparedOrderData,
+                        new tokenRouterSdk.PreparedOrder(
+                            {
+                                orderSender: payer.publicKey,
+                                preparedBy: payer.publicKey,
+                                orderType: {
+                                    market: {
+                                        minAmountOut: null,
+                                    },
+                                },
+                                srcToken: payerToken.address,
+                                refundToken: payerToken.address,
+                                targetChain: foreignChain,
+                                redeemer: foreignSwapLayerAddress,
+                                preparedCustodyTokenBump,
+                            },
+                            encodeRelayUsdcTransfer(
+                                foreignRecipientAddress,
+                                gasDropoff,
+                                expectedRelayerFee,
+                            ),
+                        ),
+                    );
+
+                    // Verify the prepared custody token balance.
+                    const { amount: preparedCustodyTokenBalance } = await splToken.getAccount(
+                        connection,
+                        tokenRouter.preparedCustodyTokenAddress(preparedOrder.publicKey),
+                    );
+                    expect(preparedCustodyTokenBalance).equals(amountIn + expectedRelayerFee);
+                });
             });
 
-            it("Fill With Gas Dropoff", async function () {
-                const relayerFee = 1000000n;
-                const gasAmount = 690000000n;
+            describe("Inbound", function () {
+                it("Complete Transfer (Payer == Recipient)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                    );
+                    const { vaa, message } = result!;
 
-                const result = await createAndRedeemCctpFillForTest(
-                    connection,
-                    tokenRouter,
-                    swapLayer,
-                    tokenRouterLkupTable,
-                    payer,
-                    testCctpNonce++,
-                    foreignChain,
-                    foreignTokenRouterAddress,
-                    foreignSwapLayerAddress,
-                    wormholeSequence,
-                    Buffer.from(
-                        "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000A87500000000f424000",
-                        "hex",
-                    ),
-                );
-                const { vaa, message } = result!;
+                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
+                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const beneficiary = Keypair.generate();
 
-                const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
-                const beneficiary = Keypair.generate();
+                    // Balance check.
+                    const recipientBefore = await getUsdcAtaBalance(connection, payer.publicKey);
+                    const payerLamportBefore = await connection.getBalance(payer.publicKey);
+                    const feeRecipientBefore = await getUsdcAtaBalance(
+                        connection,
+                        feeRecipient.publicKey,
+                    );
 
-                // Balance check.
-                const recipientBefore = await getUsdcAtaBalance(connection, recipient.publicKey);
-                const recipientLamportBefore = await connection.getBalance(recipient.publicKey);
-                const payerLamportBefore = await connection.getBalance(payer.publicKey);
-                const feeRecipientBefore = await getUsdcAtaBalance(
-                    connection,
-                    feeRecipient.publicKey,
-                );
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            beneficiary: beneficiary.publicKey,
+                            preparedFill,
+                            tokenRouterCustody:
+                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                            tokenRouterProgram: tokenRouter.ID,
+                            recipient: payer.publicKey,
+                        },
+                        foreignChain,
+                    );
 
-                const transferIx = await swapLayer.completeTransferRelayIx(
-                    {
-                        payer: payer.publicKey,
-                        beneficiary: beneficiary.publicKey,
-                        preparedFill,
-                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                        tokenRouterProgram: tokenRouter.ID,
-                        recipient: recipient.publicKey,
-                    },
-                    foreignChain,
-                );
+                    await expectIxOk(connection, [transferIx], [payer]);
 
-                await expectIxOk(connection, [transferIx], [payer]);
+                    // Balance check.
+                    const recipientAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                    const payerLamportAfter = await connection.getBalance(payer.publicKey);
+                    const feeRecipientAfter = await getUsdcAtaBalance(
+                        connection,
+                        feeRecipient.publicKey,
+                    );
 
-                // Balance check.
-                const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
-                const recipientLamportAfter = await connection.getBalance(recipient.publicKey);
-                const payerLamportAfter = await connection.getBalance(payer.publicKey);
-                const feeRecipientAfter = await getUsdcAtaBalance(
-                    connection,
-                    feeRecipient.publicKey,
-                );
+                    expect(recipientAfter).to.equal(
+                        recipientBefore + message.deposit!.header.amount,
+                    );
+                    expect(payerLamportAfter).to.be.lessThan(payerLamportBefore);
+                    expect(feeRecipientAfter).to.equal(feeRecipientBefore);
+                });
 
-                expect(recipientAfter - recipientBefore).to.equal(
-                    message.deposit!.header.amount - relayerFee,
-                );
-                expect(recipientLamportAfter - recipientLamportBefore).to.equal(Number(gasAmount));
-                expect(payerLamportAfter).to.be.lessThan(payerLamportBefore - Number(gasAmount));
-                expect(feeRecipientAfter).to.equal(feeRecipientBefore + relayerFee);
-            });
+                it("Complete Transfer With Gas Dropoff", async function () {
+                    const relayerFee = 1000000n;
+                    const gasAmountDenorm = 690000000;
 
-            it("Fill Without Gas Dropoff", async function () {
-                const relayerFee = 1000000n;
-                const gasAmount = 0n;
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeRelayUsdcTransfer(
+                            recipient.publicKey,
+                            gasAmountDenorm / 1000,
+                            relayerFee,
+                        ),
+                    );
+                    const { vaa, message } = result!;
 
-                const result = await createAndRedeemCctpFillForTest(
-                    connection,
-                    tokenRouter,
-                    swapLayer,
-                    tokenRouterLkupTable,
-                    payer,
-                    testCctpNonce++,
-                    foreignChain,
-                    foreignTokenRouterAddress,
-                    foreignSwapLayerAddress,
-                    wormholeSequence,
-                    Buffer.from(
-                        "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d02000000000000000f424000",
-                        "hex",
-                    ),
-                );
-                const { vaa, message } = result!;
+                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
+                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const beneficiary = Keypair.generate();
 
-                const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
-                const beneficiary = Keypair.generate();
+                    // Balance check.
+                    const recipientBefore = await getUsdcAtaBalance(
+                        connection,
+                        recipient.publicKey,
+                    );
+                    const recipientLamportBefore = await connection.getBalance(recipient.publicKey);
+                    const payerLamportBefore = await connection.getBalance(payer.publicKey);
+                    const feeRecipientBefore = await getUsdcAtaBalance(
+                        connection,
+                        feeRecipient.publicKey,
+                    );
 
-                // Balance check.
-                const recipientBefore = await getUsdcAtaBalance(connection, recipient.publicKey);
-                const recipientLamportBefore = await connection.getBalance(recipient.publicKey);
-                const payerLamportBefore = await connection.getBalance(payer.publicKey);
-                const feeRecipientBefore = await getUsdcAtaBalance(
-                    connection,
-                    feeRecipient.publicKey,
-                );
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            beneficiary: beneficiary.publicKey,
+                            preparedFill,
+                            tokenRouterCustody:
+                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                            tokenRouterProgram: tokenRouter.ID,
+                            recipient: recipient.publicKey,
+                        },
+                        foreignChain,
+                    );
 
-                const transferIx = await swapLayer.completeTransferRelayIx(
-                    {
-                        payer: payer.publicKey,
-                        beneficiary: beneficiary.publicKey,
-                        preparedFill,
-                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                        tokenRouterProgram: tokenRouter.ID,
-                        recipient: recipient.publicKey,
-                    },
-                    foreignChain,
-                );
+                    await expectIxOk(connection, [transferIx], [payer]);
 
-                await expectIxOk(connection, [transferIx], [payer]);
+                    // Balance check.
+                    const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
+                    const recipientLamportAfter = await connection.getBalance(recipient.publicKey);
+                    const payerLamportAfter = await connection.getBalance(payer.publicKey);
+                    const feeRecipientAfter = await getUsdcAtaBalance(
+                        connection,
+                        feeRecipient.publicKey,
+                    );
 
-                // Balance check.
-                const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
-                const recipientLamportAfter = await connection.getBalance(recipient.publicKey);
-                const payerLamportAfter = await connection.getBalance(payer.publicKey);
-                const feeRecipientAfter = await getUsdcAtaBalance(
-                    connection,
-                    feeRecipient.publicKey,
-                );
+                    expect(recipientAfter - recipientBefore).to.equal(
+                        message.deposit!.header.amount - relayerFee,
+                    );
+                    expect(recipientLamportAfter - recipientLamportBefore).to.equal(
+                        Number(gasAmountDenorm),
+                    );
+                    expect(payerLamportAfter).to.be.lessThan(
+                        payerLamportBefore - Number(gasAmountDenorm),
+                    );
+                    expect(feeRecipientAfter).to.equal(feeRecipientBefore + relayerFee);
+                });
 
-                expect(recipientAfter - recipientBefore).to.equal(
-                    message.deposit!.header.amount - relayerFee,
-                );
-                expect(recipientLamportAfter - recipientLamportBefore).to.equal(Number(gasAmount));
-                expect(payerLamportAfter).to.be.lessThan(payerLamportBefore - Number(gasAmount));
-                expect(feeRecipientAfter).to.equal(feeRecipientBefore + relayerFee);
+                it("Complete Transfer Without Gas Dropoff", async function () {
+                    const relayerFee = 1000000n;
+                    const gasAmount = 0;
+
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeRelayUsdcTransfer(recipient.publicKey, gasAmount, relayerFee),
+                    );
+                    const { vaa, message } = result!;
+
+                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
+                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const beneficiary = Keypair.generate();
+
+                    // Balance check.
+                    const recipientBefore = await getUsdcAtaBalance(
+                        connection,
+                        recipient.publicKey,
+                    );
+                    const recipientLamportBefore = await connection.getBalance(recipient.publicKey);
+                    const payerLamportBefore = await connection.getBalance(payer.publicKey);
+                    const feeRecipientBefore = await getUsdcAtaBalance(
+                        connection,
+                        feeRecipient.publicKey,
+                    );
+
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            beneficiary: beneficiary.publicKey,
+                            preparedFill,
+                            tokenRouterCustody:
+                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                            tokenRouterProgram: tokenRouter.ID,
+                            recipient: recipient.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxOk(connection, [transferIx], [payer]);
+
+                    // Balance check.
+                    const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
+                    const recipientLamportAfter = await connection.getBalance(recipient.publicKey);
+                    const payerLamportAfter = await connection.getBalance(payer.publicKey);
+                    const feeRecipientAfter = await getUsdcAtaBalance(
+                        connection,
+                        feeRecipient.publicKey,
+                    );
+
+                    expect(recipientAfter - recipientBefore).to.equal(
+                        message.deposit!.header.amount - relayerFee,
+                    );
+                    expect(recipientLamportAfter - recipientLamportBefore).to.equal(
+                        Number(gasAmount),
+                    );
+                    expect(payerLamportAfter).to.be.lessThan(
+                        payerLamportBefore - Number(gasAmount),
+                    );
+                    expect(feeRecipientAfter).to.equal(feeRecipientBefore + relayerFee);
+                });
             });
         });
 
         describe("USDC Transfer (Direct)", function () {
-            it("Redeem Fill (Recipient Not Payer)", async function () {
-                const result = await createAndRedeemCctpFillForTest(
-                    connection,
-                    tokenRouter,
-                    swapLayer,
-                    tokenRouterLkupTable,
-                    payer,
-                    testCctpNonce++,
-                    foreignChain,
-                    foreignTokenRouterAddress,
-                    foreignSwapLayerAddress,
-                    wormholeSequence,
-                    encodeDirectUsdcTransfer(recipient.publicKey),
-                );
-                const { vaa, message } = result!;
+            describe("Outbound", function () {
+                it("Initiate Transfer", async function () {
+                    const amountIn = 6900000000n;
 
-                const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
-                const beneficiary = Keypair.generate();
+                    // Balance check.
+                    const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
+                        connection,
+                        payer,
+                        USDC_MINT_ADDRESS,
+                        payer.publicKey,
+                    );
+                    const payerBefore = await getUsdcAtaBalance(connection, payer.publicKey);
 
-                // Balance check.
-                const recipientBefore = await getUsdcAtaBalance(connection, recipient.publicKey);
-                const beneficiaryBefore = await connection.getBalance(beneficiary.publicKey);
+                    const preparedOrder = Keypair.generate();
 
-                const transferIx = await swapLayer.completeTransferDirectIx(
-                    {
-                        payer: payer.publicKey,
-                        beneficiary: beneficiary.publicKey,
-                        preparedFill,
-                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                        tokenRouterProgram: tokenRouter.ID,
-                        recipient: recipient.publicKey,
-                    },
-                    foreignChain,
-                );
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                            tokenRouterCustodian: tokenRouter.custodianAddress(),
+                            tokenRouterProgram: tokenRouter.ID,
+                            preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(
+                                preparedOrder.publicKey,
+                            ),
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain as wormholeSdk.ChainId,
+                            relayOptions: null,
+                            recipient: foreignRecipientAddress,
+                        },
+                    );
 
-                await expectIxOk(connection, [transferIx], [payer]);
+                    await expectIxOk(connection, [ix], [payer, preparedOrder]);
 
-                // Balance check.
-                const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
-                const beneficiaryAfter = await connection.getBalance(beneficiary.publicKey);
+                    // Balance check.
+                    const payerAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                    expect(payerAfter).to.equal(payerBefore - amountIn);
 
-                expect(recipientAfter).to.equal(recipientBefore + message.deposit!.header.amount);
-                expect(beneficiaryAfter).to.be.greaterThan(beneficiaryBefore);
+                    // Verify the relevant information in the prepared order.
+                    const preparedOrderData = await tokenRouter.fetchPreparedOrder(
+                        preparedOrder.publicKey,
+                    );
+
+                    const {
+                        info: { preparedCustodyTokenBump },
+                    } = preparedOrderData;
+
+                    hackedExpectDeepEqual(
+                        preparedOrderData,
+                        new tokenRouterSdk.PreparedOrder(
+                            {
+                                orderSender: payer.publicKey,
+                                preparedBy: payer.publicKey,
+                                orderType: {
+                                    market: {
+                                        minAmountOut: null,
+                                    },
+                                },
+                                srcToken: payerToken.address,
+                                refundToken: payerToken.address,
+                                targetChain: foreignChain,
+                                redeemer: foreignSwapLayerAddress,
+                                preparedCustodyTokenBump,
+                            },
+                            encodeDirectUsdcTransfer(foreignRecipientAddress),
+                        ),
+                    );
+
+                    // Verify the prepared custody token balance.
+                    const { amount: preparedCustodyTokenBalance } = await splToken.getAccount(
+                        connection,
+                        tokenRouter.preparedCustodyTokenAddress(preparedOrder.publicKey),
+                    );
+                    expect(preparedCustodyTokenBalance).equals(amountIn);
+                });
             });
 
-            it("Redeem Fill (Recipient Is Payer)", async function () {
-                const result = await createAndRedeemCctpFillForTest(
-                    connection,
-                    tokenRouter,
-                    swapLayer,
-                    tokenRouterLkupTable,
-                    payer,
-                    testCctpNonce++,
-                    foreignChain,
-                    foreignTokenRouterAddress,
-                    foreignSwapLayerAddress,
-                    wormholeSequence,
-                    encodeDirectUsdcTransfer(payer.publicKey),
-                );
-                const { vaa, message } = result!;
+            describe("Inbound", function () {
+                it("Complete Transfer (Recipient Not Payer)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeDirectUsdcTransfer(recipient.publicKey),
+                    );
+                    const { vaa, message } = result!;
 
-                const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
-                const beneficiary = Keypair.generate();
+                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
+                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const beneficiary = Keypair.generate();
 
-                // Balance check.
-                const recipientBefore = await getUsdcAtaBalance(connection, payer.publicKey);
-                const beneficiaryBefore = await connection.getBalance(beneficiary.publicKey);
+                    // Balance check.
+                    const recipientBefore = await getUsdcAtaBalance(
+                        connection,
+                        recipient.publicKey,
+                    );
+                    const beneficiaryBefore = await connection.getBalance(beneficiary.publicKey);
 
-                const transferIx = await swapLayer.completeTransferDirectIx(
-                    {
-                        payer: payer.publicKey,
-                        beneficiary: beneficiary.publicKey,
-                        preparedFill,
-                        tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                        tokenRouterProgram: tokenRouter.ID,
-                    },
-                    foreignChain,
-                );
+                    const transferIx = await swapLayer.completeTransferDirectIx(
+                        {
+                            payer: payer.publicKey,
+                            beneficiary: beneficiary.publicKey,
+                            preparedFill,
+                            tokenRouterCustody:
+                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                            tokenRouterProgram: tokenRouter.ID,
+                            recipient: recipient.publicKey,
+                        },
+                        foreignChain,
+                    );
 
-                await expectIxOk(connection, [transferIx], [payer]);
+                    await expectIxOk(connection, [transferIx], [payer]);
 
-                // Balance check.
-                const recipientAfter = await getUsdcAtaBalance(connection, payer.publicKey);
-                const beneficiaryAfter = await connection.getBalance(beneficiary.publicKey);
+                    // Balance check.
+                    const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
+                    const beneficiaryAfter = await connection.getBalance(beneficiary.publicKey);
 
-                expect(recipientAfter).to.equal(recipientBefore + message.deposit!.header.amount);
-                expect(beneficiaryAfter).to.be.greaterThan(beneficiaryBefore);
+                    expect(recipientAfter).to.equal(
+                        recipientBefore + message.deposit!.header.amount,
+                    );
+                    expect(beneficiaryAfter).to.be.greaterThan(beneficiaryBefore);
+                });
+
+                it("Complete Transfer (Recipient Is Payer)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeDirectUsdcTransfer(payer.publicKey),
+                    );
+                    const { vaa, message } = result!;
+
+                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
+                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const beneficiary = Keypair.generate();
+
+                    // Balance check.
+                    const recipientBefore = await getUsdcAtaBalance(connection, payer.publicKey);
+                    const beneficiaryBefore = await connection.getBalance(beneficiary.publicKey);
+
+                    const transferIx = await swapLayer.completeTransferDirectIx(
+                        {
+                            payer: payer.publicKey,
+                            beneficiary: beneficiary.publicKey,
+                            preparedFill,
+                            tokenRouterCustody:
+                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
+                            tokenRouterProgram: tokenRouter.ID,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxOk(connection, [transferIx], [payer]);
+
+                    // Balance check.
+                    const recipientAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                    const beneficiaryAfter = await connection.getBalance(beneficiary.publicKey);
+
+                    expect(recipientAfter).to.equal(
+                        recipientBefore + message.deposit!.header.amount,
+                    );
+                    expect(beneficiaryAfter).to.be.greaterThan(beneficiaryBefore);
+                });
             });
         });
 
@@ -632,20 +918,60 @@ async function craftCctpTokenBurnMessage(
     };
 }
 
-function encodeDirectUsdcTransfer(recipient: PublicKey): Buffer {
+function encodeDirectUsdcTransfer(recipient: PublicKey | number[]): Buffer {
     let buf = Buffer.alloc(35);
 
     // Version
     buf.writeUInt8(1, 0);
 
     // 32 byte address.
-    Buffer.from(recipient.toBuffer().toString("hex"), "hex").copy(buf, 1);
+    if (Array.isArray(recipient)) {
+        Buffer.from(recipient).copy(buf, 1);
+    } else {
+        Buffer.from(recipient.toBuffer().toString("hex"), "hex").copy(buf, 1);
+    }
 
     // Redeem mode.
     buf.writeUInt8(0, 33);
 
     // USDC Token Type
     buf.writeUInt8(0, 34);
+
+    return buf;
+}
+
+function encodeRelayUsdcTransfer(
+    recipient: PublicKey | number[],
+    gasDropoff: number,
+    relayerFee: bigint,
+): Buffer {
+    let buf = Buffer.alloc(45);
+
+    // Version
+    buf.writeUInt8(1, 0);
+
+    // 32 byte address.
+    if (Array.isArray(recipient)) {
+        Buffer.from(recipient).copy(buf, 1);
+    } else {
+        Buffer.from(recipient.toBuffer().toString("hex"), "hex").copy(buf, 1);
+    }
+
+    // Redeem mode.
+    buf.writeUInt8(2, 33);
+    buf.writeUint32BE(gasDropoff, 34);
+
+    // Make sure relayer fee will fit in u48.
+    if (relayerFee > 281474976710655) {
+        throw new Error("Relayer fee too large");
+    }
+
+    const encodedNum = Buffer.alloc(8);
+    encodedNum.writeBigUInt64BE(relayerFee);
+    encodedNum.subarray(2).copy(buf, 38);
+
+    // USDC Token Type
+    buf.writeUInt8(0, 44);
 
     return buf;
 }

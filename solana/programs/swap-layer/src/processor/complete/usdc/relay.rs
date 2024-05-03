@@ -38,6 +38,12 @@ pub struct CompleteTransferRelay<'info> {
     )]
     pub complete_token_account: Account<'info, token::TokenAccount>,
 
+    #[account(mut)]
+    /// CHECK: recipient may differ from payer if a relayer paid for this
+    /// transaction. This instruction verifies that the recipient key
+    /// passed in this context matches the intended recipient in the fill.
+    pub recipient: AccountInfo<'info>,
+
     #[account(
         mut,
         associated_token::mint = usdc,
@@ -45,14 +51,8 @@ pub struct CompleteTransferRelay<'info> {
     )]
     /// Recipient associated token account. The recipient authority check
     /// is necessary to ensure that the recipient is the intended recipient
-    /// of the bridged tokens. Mutable.
-    pub recipient_token_account: Box<Account<'info, token::TokenAccount>>,
-
-    #[account(mut)]
-    /// CHECK: recipient may differ from payer if a relayer paid for this
-    /// transaction. This instruction verifies that the recipient key
-    /// passed in this context matches the intended recipient in the fill.
-    pub recipient: AccountInfo<'info>,
+    /// of the bridged tokens.
+    pub recipient_token_account: Box<Account<'info, token::TokenAccount>>, 
 
     #[account(
         mut,
@@ -89,6 +89,11 @@ pub struct CompleteTransferRelay<'info> {
                 OutputToken::Usdc
             ),
             SwapLayerError::InvalidOutputToken
+        );
+
+        require!(
+            recipient.key() == Pubkey::from(swap_msg.recipient),
+            SwapLayerError::InvalidRecipient
         );
 
         true

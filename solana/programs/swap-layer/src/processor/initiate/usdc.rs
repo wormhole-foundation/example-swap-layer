@@ -1,9 +1,10 @@
 use crate::utils::gas_dropoff::denormalize_gas_dropoff;
 use crate::utils::relayer_fees::calculate_relayer_fee;
 use crate::{composite::*, error::SwapLayerError, state::Peer};
-use anchor_lang::prelude::borsh::{BorshDeserialize, BorshSerialize};
+use anchor_lang::prelude::borsh::BorshDeserialize;
 use anchor_lang::prelude::*;
 use anchor_spl::token;
+use common::wormhole_io::TypePrefixedPayload;
 use swap_layer_messages::messages::SwapMessageV1;
 use swap_layer_messages::types::{OutputToken, RedeemMode, SwapType, Uint48};
 
@@ -19,7 +20,7 @@ pub struct InitiateTransfer<'info> {
         associated_token::mint = usdc,
         associated_token::authority = payer
     )]
-    payer_token_account: Box<Account<'info, token::TokenAccount>>,
+    payer_token: Box<Account<'info, token::TokenAccount>>,
 
     usdc: Usdc<'info>,
 
@@ -28,19 +29,22 @@ pub struct InitiateTransfer<'info> {
             Peer::SEED_PREFIX,
             &args.target_chain.to_be_bytes(),
         ],
-        bump,
+        bump
     )]
     peer: Box<Account<'info, Peer>>,
 
     /// CHECK: Token router config.
     token_router_custodian: UncheckedAccount<'info>,
 
-    /// CHECK:
-    transfer_authority: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        constraint = {
+            require!(*prepared_order.owner != payer.key(), SwapLayerError::PreparedOrderCannotBePayer);
 
-    #[account(mut)]
-    /// CHECK:
-    prepared_order: UncheckedAccount<'info>,
+            true
+        } 
+    )]
+    prepared_order: Signer<'info>,
 
     #[account(mut)]
     /// CHECK:
@@ -72,12 +76,15 @@ pub struct InitiateTransferArgs {
 }
 
 pub fn initiate_transfer(ctx: Context<InitiateTransfer>, args: InitiateTransferArgs) -> Result<()> {
+    require!(args.recipient != [0; 32], SwapLayerError::InvalidRecipient);
+
+    // Save this, we will need to account for the relayer fee.
     let mut transfer_amount = args.amount_in;
 
     let swap_message = if args.relay_options.is_some() {
         let relay_options = args.relay_options.unwrap();
 
-        // Check the computed relaying fee vs. the max relaying fee.
+        // Relaying fee must be less than the user-specific maximum.
         let relaying_fee = calculate_relayer_fee(
             &ctx.accounts.peer.relay_params,
             denormalize_gas_dropoff(relay_options.gas_dropoff),
@@ -115,10 +122,11 @@ pub fn initiate_transfer(ctx: Context<InitiateTransfer>, args: InitiateTransferA
                 custodian: token_router::cpi::accounts::CheckedCustodian {
                     custodian: ctx.accounts.token_router_custodian.to_account_info(),
                 },
-                transfer_authority: ctx.accounts.transfer_authority.to_account_info(),
+                program_transfer_authority: None,
+                sender: Some(ctx.accounts.payer.to_account_info()),
                 prepared_order: ctx.accounts.prepared_order.to_account_info(),
-                sender_token: ctx.accounts.payer_token_account.to_account_info(),
-                refund_token: ctx.accounts.payer_token_account.to_account_info(),
+                sender_token: ctx.accounts.payer_token.to_account_info(),
+                refund_token: ctx.accounts.payer_token.to_account_info(),
                 prepared_custody_token: ctx.accounts.prepared_custody_token.to_account_info(),
                 usdc: token_router::cpi::accounts::Usdc {
                     mint: ctx.accounts.usdc.to_account_info(),
@@ -132,7 +140,7 @@ pub fn initiate_transfer(ctx: Context<InitiateTransfer>, args: InitiateTransferA
             min_amount_out: None,
             target_chain: args.target_chain,
             redeemer: ctx.accounts.peer.address,
-            redeemer_message: swap_message.try_to_vec().unwrap(),
+            redeemer_message: swap_message.to_vec(),
         },
     )?;
 
