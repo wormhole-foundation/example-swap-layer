@@ -791,7 +791,7 @@ async function createAndRedeemCctpFillForTest(
     orderSender: number[],
     wormholeSequence: bigint,
     redeemerMessage: Buffer,
-): Promise<void | { vaa: PublicKey; message: LiquidityLayerMessage }> {
+): Promise<null | { vaa: PublicKey; message: LiquidityLayerMessage }> {
     const encodedMintRecipient = Array.from(tokenRouter.cctpMintRecipientAddress().toBuffer());
     const sourceCctpDomain = 0;
     const amount = 6900000000n;
@@ -822,6 +822,7 @@ async function createAndRedeemCctpFillForTest(
             },
             {
                 fill: {
+                    // @ts-ignore
                     sourceChain: foreignChain as wormholeSdk.ChainId,
                     orderSender,
                     redeemer: Array.from(redeemer.toBuffer()),

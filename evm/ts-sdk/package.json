@@ -1,5 +1,5 @@
 {
-  "name": "@xlabs/wh-swap-layer-ts-sdk",
+  "name": "@wormhole-foundation/swap-layer-evm",
   "version": "1.0.0",
   "description": "",
   "main": "lib/cjs/index.js",
@@ -10,9 +10,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@wormhole-foundation/sdk-base": "^0.4.0-beta.0",
-    "@wormhole-foundation/sdk-definitions": "^0.4.0-beta.0",
-    "@wormhole-foundation/connect-sdk-evm": "^0.4.0-beta.0",
+    "@wormhole-foundation/sdk-base": "^0.6.5",
+    "@wormhole-foundation/sdk-definitions": "^0.6.5",
+    "@wormhole-foundation/sdk-evm": "^0.6.5",
     "typescript": "^5.3.3"
   }
 }

@@ -1,12 +1,11 @@
 {
   "compilerOptions": {
-    "types": ["mocha", "chai", "node"],
-    "typeRoots": ["./node_modules/@types"],
-    "lib": ["es2020"],
+    "types":["chai", "mocha", "node"],
+    "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "target": "es2020",
-    "strict": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true, 
+    "outDir": "dist",
   }
 }

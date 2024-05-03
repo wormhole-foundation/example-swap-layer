@@ -4,10 +4,10 @@ import {
   LayoutItem,
   NamedLayoutItem,
   UintLayoutItem,
-  FixedSizeBytesLayoutItem,
+  BytesLayoutItem,
 } from "@wormhole-foundation/sdk-base";
 import { layoutItems } from "@wormhole-foundation/sdk-definitions"
-import { EvmAddress } from "@wormhole-foundation/connect-sdk-evm";
+import { EvmAddress } from "@wormhole-foundation/sdk-evm";
 
 // ---- basic types ----
 
@@ -34,11 +34,11 @@ const evmAddressItem = {
     to: (encoded: Uint8Array): string => new EvmAddress(encoded).toString(),
     from: (addr: string): Uint8Array => new EvmAddress(addr).toUint8Array(),
   } satisfies CustomConversion<Uint8Array, string>,
-} as const satisfies FixedSizeBytesLayoutItem;
+} as const satisfies BytesLayoutItem;
 
 //TODO from payload/relayer - should be moved to layoutItems
 const addressChainItem = {
-  binary: "object",
+  binary: "bytes",
   layout: [
     { name: "chain", ...layoutItems.chainItem() },
     { name: "address", ...layoutItems.universalAddressItem },
@@ -184,7 +184,7 @@ const sharedUniswapTraderJoeLayout = [
 
 const swapItem = {
   name: "swap",
-  binary: "object",
+  binary: "bytes",
   layout: [
     { name: "deadline", ...timestampItem },
     { name: "limitAmount", ...amountItem },
@@ -301,7 +301,7 @@ export const queriesBatchLayout = {
 // ---- governance types ----
 
 const timestampedGasPriceItem = {
-  binary: "object",
+  binary: "bytes",
   layout: [
     { name: "gasPriceTimestamp", ...timestampItem },
     { name: "gasPrice",          ...gasPriceItem  },
