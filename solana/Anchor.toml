@@ -122,7 +122,7 @@ filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/
 ### Localnet Matching Engine Program
 [[test.genesis]]
 address = "MatchingEngine11111111111111111111111111111"
-program = "../lib/example-liquidity-layer/solana/artifacts-localnet/matching_engine.so"
+program = "../lib/example-liquidity-layer/solana/target/deploy/matching_engine.so"
 
 ### Localnet Matching Engine -- Custodian
 [[test.validator.account]]
@@ -137,7 +137,7 @@ filename = "ts/tests/accounts/matching_engine/ethereum_token_router_endpoint.jso
 ### Localnet Token Router Program
 [[test.genesis]]
 address = "TokenRouter11111111111111111111111111111111"
-program = "../lib/example-liquidity-layer/solana/artifacts-localnet/token_router.so"
+program = "../lib/example-liquidity-layer/solana/target/deploy/token_router.so"
 
 ### Localnet Token Router -- Custodian
 [[test.validator.account]]

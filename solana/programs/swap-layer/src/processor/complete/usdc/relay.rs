@@ -52,7 +52,7 @@ pub struct CompleteTransferRelay<'info> {
     /// Recipient associated token account. The recipient authority check
     /// is necessary to ensure that the recipient is the intended recipient
     /// of the bridged tokens.
-    pub recipient_token_account: Box<Account<'info, token::TokenAccount>>, 
+    pub recipient_token_account: Box<Account<'info, token::TokenAccount>>,
 
     #[account(
         mut,
@@ -170,13 +170,13 @@ fn handle_complete_transfer_relay(
                             to: recipient.to_account_info(),
                         },
                     ),
-                    gas_dropoff.into(),
+                    gas_dropoff,
                 )?;
             }
 
             // Calculate the user amount.
             fill_amount
-                .checked_sub(u64::try_from(relaying_fee).unwrap())
+                .checked_sub(relaying_fee)
                 .ok_or(SwapLayerError::InvalidRelayerFee)?
         }
     };

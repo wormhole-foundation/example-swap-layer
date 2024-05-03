@@ -274,6 +274,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "anchor")]
     fn test_uint24_small_le() {
         const EXPECTED: u64 = 69;
 
@@ -308,6 +309,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "anchor")]
     fn test_uint24_large_le() {
         const EXPECTED: u64 = 4408389;
 
@@ -342,6 +344,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "anchor")]
     fn test_uint48_small_le() {
         const EXPECTED: u64 = 69;
 
@@ -376,6 +379,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "anchor")]
     fn test_uint48_large_le() {
         const EXPECTED: u64 = 70649028756549;
 
