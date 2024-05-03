@@ -67,7 +67,11 @@ const evmAddressItem = {
     to: (encoded: Uint8Array): string => new EvmAddress(encoded).toString(),
     from: (addr: string): Uint8Array => new EvmAddress(addr).toUint8Array(),
   } satisfies CustomConversion<Uint8Array, string>,
+<<<<<<< HEAD
 } as const satisfies ManualSizePureBytes;
+=======
+} as const satisfies BytesLayoutItem;
+>>>>>>> ae63fe8 (SDK: Minimal changes to make ts build (#5))
 
 //TODO from payload/relayer - should be moved to layoutItems
 const addressChainItem = {
