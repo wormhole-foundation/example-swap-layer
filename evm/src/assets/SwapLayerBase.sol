@@ -63,6 +63,13 @@ abstract contract SwapLayerBase {
     _traderJoeRouter = traderJoeRouter;
   }
 
+  //the semantic equivalent of a `default: assert(false)` case in a switch statement
+  //  used in if/else cascades that model switch statements that must be exhaustive
+  //  uses assert() because it can only be reached if there's a bug in the code
+  function _assertExhaustive() internal pure {
+    assert(false);
+  }
+
   function _getPeer(uint16 chainId) internal view returns (bytes32) {
     return swapLayerPeersState().peers[chainId];
   }

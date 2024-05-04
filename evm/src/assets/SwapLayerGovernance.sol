@@ -178,12 +178,14 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
 
           state.pendingOwner = newOwner;
         }
-        else { //must be GovernanceCommand.RelinquishOwnership
+        else if (command == GovernanceCommand.RelinquishOwnership) {
           _updateRole(Role.Owner, address(0));
 
           //ownership relinquishment must be the last command in the batch
           commands.checkLength(offset);
         }
+        else
+          _assertExhaustive();
       }
     }
     commands.checkLength(offset);
@@ -229,13 +231,16 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
       oldAddress = state.feeUpdater;
       state.feeUpdater = newAddress;
     }
-    else { //must be Role.FeeRecipient
-    if (newAddress == address(0))
+    else if (role == Role.FeeRecipient) {
+      if (newAddress == address(0))
         revert InvalidFeeRecipient();
 
       oldAddress = state.feeRecipient;
       state.feeRecipient = newAddress;
     }
+    else
+      _assertExhaustive();
+
     emit RoleUpdated(role, oldAddress, newAddress, block.timestamp);
   }
 }

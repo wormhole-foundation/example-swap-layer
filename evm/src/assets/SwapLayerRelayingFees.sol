@@ -110,11 +110,13 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
         (gasDropoffMargin, offset) = updates.asUint16Unchecked(offset);
         curParams = curParams.gasDropoffMargin(PercentageLib.checkedWrap(gasDropoffMargin));
       }
-      else { //must be FeeUpdate.MaxGasDropoff
+      else if (update == FeeUpdate.MaxGasDropoff) {
         uint32 maxGasDropoff;
         (maxGasDropoff, offset) = updates.asUint32Unchecked(offset);
         curParams = curParams.maxGasDropoff(GasDropoff.wrap(maxGasDropoff));
       }
+      else
+        _assertExhaustive();
     }
     updates.checkLength(offset);
 

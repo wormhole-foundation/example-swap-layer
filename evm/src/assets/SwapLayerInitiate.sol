@@ -132,12 +132,14 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         _wnative.deposit{value: inputAmount}();
         inputToken = IERC20(address(_wnative));
       }
-      else { //must be IoToken.Other
+      else if (inputTokenType == IoToken.Other) {
         (inputToken,  offset) = parseIERC20(params, offset);
         (inputAmount, offset) = params.asUint128Unchecked(offset);
         offset = _acquireInputTokens(inputAmount, inputToken, params, offset);
         (approveCheck, offset) = params.asBoolUnchecked(offset);
       }
+      else
+        _assertExhaustive();
 
       (uint256 deadline, uint outputAmount, uint swapType, bytes memory path, ) =
         parseEvmSwapParams(address(inputToken), address(_usdc), params, offset);
@@ -208,7 +210,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         signature
       );
     }
-    else { //must be AcquireMode.Permit2Permit
+    else if (acquireMode == AcquireMode.Permit2Permit) {
       uint160 amount; uint48 expiration; uint48 nonce; uint256 sigDeadline; bytes memory signature;
       (amount, expiration, nonce, sigDeadline, signature, offset) =
         parsePermit2Permit(params, offset);
@@ -223,6 +225,9 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       );
       _permit2.transferFrom(msg.sender, address(this), uint160(inputAmount), address(inputToken));
     }
+    else
+      _assertExhaustive();
+
     return offset;
   }
 }

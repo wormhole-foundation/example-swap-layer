@@ -64,8 +64,11 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
           addr = _uniswapRouter;
         else if (immutableType == ImmutableType.TraderJoeRouter)
           addr = _traderJoeRouter;
-        else //must be ImmutableType.LiquidityLayer
+        else if (immutableType == ImmutableType.LiquidityLayer)
           addr = address(_liquidityLayer);
+        else
+          _assertExhaustive();
+
         ret = abi.encodePacked(ret, addr);
       }
       else { //query must be one of Admin, Owner, FeeRecipient, Implementation
@@ -80,8 +83,11 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
           addr = _getFeeUpdater();
         else if (query == QueryType.FeeRecipient)
           addr = _getFeeRecipient();
-        else //must be QueryType.Implementation
+        else if (query == QueryType.Implementation)
           addr = _getImplementation();
+        else
+          _assertExhaustive();
+
         ret = abi.encodePacked(ret, addr);
       }
     }

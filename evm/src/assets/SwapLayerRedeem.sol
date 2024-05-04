@@ -122,7 +122,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
     }
 
     if (outputTokenType == IoToken.Gas) {
-      outputToken = IERC20(address(0)); //0 represets the gas token itself
+      outputToken = IERC20(address(0)); //0 represents the gas token itself
       _wnative.withdraw(outputAmount);
       outputAmount = outputAmount + gasDropoff;
       _transferEth(sms.recipient, outputAmount);
