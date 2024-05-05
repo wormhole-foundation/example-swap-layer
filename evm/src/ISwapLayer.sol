@@ -2,6 +2,9 @@
 
 pragma solidity ^0.8.24;
 
+//integration guideline:
+// *  on-chain: use SwapLayerIntegration.sol base contract
+// * off-chain: use TypeScript SDK to compose calls
 interface ISwapLayer {
   //selector: 0f3376b1
   function initiate(
