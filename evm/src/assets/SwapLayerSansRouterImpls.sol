@@ -8,13 +8,12 @@ import "./SwapLayerQuery.sol";
 import "./SwapLayerInitiate.sol";
 import "./SwapLayerRedeem.sol";
 
-//Inheritance diagram: (SL = SwapLayer)
-//                  /-> SL-Query -> SL-Governance -\---> ProxyBase
-//SL-SansRouterImpls--> SL-Redeem -/                >--> SL-RelayingFees -> SL-Base
-//                  \-> SL-Initiate ---------------/
-
 error InvalidPeer();
 
+//Inheritance diagram: (SL = SwapLayer)
+//                    ┌─> SL-Query  ─┬─> SL-Governance ─┬─> ProxyBase
+//SL-SansRouterImpls ─┼─> SL-Redeem ─┘                  └─┬─> SL-RelayingFees ─> SL-Base
+//                    └─> SL-Initiate ────────────────────┘
 abstract contract SwapLayerSansRouterImpls is SwapLayerQuery, SwapLayerInitiate, SwapLayerRedeem {
   using BytesParsing for bytes;
 
@@ -36,10 +35,10 @@ abstract contract SwapLayerSansRouterImpls is SwapLayerQuery, SwapLayerInitiate,
     address admin;
     address assistant;
     address feeRecipient;
-    (owner,                   offset) = args.asAddressUnchecked(offset);
-    (admin,                   offset) = args.asAddressUnchecked(offset);
-    (assistant,               offset) = args.asAddressUnchecked(offset);
-    (feeRecipient,            offset) = args.asAddressUnchecked(offset);
+    (owner,        offset) = args.asAddressUnchecked(offset);
+    (admin,        offset) = args.asAddressUnchecked(offset);
+    (assistant,    offset) = args.asAddressUnchecked(offset);
+    (feeRecipient, offset) = args.asAddressUnchecked(offset);
 
     _governanceConstruction(owner, admin, assistant, feeRecipient);
 
