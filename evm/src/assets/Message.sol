@@ -22,7 +22,7 @@ function encodeSwapMessage(
   return abi.encodePacked(VERSION, recipient, redeemPayload, outputSwap);
 }
 
-function encodeRelayParams(
+function encodeSwapMessageRelayParams(
   GasDropoff gasDropoff,
   uint relayingFee
 ) pure returns (bytes memory) {

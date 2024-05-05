@@ -11,9 +11,8 @@ import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
 
 import "./SwapLayerRelayingFees.sol";
 import "./InitiateParams.sol";
-import { encodeSwapMessage, encodeRelayParams } from "./Message.sol";
+import { encodeSwapMessage, encodeSwapMessageRelayParams } from "./Message.sol";
 
-error InsufficientMsgValue();
 error InsufficientInputAmount(uint256 input, uint256 minimum);
 error InvalidLength(uint256 received, uint256 expected);
 error ExceedsMaxRelayingFee(uint256 fee, uint256 maximum);
@@ -46,15 +45,13 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       if (relayingFee > maxRelayingFee)
         revert ExceedsMaxRelayingFee(relayingFee, maxRelayingFee);
 
-      redeemPayload = encodeRelayParams(gasDropoff, relayingFee);
+      redeemPayload = encodeSwapMessageRelayParams(gasDropoff, relayingFee);
     }
     else
       (redeemPayload, ) = params.slice(mos.redeem.offset - MODE_SIZE, mos.redeem.size + MODE_SIZE);
 
-    //unchecked cast, but if someone manages to withdraw 10^(19-6), i.e. 10 trillion USDC then
-    //  we have other problems regardless (though who knows what the future holds for the "stable"
-    //  coin that is the US dollar - or any other fiat currency for that matter)
-    uint64 usdcAmount = uint64(_acquireUsdc(uint(fastTransferFee) + relayingFee, mos, params));
+    (uint64 usdcAmount, uint wormholeFee) =
+      _acquireUsdc(uint(fastTransferFee) + relayingFee, mos, params);
 
     bytes32 peer = _getPeer(targetChain);
     if (peer == bytes32(0))
@@ -69,7 +66,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     bytes memory ret;
     if (mos.transfer.mode == TransferMode.LiquidityLayerFast) {
       (uint64 sequence, uint64 fastSequence, uint256 protocolSequence) =
-        _liquidityLayer.placeFastMarketOrder(
+        _liquidityLayer.placeFastMarketOrder{value: wormholeFee}(
           usdcAmount,
           targetChain,
           peer,
@@ -81,12 +78,13 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       ret = abi.encode(usdcAmount, sequence, protocolSequence, fastSequence);
     }
     else if (mos.transfer.mode == TransferMode.LiquidityLayer) {
-      (uint64 sequence, uint256 protocolSequence) = _liquidityLayer.placeMarketOrder(
-        usdcAmount,
-        targetChain,
-        peer,
-        swapMessage
-      );
+      (uint64 sequence, uint256 protocolSequence) =
+        _liquidityLayer.placeMarketOrder{value: wormholeFee}(
+          usdcAmount,
+          targetChain,
+          peer,
+          swapMessage
+        );
 
       ret = abi.encode(usdcAmount, sequence, protocolSequence);
     }
@@ -102,20 +100,23 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     uint totalFee,
     ModesOffsetsSizes memory mos,
     bytes memory params
-  ) private returns (uint usdcAmount) { unchecked {
+  ) private returns (uint64 usdcAmount, uint wormholeFee) { unchecked {
     IoToken inputTokenType = mos.input.mode;
     uint offset = mos.input.offset;
+    uint finalAmount;
     if (inputTokenType == IoToken.Usdc) {
       //we received USDC directly
-      (usdcAmount, offset) = params.asUint128Unchecked(offset);
+      wormholeFee = msg.value; //we save the gas for an STATICCALL to look up the wormhole msg fee
+                               //and rely on the liquidity layer to revert if msg.value != fee
+      (finalAmount, offset) = params.asUint128Unchecked(offset);
       if (mos.isExactIn) {
-        if (usdcAmount < totalFee)
-          revert InsufficientInputAmount(usdcAmount, totalFee);
+        if (finalAmount < totalFee)
+          revert InsufficientInputAmount(finalAmount, totalFee);
       }
       else
-        usdcAmount += totalFee;
+        finalAmount += totalFee;
 
-      _acquireInputTokens(usdcAmount, _usdc, params, offset);
+      _acquireInputTokens(finalAmount, _usdc, params, offset);
     }
     else {
       //we received something else than usdc so we'll have to perform at least one swap
@@ -123,17 +124,19 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       IERC20 inputToken;
       bool approveCheck = false; //gas optimization
       if (inputTokenType == IoToken.Gas) {
-        uint wormholeFee = _wormhole.messageFee();
+        wormholeFee = _wormhole.messageFee();
         if (mos.transfer.mode == TransferMode.LiquidityLayerFast)
           wormholeFee *= 2; //fast transfers emit 2 wormhole messages
+
         if (msg.value < wormholeFee)
-          revert InsufficientMsgValue();
+          revert InsufficientInputAmount(msg.value, wormholeFee);
 
         inputAmount = msg.value - wormholeFee;
         _wnative.deposit{value: inputAmount}();
         inputToken = IERC20(address(_wnative));
       }
       else if (inputTokenType == IoToken.Other) {
+        wormholeFee = msg.value; //same as above
         (inputToken,  offset) = parseIERC20(params, offset);
         (inputAmount, offset) = params.asUint128Unchecked(offset);
         offset = _acquireInputTokens(inputAmount, inputToken, params, offset);
@@ -163,7 +166,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       );
 
       if (mos.isExactIn)
-        usdcAmount = inOutAmount;
+        finalAmount = inOutAmount;
       else {
         //return unspent tokens
         if (inOutAmount < inputAmount) {
@@ -175,9 +178,13 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
           else
             inputToken.safeTransfer(msg.sender, refundAmount);
         }
-        usdcAmount = outputAmount;
+        finalAmount = outputAmount;
       }
     }
+    //unchecked cast, but if someone manages to withdraw 10^(19-6), i.e. 10 trillion USDC then
+    //  we have other problems regardless (though who knows what the future holds for the "stable"
+    //  coin that is the US dollar - or any other fiat currency for that matter)u
+    usdcAmount = uint64(finalAmount);
   }}
 
   function _acquireInputTokens(
