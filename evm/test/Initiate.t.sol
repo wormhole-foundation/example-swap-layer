@@ -190,7 +190,7 @@ contract SwapLayerInitiateTest is SwapLayerSwapBase {
       FOREIGN_CHAIN_ID,
       user.toUniversalAddress(),
       abi.encodePacked(
-        FastTransferMode.Disabled,
+        TransferMode.LiquidityLayer,
         RedeemMode.Direct,
         true,         //isExactIn
         IoToken.Gas,  //input token
@@ -214,7 +214,7 @@ contract SwapLayerInitiateTest is SwapLayerSwapBase {
       FOREIGN_CHAIN_ID,
       user.toUniversalAddress(),
       abi.encodePacked(
-        FastTransferMode.Disabled,
+        TransferMode.LiquidityLayer,
         RedeemMode.Direct,
         true,         //isExactIn
         IoToken.Gas,  //input token
@@ -240,7 +240,7 @@ contract SwapLayerInitiateTest is SwapLayerSwapBase {
       FOREIGN_CHAIN_ID,
       user.toUniversalAddress(),
       abi.encodePacked(
-        FastTransferMode.Disabled,
+        TransferMode.LiquidityLayer,
         RedeemMode.Relay,
         uint32(0),    //gas dropoff
         uint48(1e9),  //max relayer fee

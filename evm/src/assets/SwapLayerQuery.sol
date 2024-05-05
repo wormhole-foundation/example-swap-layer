@@ -31,7 +31,6 @@ enum QueryType {
 abstract contract SwapLayerQuery is SwapLayerGovernance {
   using BytesParsing for bytes;
 
-  //selector: 64ee4476
   function batchQueries(bytes memory queries) external view returns (bytes memory) {
     //this is memory inefficient due to unnecessary copying but it shouldn't matter in practice
     bytes memory ret;

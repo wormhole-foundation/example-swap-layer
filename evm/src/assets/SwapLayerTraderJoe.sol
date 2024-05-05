@@ -12,8 +12,6 @@ struct Path {
 }
 
 interface TraderJoeLBRouter {
-  //selector = 2a443fae
-  //  swapExactTokensForTokens(uint256,uint256,(uint256[],uint8[],address[]),address,uint256)
   function swapExactTokensForTokens(
     uint256 amountIn,
     uint256 amountOutMin,

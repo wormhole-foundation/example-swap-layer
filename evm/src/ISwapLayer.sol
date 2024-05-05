@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.24;
 
-import { OrderResponse } from "liquidity-layer/interfaces/ITokenRouter.sol";
-
 interface ISwapLayer {
   //selector: 0f3376b1
   function initiate(
@@ -12,10 +10,11 @@ interface ISwapLayer {
     bytes calldata params
   ) external payable returns (bytes memory);
 
-  //selector: 604009a9 (redeem(bytes,(bytes,bytes,bytes)))
+  //selector: 2e14075e
   function redeem(
-    bytes calldata params,
-    OrderResponse calldata attestations
+    uint8 attestationType, //AttestationType enum value
+    bytes calldata attestation,
+    bytes calldata params
   ) external payable returns (bytes memory);
 
   //selector: 64ee4476

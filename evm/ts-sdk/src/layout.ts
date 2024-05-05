@@ -115,14 +115,14 @@ export const feeParamsLayout = [
 
 // ---- initiate params ----
 
-const fastTransferModeItem = {
-  name: "fastTransferMode",
+const transferModeItem = {
+  name: "transferMode",
   binary: "switch",
   idSize: 1,
   idTag: "mode",
   layouts: [
-    [[0, "Disabled"], []],
-    [[1, "Enabled"], [
+    [[0, "LiquidityLayer"], []],
+    [[1, "LiquidityLayerFast"], [
       { name: "maxFee", binary: "uint", size: 6, ...forceBigIntConversion }, //atomic usdc
       { name: "deadline", ...timestampItem }, //according to block timestamp
     ]],
@@ -232,7 +232,7 @@ const outputTokenItem = {
 } as const satisfies NamedLayoutItem;
 
 export const initiateArgsLayout = [
-  fastTransferModeItem,
+  transferModeItem,
   redeemModeItem,
   { name: "isExactIn", ...boolItem },
   inputTokenItem,

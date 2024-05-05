@@ -23,7 +23,6 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
   using BytesParsing for bytes;
   using SafeERC20 for IERC20;
 
-  //selector: 0f3376b1
   function initiate(
     uint16 targetChain,
     bytes32 recipient, //= redeemer in case of a payload
@@ -33,8 +32,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
     uint64 fastTransferFee = 0;
     uint32 fastTransferDeadline = 0;
-    if (mos.fastTransfer.mode == FastTransferMode.Enabled) {
-      uint offset = mos.fastTransfer.offset;
+    if (mos.transfer.mode == TransferMode.LiquidityLayerFast) {
+      uint offset = mos.transfer.offset;
       (fastTransferFee, offset) = params.asUint64Unchecked(offset);
       (fastTransferDeadline,) = params.asUint32Unchecked(offset);
     }
@@ -68,7 +67,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
     bytes memory swapMessage = encodeSwapMessage(recipient, redeemPayload, outputSwap);
     bytes memory ret;
-    if (mos.fastTransfer.mode == FastTransferMode.Enabled) {
+    if (mos.transfer.mode == TransferMode.LiquidityLayerFast) {
       (uint64 sequence, uint64 fastSequence, uint256 protocolSequence) =
         _liquidityLayer.placeFastMarketOrder(
           usdcAmount,
@@ -81,7 +80,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
       ret = abi.encode(usdcAmount, sequence, protocolSequence, fastSequence);
     }
-    else {
+    else if (mos.transfer.mode == TransferMode.LiquidityLayer) {
       (uint64 sequence, uint256 protocolSequence) = _liquidityLayer.placeMarketOrder(
         usdcAmount,
         targetChain,
@@ -91,6 +90,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
       ret = abi.encode(usdcAmount, sequence, protocolSequence);
     }
+    else
+      _assertExhaustive();
 
     return (mos.redeem.mode == RedeemMode.Relay)
       ? abi.encodePacked(ret, relayingFee)
@@ -123,7 +124,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       bool approveCheck = false; //gas optimization
       if (inputTokenType == IoToken.Gas) {
         uint wormholeFee = _wormhole.messageFee();
-        if (mos.fastTransfer.mode == FastTransferMode.Enabled)
+        if (mos.transfer.mode == TransferMode.LiquidityLayerFast)
           wormholeFee *= 2; //fast transfers emit 2 wormhole messages
         if (msg.value < wormholeFee)
           revert InsufficientMsgValue();

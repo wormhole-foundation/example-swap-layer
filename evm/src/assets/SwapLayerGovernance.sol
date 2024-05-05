@@ -84,7 +84,6 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
 
   // ---- externals ----
 
-  //selector: 9efc05ce
   function batchFeeUpdates(bytes memory updates) external {
     GovernanceState storage state = governanceState();
     if (msg.sender != state.feeUpdater &&
@@ -95,7 +94,6 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
     _batchFeeUpdates(updates);
   }
 
-  //selector: a9bb3dca
   function batchGovernanceCommands(bytes calldata commands) external {
     GovernanceState storage state = governanceState();
     bool isOwner;

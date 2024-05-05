@@ -74,8 +74,9 @@ contract SwapLayerRedeemTest is SwapLayerSwapBase {
       wormholeCctpSimulator.craftWormholeCctpRedeemParams(amount, fill.encode());
 
     return swapLayer.redeem(
-      redeemParams,
-      Attestations(encodedVaa, encodedCctpMessage, cctpAttestation)
+      AttestationType.LiquidityLayer,
+      abi.encode(OrderResponse(encodedVaa, encodedCctpMessage, cctpAttestation)),
+      redeemParams
     );
   }
 }

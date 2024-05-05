@@ -6,12 +6,17 @@ import "@openzeppelin/token/ERC20/IERC20.sol";
 import "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
-import { OrderResponse as Attestations, RedeemedFill } from "liquidity-layer/interfaces/ITokenRouter.sol";
+import { OrderResponse, RedeemedFill } from "liquidity-layer/interfaces/ITokenRouter.sol";
 
 import "./SwapLayerGovernance.sol";
 import "./Params.sol";
 import { SwapMessageStructure, parseSwapMessageStructure } from "./Message.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
+
+enum AttestationType {
+  LiquidityLayer
+  //TokenBridge
+}
 
 error SenderNotRecipient(address sender, address recipient);
 error InvalidMsgValue(uint256 value, uint256 expected);
@@ -34,12 +39,12 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
   //  redeemMode payload/relay:
   //    no extra params allowed
 
-  //selector: 604009a9
   function redeem(
-    bytes memory params,
-    Attestations calldata attestations
+    AttestationType, //checked but otherwise ignored, only LiquidityLayer is supported for now
+    bytes calldata attestation,
+    bytes calldata params
   ) external payable returns (bytes memory) {
-    RedeemedFill memory fill = _liquidityLayer.redeemFill(attestations);
+    RedeemedFill memory fill = _liquidityLayer.redeemFill(abi.decode(attestation, (OrderResponse)));
     SwapMessageStructure memory sms = parseSwapMessageStructure(fill.message);
 
     bool senderIsRecipient = msg.sender == sms.recipient;

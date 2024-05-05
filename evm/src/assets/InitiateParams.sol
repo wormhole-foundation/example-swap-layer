@@ -10,9 +10,10 @@ import "forge-std/console.sol";
 
 using BytesParsing for bytes;
 
-enum FastTransferMode {
-  Disabled,
-  Enabled
+enum TransferMode {
+  LiquidityLayer,
+  LiquidityLayerFast
+  //TokenBridge
 }
 
 enum AcquireMode {
@@ -76,9 +77,9 @@ uint constant PERMIT2_PERMIT_SIZE =
 //    65 bytes  signature (r, s, v)
 
 //initiate param layout:
-// 1 byte   fast transfer
-//  0: no
-//  1: yes
+// 1 byte   transfer mode
+//  0: liquidity layer
+//  1: liquidity layer fast
 //    6 bytes  max fee
 //    4 bytes  deadline
 //
@@ -113,8 +114,8 @@ uint constant PERMIT2_PERMIT_SIZE =
 //   32 bytes  token address
 //    swap struct
 
-struct FastTransferMOS {
-  FastTransferMode mode;
+struct TransferMOS {
+  TransferMode mode;
   uint offset;
   uint size;
 }
@@ -132,7 +133,7 @@ struct IoTokenMOS {
 }
 
 struct ModesOffsetsSizes {
-  FastTransferMOS fastTransfer;
+  TransferMOS transfer;
   RedeemMOS redeem;
   bool isExactIn;
   IoTokenMOS input;
@@ -145,14 +146,14 @@ function parseParamBaseStructure(
   uint offset = 0;
   uint paramBlockOffset;
   {
-    FastTransferMode fastTransferMode;
-    (fastTransferMode, offset) = parseFastTransferMode(params, offset);
+    TransferMode transferMode;
+    (transferMode, offset) = parseTransferMode(params, offset);
     paramBlockOffset = offset;
-    if (fastTransferMode == FastTransferMode.Enabled)
+    if (transferMode == TransferMode.LiquidityLayerFast)
       offset += FAST_TRANSFER_PARAM_SIZE;
 
-    mos.fastTransfer =
-      FastTransferMOS(fastTransferMode, paramBlockOffset, offset - paramBlockOffset);
+    mos.transfer =
+      TransferMOS(transferMode, paramBlockOffset, offset - paramBlockOffset);
   }
   {
     RedeemMode redeemMode;
@@ -204,13 +205,13 @@ function parseParamBaseStructure(
   params.checkLength(offset);
 }}
 
-function parseFastTransferMode(
+function parseTransferMode(
   bytes memory params,
   uint offset
-) pure returns (FastTransferMode, uint) {
+) pure returns (TransferMode, uint) {
   uint8 value;
   (value, offset) = params.asUint8Unchecked(offset);
-  return (FastTransferMode(value), offset);
+  return (TransferMode(value), offset);
 }
 
 //gas optimization - cheaper than if else branch
