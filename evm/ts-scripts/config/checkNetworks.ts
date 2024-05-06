@@ -1,5 +1,6 @@
 import {
   env,
+  getOperatingChains,
   getSigner,
   init,
   loadChains,
@@ -10,7 +11,7 @@ import { readFileSync, writeFileSync } from "fs";
 const processName = "checkNetworks";
 
 init();
-const chains = loadChains();
+const chains = getOperatingChains();
 
 async function main() {
   console.log(`Env: ${env}`);

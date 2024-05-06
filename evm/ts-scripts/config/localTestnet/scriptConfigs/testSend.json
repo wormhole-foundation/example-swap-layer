@@ -1,8 +1,8 @@
 {
-  "fromChain": 5,
-  "toChain": 10002,
-  "sendUsdc": false,
-  "sendGas": true,
+  "fromChain": 10003,
+  "toChain": 10004,
+  "sendUsdc": true,
+  "sendGas": false,
   "sendToken": false,
   "tokenAddress": "",
   "sendAmount": "1000000000000000",
