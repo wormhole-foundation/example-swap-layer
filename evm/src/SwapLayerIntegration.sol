@@ -3,8 +3,9 @@
 pragma solidity ^0.8.24;
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
-
 import "wormhole-sdk/interfaces/IWormhole.sol";
+import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
+
 import "./ISwapLayer.sol";
 import "./assets/FeeParams.sol";
 import "./assets/Message.sol";
@@ -14,14 +15,51 @@ import {AttestationType} from "./assets/SwapLayerRedeem.sol";
 
 abstract contract SwapLayerIntegration {
   using BytesParsing for bytes;
+  using { toUniversalAddress } for address;
 
   error InvalidPathParams();
   error ExceedsMaximum(uint256 value, uint256 maximum);
 
+  enum EvmSwapType {
+    UniswapV3,
+    TraderJoe
+  }
+
+  struct TargetParams {
+    uint16 chainId;
+    bytes32 recipient;
+  }
+
+  struct FastTransferParams {
+    uint maxFastFeeUsdc;
+    uint auctionDeadline;
+  }
+
+  struct RelayParams {
+    uint gasDropoffWei;
+    uint maxRelayerFeeUsdc;
+  }
+
+  struct EvmSwapParams {
+    uint256     swapDeadline;
+    uint256     limitAmount;
+    EvmSwapType swapType;
+    //the path must be:
+    // * either full, i.e. (tokenAddr, poolId, token, poolId, ..., token)
+    // * or the first and last token are stripped, i.e. (poolId, token, ..., poolId)
+    //the latter is possible because the first and last token are known
+    bytes       path;
+  }
+
+  struct SolanaSwapParams {
+    uint256 swapDeadline;
+    uint256 limitAmount;
+  }
+
   ISwapLayer internal immutable _swapLayer;
-  address    internal immutable _wormhole;
-  address    internal immutable _usdc;
-  address    internal immutable _wrappedNative;
+  address    private  immutable _wormhole;
+  address    private  immutable _usdc;
+  address    private  immutable _wrappedNative;
 
   constructor(address swapLayer) {
     _swapLayer     = ISwapLayer(payable(swapLayer));
@@ -30,219 +68,316 @@ abstract contract SwapLayerIntegration {
     _wrappedNative = _getImmutable(ImmutableType.WrappedNative);
   }
 
+  function _encodeOutputParamsUsdc() internal pure returns (bytes memory) {
+    return abi.encodePacked(IoToken.Usdc);
+  }
+
+  function _encodeOutputParamsNative(
+    EvmSwapParams memory params
+  ) internal pure returns (bytes memory) {
+    return abi.encodePacked(
+      IoToken.Gas,
+      _encodeSwapParams(params)
+    );
+  }
+
+  function _encodeOutputParamsToken(
+    address outputToken,
+    EvmSwapParams memory params
+  ) internal pure returns (bytes memory) {
+    return abi.encodePacked(
+      IoToken.Other,
+      outputToken.toUniversalAddress(),
+      _encodeSwapParams(params)
+    );
+  }
+
+  function _encodeOutputParamsNative(
+    SolanaSwapParams memory params
+  ) internal pure returns (bytes memory) {
+    return abi.encodePacked(
+      IoToken.Gas,
+      _encodeSharedSwapParams(params.swapDeadline, params.limitAmount),
+      SWAP_TYPE_GENERIC_SOLANA
+    );
+  }
+
+  function _encodeOutputParamsToken(
+    bytes32 outputTokenMint,
+    SolanaSwapParams memory params
+  ) internal pure returns (bytes memory) {
+    return abi.encodePacked(
+      IoToken.Other,
+      outputTokenMint,
+      _encodeSharedSwapParams(params.swapDeadline, params.limitAmount),
+      SWAP_TYPE_GENERIC_SOLANA
+    );
+  }
+
   // -----------------------------------------------------------------------------------------------
   // ---------------------------------------- Initiate Slow ----------------------------------------
   // -----------------------------------------------------------------------------------------------
 
   // ------------------------ Initiate Slow Direct ------------------------
 
-  function _swapLayerInitiateNative(
-    uint16 targetChain,
-    bytes32 recipient,
-    bool isExactIn,
-    uint256 amount, //wormhole message fee is taken from this amount too
-    bytes memory inputSwap,
-    bytes memory outputParams
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    bytes memory params = abi.encodePacked(
-      uint8(TransferMode.LiquidityLayer),
-      uint8(RedeemMode.Direct),
-      _encodeBool(isExactIn),
-      uint8(IoToken.Gas),
-      inputSwap,
-      outputParams
-    );
-
-    return _initiateSlow(amount, targetChain, recipient, params);
+  struct InitiateNative {
+    TargetParams  targetParams;
+    uint256       amount; //wormhole message fee is taken from this amount too
+    bool          isExactIn;
+    EvmSwapParams evmSwapParams;
+    bytes         outputParams;
   }
 
-  function _swapLayerInitiateUsdc(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 amount,
-    bytes memory outputParams
+  function _swapLayerInitiate(
+    InitiateNative memory params
   ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    bytes memory params = abi.encodePacked(
-      uint8(TransferMode.LiquidityLayer),
-      uint8(RedeemMode.Direct),
-      _encodeBool(false), //isExactIn - irrelevant
-      _encodeUsdcIn(amount),
-      outputParams
+    return _initiateSlow(
+      params.amount,
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        uint8(RedeemMode.Direct),
+        _encodeBool(params.isExactIn),
+        uint8(IoToken.Gas),
+        _encodeSwapParams(params.evmSwapParams, true, _wrappedNative, _usdc),
+        params.outputParams
+      )
     );
-
-    return _initiateSlow(_wormholeMsgFee(), targetChain, recipient, params);
   }
 
-  function _swapLayerInitiateToken(
-    uint16 targetChain,
-    bytes32 recipient,
-    address inputToken,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    bytes memory params = abi.encodePacked(
-      uint8(TransferMode.LiquidityLayer),
-      uint8(RedeemMode.Direct),
-      _encodeBool(isExactIn),
-      _encodeTokenIn(),
-      inputToken,
-      _encodeAmount(amount),
-      inputSwap,
-      outputParams
-    );
+  struct InitiateUsdc {
+    TargetParams  targetParams;
+    uint256       amount;
+    bytes         outputParams;
+  }
 
-    return _initiateSlow(_wormholeMsgFee(), targetChain, recipient, params);
+  function _swapLayerInitiate(
+    InitiateUsdc memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _initiateSlow(
+      _wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        uint8(RedeemMode.Direct),
+        _encodeBool(false), //isExactIn - irrelevant
+        _encodeUsdcIn(params.amount),
+        params.outputParams
+      )
+    );
+  }
+
+  struct InitiateToken {
+    TargetParams  targetParams;
+    uint256       amount;
+    bool          isExactIn;
+    address       inputToken;
+    EvmSwapParams evmSwapParams;
+    bytes         outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateToken memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _initiateSlow(
+      _wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        uint8(RedeemMode.Direct),
+        _encodeBool(params.isExactIn),
+        _encodeTokenIn(),
+        params.inputToken,
+        _encodeAmount(params.amount),
+        _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _usdc),
+        params.outputParams
+      )
+    );
   }
 
   // ------------------------ Initiate Slow Relay ------------------------
 
-  function _swapLayerInitiateRelayNative(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 gasDropoffWei,
-    uint256 maxRelayerFeeUsdc,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint256 relayingFeeUsdc
-  ) {
-    bytes memory params = abi.encodePacked(
-      uint8(TransferMode.LiquidityLayer),
-      _encodeRelayParams(gasDropoffWei, maxRelayerFeeUsdc),
-      _encodeBool(isExactIn),
-      uint8(IoToken.Gas),
-      inputSwap,
-      outputParams
-    );
-
-    return _initiateRelaySlow(amount, targetChain, recipient, params);
+  struct InitiateRelayNative {
+    TargetParams  targetParams;
+    RelayParams   relayParams;
+    uint256       amount; //wormhole message fee is taken from this amount too
+    bool          isExactIn;
+    EvmSwapParams evmSwapParams;
+    bytes         outputParams;
   }
 
-  function _swapLayerInitiateRelayUsdc(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 gasDropoffWei,
-    uint256 maxRelayerFeeUsdc,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory outputParams
+  function _swapLayerInitiate(
+    InitiateRelayNative memory params
   ) internal returns (
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
     uint256 relayingFeeUsdc
   ) {
-    bytes memory params = abi.encodePacked(
-      uint8(TransferMode.LiquidityLayer),
-      _encodeRelayParams(gasDropoffWei, maxRelayerFeeUsdc),
-      _encodeBool(isExactIn),
-      _encodeUsdcIn(amount),
-      outputParams
+    return _initiateRelaySlow(
+      params.amount,
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        _encodeRelayParams(params.relayParams),
+        _encodeBool(params.isExactIn),
+        uint8(IoToken.Gas),
+        _encodeSwapParams(params.evmSwapParams, true, _wrappedNative, _usdc),
+        params.outputParams
+      )
     );
-
-    return _initiateRelaySlow(_wormholeMsgFee(), targetChain, recipient, params);
   }
 
-  function _swapLayerInitiateRelayToken(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 gasDropoffWei,
-    uint256 maxRelayerFeeUsdc,
-    address inputToken,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
+  struct InitiateRelayUsdc {
+    TargetParams  targetParams;
+    RelayParams   relayParams;
+    uint256       amount;
+    bool          isExactIn;
+    bytes         outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateRelayUsdc memory params
   ) internal returns (
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
     uint256 relayingFeeUsdc
   ) {
-    bytes memory params = abi.encodePacked(
-      uint8(TransferMode.LiquidityLayer),
-      _encodeRelayParams(gasDropoffWei, maxRelayerFeeUsdc),
-      _encodeBool(isExactIn),
-      _encodeTokenIn(),
-      inputToken,
-      _encodeAmount(amount),
-      inputSwap,
-      outputParams
+    return _initiateRelaySlow(
+      _wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        _encodeRelayParams(params.relayParams),
+        _encodeBool(params.isExactIn),
+        _encodeUsdcIn(params.amount),
+        params.outputParams
+      )
     );
+  }
 
-    return _initiateRelaySlow(_wormholeMsgFee(), targetChain, recipient, params);
+  struct InitiateRelayToken {
+    TargetParams  targetParams;
+    RelayParams   relayParams;
+    uint256       amount;
+    bool          isExactIn;
+    address       inputToken;
+    EvmSwapParams evmSwapParams;
+    bytes         outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateRelayToken memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint256 relayingFeeUsdc
+  ) {
+    return _initiateRelaySlow(
+      _wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        _encodeRelayParams(params.relayParams),
+        _encodeBool(params.isExactIn),
+        _encodeTokenIn(),
+        params.inputToken,
+        _encodeAmount(params.amount),
+        _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _usdc),
+        params.outputParams
+      )
+    );
   }
 
   // ------------------------ Initiate Slow Payload ------------------------
 
-  function _swapLayerInitiatePayloadNative(
-    uint16 targetChain,
-    bytes32 recipient,
-    bytes memory payload,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    bytes memory params = abi.encodePacked(
-      uint8(TransferMode.LiquidityLayer),
-      _encodePayloadParams(payload),
-      _encodeBool(isExactIn),
-      uint8(IoToken.Gas),
-      inputSwap,
-      outputParams
-    );
-
-    return _initiateSlow(amount, targetChain, recipient, params);
+  struct InitiatePayloadNative {
+    TargetParams  targetParams;
+    bytes         payload;
+    uint256       amount; //wormhole message fee is taken from this amount too
+    bool          isExactIn;
+    EvmSwapParams evmSwapParams;
+    bytes         outputParams;
   }
 
-  function _swapLayerInitiatePayloadUsdc(
-    uint16 targetChain,
-    bytes32 recipient,
-    bytes memory payload,
-    uint256 amount,
-    bytes memory outputParams
+  function _swapLayerInitiate(
+    InitiatePayloadNative memory params
   ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    bytes memory params = abi.encodePacked(
-      uint8(TransferMode.LiquidityLayer),
-      _encodePayloadParams(payload),
-      _encodeBool(false), //isExactIn - irrelevant
-      _encodeUsdcIn(amount),
-      outputParams
+    return _initiateSlow(
+      params.amount,
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        _encodePayloadParams(params.payload),
+        _encodeBool(params.isExactIn),
+        uint8(IoToken.Gas),
+        _encodeSwapParams(params.evmSwapParams, true, _wrappedNative, _usdc),
+        params.outputParams
+      )
     );
-
-    return _initiateSlow(_wormholeMsgFee(), targetChain, recipient, params);
   }
 
-  function _swapLayerInitiatePayloadToken(
-    uint16 targetChain,
-    bytes32 recipient,
-    bytes memory payload,
-    address inputToken,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    bytes memory params = abi.encodePacked(
-      uint8(TransferMode.LiquidityLayer),
-      _encodePayloadParams(payload),
-      _encodeBool(isExactIn),
-      _encodeTokenIn(),
-      inputToken,
-      _encodeAmount(amount),
-      inputSwap,
-      outputParams
-    );
+  struct InitiatePayloadUsdc {
+    TargetParams  targetParams;
+    bytes         payload;
+    uint256       amount;
+    bytes         outputParams;
+  }
 
-    return _initiateSlow(_wormholeMsgFee(), targetChain, recipient, params);
+  function _swapLayerInitiate(
+    InitiatePayloadUsdc memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _initiateSlow(
+      _wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        _encodePayloadParams(params.payload),
+        _encodeBool(false), //isExactIn - irrelevant
+        _encodeUsdcIn(params.amount),
+        params.outputParams
+      )
+    );
+  }
+
+  struct InitiatePayloadToken {
+    TargetParams  targetParams;
+    bytes         payload;
+    uint256       amount;
+    bool          isExactIn;
+    address       inputToken;
+    EvmSwapParams evmSwapParams;
+    bytes         outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiatePayloadToken memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _initiateSlow(
+      _wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        _encodePayloadParams(params.payload),
+        _encodeBool(params.isExactIn),
+        _encodeTokenIn(),
+        params.inputToken,
+        _encodeAmount(params.amount),
+        _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _usdc),
+        params.outputParams
+      )
+    );
   }
 
   // -----------------------------------------------------------------------------------------------
@@ -251,268 +386,306 @@ abstract contract SwapLayerIntegration {
 
   // ------------------------ Initiate Fast Direct ------------------------
 
-  function _swapLayerInitiateNativeFast(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 maxFastFeeUsdc,
-    uint256 auctionDeadline,
-    bool isExactIn,
-    uint256 amount, //wormhole message fee is taken from this amount too
-    bytes memory inputSwap,
-    bytes memory outputParams
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint64 fastSequence
-  ) {
-    bytes memory params = abi.encodePacked(
-      _encodeFastTransferParams(maxFastFeeUsdc, auctionDeadline),
-      uint8(RedeemMode.Direct),
-      _encodeBool(isExactIn),
-      uint8(IoToken.Gas),
-      inputSwap,
-      outputParams
-    );
-
-    return _initiateFast(amount, targetChain, recipient, params);
+  struct InitiateNativeFast {
+    TargetParams       targetParams;
+    FastTransferParams fastTransferParams;
+    uint256            amount; //wormhole message fee is taken from this amount too
+    bool               isExactIn;
+    EvmSwapParams      evmSwapParams;
+    bytes              outputParams;
   }
 
-  function _swapLayerInitiateUsdcFast(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 maxFastFeeUsdc,
-    uint256 auctionDeadline,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory outputParams
+  function _swapLayerInitiate(
+    InitiateNativeFast memory params
   ) internal returns (
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
     uint64 fastSequence
   ) {
-    bytes memory params = abi.encodePacked(
-      _encodeFastTransferParams(maxFastFeeUsdc, auctionDeadline),
-      uint8(RedeemMode.Direct),
-      _encodeBool(isExactIn),
-      _encodeUsdcIn(amount),
-      outputParams
+    return _initiateFast(
+      params.amount,
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        uint8(RedeemMode.Direct),
+        _encodeBool(params.isExactIn),
+        uint8(IoToken.Gas),
+        _encodeSwapParams(params.evmSwapParams, true, _wrappedNative, _usdc),
+        params.outputParams
+      )
     );
-
-    return _initiateFast(2*_wormholeMsgFee(), targetChain, recipient, params);
   }
 
-  function _swapLayerInitiateTokenFast(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 maxFastFeeUsdc,
-    uint256 auctionDeadline,
-    address inputToken,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
+  struct InitiateUsdcFast {
+    TargetParams       targetParams;
+    FastTransferParams fastTransferParams;
+    uint256            amount;
+    bool               isExactIn;
+    bytes              outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateUsdcFast memory params
   ) internal returns (
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
     uint64 fastSequence
   ) {
-    bytes memory params = abi.encodePacked(
-      _encodeFastTransferParams(maxFastFeeUsdc, auctionDeadline),
-      uint8(RedeemMode.Direct),
-      _encodeBool(isExactIn),
-      _encodeTokenIn(),
-      inputToken,
-      _encodeAmount(amount),
-      inputSwap,
-      outputParams
+    return _initiateFast(
+      2*_wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        uint8(RedeemMode.Direct),
+        _encodeBool(params.isExactIn),
+        _encodeUsdcIn(params.amount),
+        params.outputParams
+      )
     );
+  }
 
-    return _initiateFast(2*_wormholeMsgFee(), targetChain, recipient, params);
+  struct InitiateTokenFast {
+    TargetParams       targetParams;
+    FastTransferParams fastTransferParams;
+    uint256            amount;
+    bool               isExactIn;
+    address            inputToken;
+    EvmSwapParams      evmSwapParams;
+    bytes              outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateTokenFast memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence
+  ) {
+    return _initiateFast(
+      2*_wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        uint8(RedeemMode.Direct),
+        _encodeBool(params.isExactIn),
+        _encodeTokenIn(),
+        params.inputToken,
+        _encodeAmount(params.amount),
+        _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _usdc),
+        params.outputParams
+      )
+    );
   }
 
   // ------------------------ Initiate Fast Relay ------------------------
 
-  function _swapLayerInitiateRelayNativeFast(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 maxFastFeeUsdc,
-    uint256 auctionDeadline,
-    uint256 gasDropoffWei,
-    uint256 maxRelayerFeeUsdc,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint64 fastSequence,
-    uint64 relayingFeeUsdc
-  ) {
-    bytes memory params = abi.encodePacked(
-      _encodeFastTransferParams(maxFastFeeUsdc, auctionDeadline),
-      _encodeRelayParams(gasDropoffWei, maxRelayerFeeUsdc),
-      _encodeBool(isExactIn),
-      uint8(IoToken.Gas),
-      inputSwap,
-      outputParams
-    );
-
-    return _initiateRelayFast(amount, targetChain, recipient, params);
+ struct InitiateNativeRelayFast {
+    TargetParams       targetParams;
+    FastTransferParams fastTransferParams;
+    RelayParams        relayParams;
+    uint256            amount; //wormhole message fee is taken from this amount too
+    bool               isExactIn;
+    EvmSwapParams      evmSwapParams;
+    bytes              outputParams;
   }
 
-  function _swapLayerInitiateRelayUsdcFast(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 maxFastFeeUsdc,
-    uint256 auctionDeadline,
-    uint256 gasDropoffWei,
-    uint256 maxRelayerFeeUsdc,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory outputParams
+  function _swapLayerInitiate(
+    InitiateNativeRelayFast memory params
   ) internal returns (
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
-    uint64 fastSequence,
-    uint64 relayingFeeUsdc
+    uint64 fastSequence
   ) {
-    bytes memory params = abi.encodePacked(
-      _encodeFastTransferParams(maxFastFeeUsdc, auctionDeadline),
-      _encodeRelayParams(gasDropoffWei, maxRelayerFeeUsdc),
-      _encodeBool(isExactIn),
-      _encodeUsdcIn(amount),
-      outputParams
+    return _initiateFast(
+      params.amount,
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        _encodeRelayParams(params.relayParams),
+        _encodeBool(params.isExactIn),
+        uint8(IoToken.Gas),
+        _encodeSwapParams(params.evmSwapParams, true, _wrappedNative, _usdc),
+        params.outputParams
+      )
     );
-
-    return _initiateRelayFast(2*_wormholeMsgFee(), targetChain, recipient, params);
   }
 
-  function _swapLayerInitiateRelayTokenFast(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 maxFastFeeUsdc,
-    uint256 auctionDeadline,
-    uint256 gasDropoffWei,
-    uint256 maxRelayerFeeUsdc,
-    address inputToken,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
+  struct InitiateUsdcRelayFast {
+    TargetParams       targetParams;
+    FastTransferParams fastTransferParams;
+    RelayParams        relayParams;
+    uint256            amount;
+    bool               isExactIn;
+    bytes              outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateUsdcRelayFast memory params
   ) internal returns (
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
-    uint64 fastSequence,
-    uint64 relayingFeeUsdc
+    uint64 fastSequence
   ) {
-    bytes memory params = abi.encodePacked(
-      _encodeFastTransferParams(maxFastFeeUsdc, auctionDeadline),
-      _encodeRelayParams(gasDropoffWei, maxRelayerFeeUsdc),
-      _encodeBool(isExactIn),
-      _encodeTokenIn(),
-      inputToken,
-      _encodeAmount(amount),
-      inputSwap,
-      outputParams
+    return _initiateFast(
+      2*_wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        _encodeRelayParams(params.relayParams),
+        _encodeBool(params.isExactIn),
+        _encodeUsdcIn(params.amount),
+        params.outputParams
+      )
     );
+  }
 
-    return _initiateRelayFast(2*_wormholeMsgFee(), targetChain, recipient, params);
+  struct InitiateTokenRelayFast {
+    TargetParams       targetParams;
+    FastTransferParams fastTransferParams;
+    RelayParams        relayParams;
+    uint256            amount;
+    bool               isExactIn;
+    address            inputToken;
+    EvmSwapParams      evmSwapParams;
+    bytes              outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateTokenRelayFast memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence
+  ) {
+    return _initiateFast(
+      2*_wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        _encodeRelayParams(params.relayParams),
+        _encodeBool(params.isExactIn),
+        _encodeTokenIn(),
+        params.inputToken,
+        _encodeAmount(params.amount),
+        _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _usdc),
+        params.outputParams
+      )
+    );
   }
 
   // ------------------------ Initiate Fast Payload ------------------------
 
-  function _swapLayerInitiatePayloadNativeFast(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 maxFastFeeUsdc,
-    uint256 auctionDeadline,
-    bytes memory payload,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
+  struct InitiateNativePayloadFast {
+    TargetParams       targetParams;
+    FastTransferParams fastTransferParams;
+    bytes              payload;
+    uint256            amount; //wormhole message fee is taken from this amount too
+    bool               isExactIn;
+    EvmSwapParams      evmSwapParams;
+    bytes              outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateNativePayloadFast memory params
   ) internal returns (
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
     uint64 fastSequence
   ) {
-    bytes memory params = abi.encodePacked(
-      _encodeFastTransferParams(maxFastFeeUsdc, auctionDeadline),
-      _encodePayloadParams(payload),
-      _encodeBool(isExactIn),
-      uint8(IoToken.Gas),
-      inputSwap,
-      outputParams
+    return _initiateFast(
+      params.amount,
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        _encodePayloadParams(params.payload),
+        _encodeBool(params.isExactIn),
+        uint8(IoToken.Gas),
+        _encodeSwapParams(params.evmSwapParams, true, _wrappedNative, _usdc),
+        params.outputParams
+      )
     );
-
-    return _initiateFast(amount, targetChain, recipient, params);
   }
 
-  function _swapLayerInitiatePayloadUsdcFast(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 maxFastFeeUsdc,
-    uint256 auctionDeadline,
-    bytes memory payload,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory outputParams
+  struct InitiateUsdcPayloadFast {
+    TargetParams       targetParams;
+    FastTransferParams fastTransferParams;
+    bytes              payload;
+    uint256            amount;
+    bool               isExactIn;
+    bytes              outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateUsdcPayloadFast memory params
   ) internal returns (
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
     uint64 fastSequence
   ) {
-    bytes memory params = abi.encodePacked(
-      _encodeFastTransferParams(maxFastFeeUsdc, auctionDeadline),
-      _encodePayloadParams(payload),
-      _encodeBool(isExactIn),
-      _encodeUsdcIn(amount),
-      outputParams
+    return _initiateFast(
+      2*_wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        _encodePayloadParams(params.payload),
+        _encodeBool(params.isExactIn),
+        _encodeUsdcIn(params.amount),
+        params.outputParams
+      )
     );
-
-    return _initiateFast(2*_wormholeMsgFee(), targetChain, recipient, params);
   }
 
-  function _swapLayerInitiatePayloadTokenFast(
-    uint16 targetChain,
-    bytes32 recipient,
-    uint256 maxFastFeeUsdc,
-    uint256 auctionDeadline,
-    bytes memory payload,
-    address inputToken,
-    bool isExactIn,
-    uint256 amount,
-    bytes memory inputSwap,
-    bytes memory outputParams
+  struct InitiateTokenPayloadFast {
+    TargetParams       targetParams;
+    FastTransferParams fastTransferParams;
+    bytes              payload;
+    uint256            amount;
+    bool               isExactIn;
+    address            inputToken;
+    EvmSwapParams      evmSwapParams;
+    bytes              outputParams;
+  }
+
+  function _swapLayerInitiate(
+    InitiateTokenPayloadFast memory params
   ) internal returns (
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
     uint64 fastSequence
   ) {
-    bytes memory params = abi.encodePacked(
-      _encodeFastTransferParams(maxFastFeeUsdc, auctionDeadline),
-      _encodePayloadParams(payload),
-      _encodeBool(isExactIn),
-      _encodeTokenIn(),
-      inputToken,
-      _encodeAmount(amount),
-      inputSwap,
-      outputParams
+    return _initiateFast(
+      2*_wormholeMsgFee(),
+      params.targetParams.chainId,
+      params.targetParams.recipient,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        _encodePayloadParams(params.payload),
+        _encodeBool(params.isExactIn),
+        _encodeTokenIn(),
+        params.inputToken,
+        _encodeAmount(params.amount),
+        _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _usdc),
+        params.outputParams
+      )
     );
-
-    return _initiateFast(2*_wormholeMsgFee(), targetChain, recipient, params);
   }
-
 
   // -----------------------------------------------------------------------------------------------
   // ------------------------------------------- Redeem --------------------------------------------
@@ -536,7 +709,7 @@ abstract contract SwapLayerIntegration {
     );
   }
 
-  function _swapLayerRedeemOverride(
+  function _swapLayerRedeem(
     bytes calldata attestation,
     bytes memory outputSwap
   ) internal returns (address outputToken, uint256 outputAmount) {
@@ -546,7 +719,7 @@ abstract contract SwapLayerIntegration {
     );
   }
 
-  function _swapLayerRedeemOverrideWithPayload(
+  function _swapLayerRedeemWithPayload(
     bytes calldata attestation,
     bytes memory outputSwap
   ) internal returns (address outputToken, uint256 outputAmount, bytes memory payload) {
@@ -556,48 +729,13 @@ abstract contract SwapLayerIntegration {
     );
   }
 
-  // function _swapLayerRedeemOverrideGasUniswap(
-  //   uint128 minOutAmount,
-  //   uint32 deadline,
-  //   uint24[] memory pathFees,
-  //   address[] memory intermediateTokens,
-  //   OrderResponse calldata attestations
-  // ) internal returns (bytes memory) {
-  //   return _swapLayer.redeem(
-  //     abi.encodePacked(uint8(IoToken.Gas)),
-  //     attestations
-  //   );
-  // }
-
-  // function _swapLayerRedeemOverrideUniswap(
-  //   uint128 minOutAmount,
-  //   uint32 deadline,
-  //   uint24[] memory pathFees,
-  //   address[] memory intermediateTokens, //must have length of pathFees.length - 1
-  //   OrderResponse calldata attestations
-  // ) internal returns (bytes memory) {
-  //   if (pathFees.length != intermediateTokens.length + 1)
-  //     revert InvalidPathParams();
-
-  //   return _swapLayer.redeem(amount, new bytes(0), attestations);
-  // }
-
-  // function _swapLayerRedeemOverrideTradeJoe(
-  //   uint128 minOutAmount,
-  //   uint32 deadline,
-  //   uint24[] memory poolIds, //packed: uint8 version, uint16 pairBinStep
-  //   address[] memory intermediateTokens, //must have length of poolIds.length or poolIds.length - 1
-  //   OrderResponse calldata attestations
-  // ) internal returns (bytes memory) {
-  //   if (poolIds.length != intermediateTokens.length + 1)
-  //     revert InvalidPathParams();
-  
-  //   return _swapLayer.redeem(amount, new bytes(0), swapMessage);
-  // }
+  // -----------------------------------------------------------------------------------------------
+  // ------------------------------------------- Getters -------------------------------------------
+  // -----------------------------------------------------------------------------------------------
 
   // ---- Mutable Getters ----
 
-  function _swapLayerGetFeeParams(uint16 chainId) internal view returns (FeeParams) {
+  function _swapLayerFeeParams(uint16 chainId) internal view returns (FeeParams) {
     (uint256 params, ) = _swapLayer.batchQueries(abi.encodePacked(
       uint8(QueryType.FeeParams),
       chainId
@@ -605,7 +743,7 @@ abstract contract SwapLayerIntegration {
     return FeeParams.wrap(params);
   }
 
-  function _swapLayerGetPeer(uint16 chainId) internal view returns (bytes32 universalAddr) {
+  function _swapLayerPeer(uint16 chainId) internal view returns (bytes32 universalAddr) {
     (universalAddr, ) = _swapLayer.batchQueries(abi.encodePacked(
       uint8(QueryType.Peer),
       chainId
@@ -680,29 +818,25 @@ abstract contract SwapLayerIntegration {
   // ---- Private ----
 
   function _encodeFastTransferParams(
-    uint maxFastFeeUsdc,
-    uint auctionDeadline
+    FastTransferParams memory params
   ) private pure returns (uint88) {
-    _checkMax(maxFastFeeUsdc, type(uint48).max);
-    _checkMax(auctionDeadline, type(uint32).max);
+    _checkMax(params.maxFastFeeUsdc, type(uint48).max);
+    _checkMax(params.auctionDeadline, type(uint32).max);
 
     return uint88(((
       uint(TransferMode.LiquidityLayerFast) << 48) +
-      maxFastFeeUsdc << 32) +
-      auctionDeadline
+      params.maxFastFeeUsdc << 32) +
+      params.auctionDeadline
     );
   }
 
-  function _encodeRelayParams(
-    uint gasDropoffWei,
-    uint maxRelayerFeeUsdc
-  ) private pure returns (uint88) {
-    _checkMax(maxRelayerFeeUsdc, type(uint48).max);
+  function _encodeRelayParams(RelayParams memory params) private pure returns (uint88) {
+    _checkMax(params.maxRelayerFeeUsdc, type(uint48).max);
 
     return uint88((
       uint(RedeemMode.Relay) << 32) +
-      uint(GasDropoff.unwrap(GasDropoffLib.to(gasDropoffWei)) << 48) +
-      maxRelayerFeeUsdc
+      uint(GasDropoff.unwrap(GasDropoffLib.to(params.gasDropoffWei)) << 48) +
+      params.maxRelayerFeeUsdc
     );
   }
 
@@ -727,6 +861,68 @@ abstract contract SwapLayerIntegration {
       _encodeBool(true) //approveCheck
     );
   }
+
+  function _encodeSwapParams(
+    EvmSwapParams memory params
+  ) private pure returns (bytes memory) {
+    return _encodeSwapParams(params, false, address(0), address(0));
+  }
+
+  function _encodeSwapParams(
+    EvmSwapParams memory params,
+    bool checkTokens,
+    address fromToken,
+    address toToken
+  ) private pure returns (bytes memory) { unchecked {
+    uint startOffset = _swapPathStartOffset(params.path, checkTokens, fromToken, toToken);
+    (uint24 firstPoolId, uint offset) = params.path.asUint24Unchecked(startOffset);
+    uint pathLength = (params.path.length - startOffset) / SHARED_PATH_ELEMENT_SIZE;
+    _checkMax(pathLength, type(uint8).max);
+    (bytes memory finalPath, ) =
+      params.path.sliceUnchecked(offset, pathLength * SHARED_PATH_ELEMENT_SIZE);
+
+    return abi.encodePacked(
+      _encodeSharedSwapParams(params.swapDeadline, params.limitAmount),
+      params.swapType == EvmSwapType.UniswapV3 ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE,
+      firstPoolId,
+      uint8(pathLength),
+      finalPath
+    );
+  }}
+
+  function _encodeSharedSwapParams(
+    uint swapDeadline,
+    uint limitAmount
+  ) private pure returns (uint192) {
+    _checkMax(swapDeadline, type(uint32).max);
+    return uint192((swapDeadline << 160) + _encodeAmount(limitAmount));
+  }
+
+  function _swapPathStartOffset(
+    bytes memory path,
+    bool checkTokens,
+    address fromToken,
+    address toToken
+  ) private pure returns (uint) { unchecked {
+    if (path.length == SHARED_POOL_ID_SIZE)
+      return 0;
+
+    if (path.length >= SHARED_PATH_ELEMENT_SIZE) {
+      if ((path.length - SHARED_POOL_ID_SIZE) % SHARED_PATH_ELEMENT_SIZE == 0)
+        return 0;
+
+      if ((path.length - ADDRESS_SIZE) % SHARED_PATH_ELEMENT_SIZE == 0) {
+        if (!checkTokens)
+          return ADDRESS_SIZE;
+
+        (address encodedFromToken, ) = path.asAddressUnchecked(0);
+        (address encodedToToken, )   = path.asAddressUnchecked(path.length - ADDRESS_SIZE);
+        if (encodedFromToken == fromToken && encodedToToken == toToken)
+          return ADDRESS_SIZE;
+      }
+    }
+    revert InvalidPathParams();
+  }}
 
   function _encodeAmount(uint amount) private pure returns (uint128) {
     _checkMax(amount, type(uint128).max);
@@ -781,6 +977,7 @@ abstract contract SwapLayerIntegration {
       (uint64, uint64, uint256, uint64)
     );
   }
+
   function _initiateRelayFast(
     uint256 msgValue,
     uint16 targetChain,
