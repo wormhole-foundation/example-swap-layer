@@ -30,6 +30,11 @@ export type InitiateTransferArgs = {
     recipient: Array<number>;
 };
 
+export type UpdateRelayParametersArgs = {
+    chain: wormholeSdk.ChainId;
+    relayParams: RelayParams;
+};
+
 export class SwapLayerProgram {
     private _programId: ProgramId;
     private _mint: PublicKey;
@@ -85,6 +90,34 @@ export class SwapLayerProgram {
         custodian?: PublicKey,
     ): { ownerOrAssistant: PublicKey; custodian: { custodian: PublicKey } } {
         return { ownerOrAssistant, custodian: this.checkedCustodianComposite(custodian) };
+    }
+
+    adminMutComposite(
+        ownerOrAssistant: PublicKey,
+        custodian?: PublicKey,
+    ): { ownerOrAssistant: PublicKey; custodian: PublicKey } {
+        return { ownerOrAssistant, custodian: custodian ?? this.custodianAddress() };
+    }
+
+    ownerOnlyComposite(
+        owner: PublicKey,
+        custodian?: PublicKey,
+    ): { owner: PublicKey; custodian: { custodian: PublicKey } } {
+        return { owner, custodian: this.checkedCustodianComposite(custodian) };
+    }
+
+    ownerOnlyMutComposite(
+        owner: PublicKey,
+        custodian?: PublicKey,
+    ): { owner: PublicKey; custodian: PublicKey } {
+        return { owner, custodian: custodian ?? this.custodianAddress() };
+    }
+
+    feeUpdaterComposite(
+        feeUpdater: PublicKey,
+        custodian?: PublicKey,
+    ): { feeUpdater: PublicKey; custodian: { custodian: PublicKey } } {
+        return { feeUpdater, custodian: this.checkedCustodianComposite(custodian) };
     }
 
     async fetchCustodian(input?: { address: PublicKey }): Promise<Custodian> {
@@ -149,6 +182,139 @@ export class SwapLayerProgram {
                 })
                 .instruction()
         );
+    }
+
+    async updatePeerIx(
+        accounts: {
+            owner: PublicKey;
+            custodian?: PublicKey;
+            peer?: PublicKey;
+        },
+        args: AddPeerArgs,
+    ) {
+        let { owner, custodian, peer } = accounts;
+        peer ??= this.peerAddress(args.chain);
+
+        return (
+            this.program.methods
+                // @ts-ignore
+                .updatePeer(args)
+                .accounts({
+                    admin: this.ownerOnlyComposite(owner, custodian),
+                    peer,
+                })
+                .instruction()
+        );
+    }
+
+    async submitOwnershipTransferIx(accounts: {
+        owner: PublicKey;
+        newOwner: PublicKey;
+        custodian?: PublicKey;
+    }): Promise<TransactionInstruction> {
+        const { owner, newOwner, custodian } = accounts;
+        return this.program.methods
+            .submitOwnershipTransferRequest()
+            .accounts({
+                admin: this.ownerOnlyMutComposite(owner, custodian),
+                newOwner,
+            })
+            .instruction();
+    }
+
+    async confirmOwnershipTransferIx(accounts: {
+        pendingOwner: PublicKey;
+        custodian?: PublicKey;
+    }): Promise<TransactionInstruction> {
+        const { pendingOwner } = accounts;
+        let { custodian } = accounts;
+        custodian ??= this.custodianAddress();
+        return this.program.methods
+            .confirmOwnershipTransferRequest()
+            .accounts({ pendingOwner, custodian })
+            .instruction();
+    }
+
+    async cancelOwnershipTransferIx(accounts: {
+        owner: PublicKey;
+        custodian?: PublicKey;
+    }): Promise<TransactionInstruction> {
+        const { owner, custodian } = accounts;
+        return this.program.methods
+            .cancelOwnershipTransferRequest()
+            .accounts({
+                admin: this.ownerOnlyMutComposite(owner, custodian),
+            })
+            .instruction();
+    }
+
+    async updateOwnerAssistantIx(accounts: {
+        owner: PublicKey;
+        newOwnerAssistant: PublicKey;
+        custodian?: PublicKey;
+    }) {
+        const { owner, newOwnerAssistant, custodian } = accounts;
+        return this.program.methods
+            .updateOwnerAssistant()
+            .accounts({
+                admin: this.ownerOnlyMutComposite(owner, custodian),
+                newOwnerAssistant,
+            })
+            .instruction();
+    }
+
+    async updateFeeUpdaterIx(accounts: {
+        ownerOrAssistant: PublicKey;
+        newFeeUpdater: PublicKey;
+        custodian?: PublicKey;
+    }) {
+        const { ownerOrAssistant, newFeeUpdater, custodian } = accounts;
+        return this.program.methods
+            .updateFeeUpdater()
+            .accounts({
+                admin: this.adminMutComposite(ownerOrAssistant, custodian),
+                newFeeUpdater,
+            })
+            .instruction();
+    }
+
+    async updateRelayParamsIx(
+        accounts: { feeUpdater: PublicKey; custodian?: PublicKey; peer?: PublicKey },
+        args: UpdateRelayParametersArgs,
+    ) {
+        let { feeUpdater, custodian, peer } = accounts;
+
+        peer ??= this.peerAddress(args.chain);
+
+        return (
+            this.program.methods
+                // @ts-ignore
+                .updateRelayParameters(args)
+                .accounts({
+                    feeUpdater: this.feeUpdaterComposite(feeUpdater, custodian),
+                    peer,
+                })
+                .instruction()
+        );
+    }
+
+    async updateFeeRecipientIx(accounts: {
+        ownerOrAssistant: PublicKey;
+        newFeeRecipient: PublicKey;
+        custodian?: PublicKey;
+    }): Promise<TransactionInstruction> {
+        const { ownerOrAssistant, newFeeRecipient, custodian } = accounts;
+        return this.program.methods
+            .updateFeeRecipient()
+            .accounts({
+                admin: this.adminMutComposite(ownerOrAssistant, custodian),
+                newFeeRecipient,
+                newFeeRecipientToken: splToken.getAssociatedTokenAddressSync(
+                    this.mint,
+                    newFeeRecipient,
+                ),
+            })
+            .instruction();
     }
 
     async initiateTransferIx(

@@ -9,7 +9,8 @@ pub enum SwapLayerError {
     InvalidRelayerFee = 0x105,
     InvalidSwapMessage = 0x106,
     InvalidRecipient = 0x107,
-    OwnerOrAssistantOnly = 0x108,
+    InvalidFeeUpdater = 0x108,
+
     ChainNotAllowed = 0x109,
     InvalidPeer = 0x10a,
     InvalidGasDropoff = 0x10b,
@@ -33,4 +34,12 @@ pub enum SwapLayerError {
     #[msg("Jupiter V6 Authority ID must be >= 0 and < 8")]
     InvalidJupiterV6AuthorityId = 0x300,
     SameMint = 0x302,
+
+    // Ownership
+    NoTransferOwnershipRequest = 0x400,
+    NotPendingOwner = 0x401,
+    InvalidNewOwner = 0x402,
+    AlreadyOwner = 0x403,
+    OwnerOnly = 0x404,
+    OwnerOrAssistantOnly = 0x405,
 }

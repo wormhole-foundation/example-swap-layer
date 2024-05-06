@@ -8,11 +8,20 @@ import {
     PublicKey,
     SystemProgram,
     ComputeBudgetProgram,
+    TransactionInstruction,
 } from "@solana/web3.js";
-import { BN, Program } from "@coral-xyz/anchor";
-import { expectIxOk, getUsdcAtaBalance, hackedExpectDeepEqual } from "./helpers";
+import { BN } from "@coral-xyz/anchor";
+import { expectIxOk, expectIxErr, getUsdcAtaBalance, hackedExpectDeepEqual } from "./helpers";
 import { FEE_UPDATER_KEYPAIR } from "./helpers";
-import { SwapLayerProgram, localnet, Custodian, Peer } from "../src/swapLayer";
+import {
+    SwapLayerProgram,
+    localnet,
+    Custodian,
+    Peer,
+    RelayParams,
+    UpdateRelayParametersArgs,
+    AddPeerArgs,
+} from "../src/swapLayer";
 import { use as chaiUse, expect } from "chai";
 import * as matchingEngineSdk from "../../../lib/example-liquidity-layer/solana/ts/src/matchingEngine";
 import * as tokenRouterSdk from "../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
@@ -33,8 +42,6 @@ import {
 } from "../../../lib/example-liquidity-layer/solana/ts/tests/helpers";
 import { VaaAccount } from "../../../lib/example-liquidity-layer/solana/ts/src/wormhole";
 import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solana/ts/src/cctp";
-import { uint64ToBN } from "../src/common";
-import { encode } from "punycode";
 
 chaiUse(require("chai-as-promised"));
 
@@ -45,11 +52,12 @@ describe("Swap Layer", () => {
     const recipient = Keypair.generate();
     const ownerAssistant = OWNER_ASSISTANT_KEYPAIR;
     const feeUpdater = FEE_UPDATER_KEYPAIR;
-    const feeRecipient = Keypair.generate();
+    const feeRecipient = Keypair.generate().publicKey;
     const feeRecipientToken = splToken.getAssociatedTokenAddressSync(
         USDC_MINT_ADDRESS,
-        feeRecipient.publicKey,
+        feeRecipient,
     );
+    const newFeeRecipient = Keypair.generate().publicKey;
 
     // Sending chain information.
     const foreignChain = wormholeSdk.CHAINS.ethereum;
@@ -68,7 +76,7 @@ describe("Swap Layer", () => {
         tokenRouterSdk.localnet(),
         USDC_MINT_ADDRESS,
     );
-    const matchingEngine = new matchingEngineSdk.MatchingEngineProgram(
+    const matchingswapLayer = new matchingEngineSdk.MatchingEngineProgram(
         connection,
         matchingEngineSdk.localnet(),
         USDC_MINT_ADDRESS,
@@ -77,12 +85,25 @@ describe("Swap Layer", () => {
     let tokenRouterLkupTable: PublicKey;
 
     describe("Admin", () => {
+        const testParams: RelayParams = {
+            baseFee: 100000,
+            nativeTokenPrice: new BN(1000000),
+            maxGasDropoff: 500000,
+            gasDropoffMargin: 10000,
+            executionParams: {
+                evm: {
+                    gasPrice: 100000,
+                    gasPriceMargin: 10000,
+                },
+            },
+        };
+
         describe("Initialize", () => {
             it("Initialize", async () => {
                 const ix = await swapLayer.initializeIx({
                     owner: payer.publicKey,
                     ownerAssistant: ownerAssistant.publicKey,
-                    feeRecipient: feeRecipient.publicKey,
+                    feeRecipient: feeRecipient,
                     feeUpdater: feeUpdater.publicKey,
                 });
 
@@ -107,7 +128,7 @@ describe("Swap Layer", () => {
                     connection,
                     payer,
                     USDC_MINT_ADDRESS,
-                    feeRecipient.publicKey,
+                    feeRecipient,
                 );
 
                 await splToken.getOrCreateAssociatedTokenAccount(
@@ -160,40 +181,929 @@ describe("Swap Layer", () => {
 
                 tokenRouterLkupTable = lookupTable;
             });
+
+            after("Transfer Lamports to Owner and Owner Assistant", async function () {
+                await expectIxOk(
+                    connection,
+                    [
+                        SystemProgram.transfer({
+                            fromPubkey: payer.publicKey,
+                            toPubkey: owner.publicKey,
+                            lamports: 1000000000,
+                        }),
+                        SystemProgram.transfer({
+                            fromPubkey: payer.publicKey,
+                            toPubkey: ownerAssistant.publicKey,
+                            lamports: 1000000000,
+                        }),
+                        SystemProgram.transfer({
+                            fromPubkey: payer.publicKey,
+                            toPubkey: feeUpdater.publicKey,
+                            lamports: 1000000000,
+                        }),
+                    ],
+                    [payer],
+                );
+            });
         });
 
         describe("Peer Registration", () => {
-            it("Add Peer As Owner", async () => {
-                const gasPrice = 100000; // 100 gwei
-                const gasTokenPrice = new anchor.BN(1000000);
-                const baseFee = 100000;
-                const maxGasDropoff = 500000;
-                const margin = 10000; // 1%
-
-                const ix = await swapLayer.addPeerIx(
-                    {
-                        ownerOrAssistant: payer.publicKey,
-                        payer: payer.publicKey,
+            const startParams: RelayParams = {
+                baseFee: 200000,
+                nativeTokenPrice: new BN(4000000),
+                maxGasDropoff: 200000,
+                gasDropoffMargin: 50000,
+                executionParams: {
+                    evm: {
+                        gasPrice: 500000,
+                        gasPriceMargin: 50000,
                     },
-                    {
-                        chain: foreignChain,
-                        address: foreignSwapLayerAddress,
-                        relayParams: {
-                            baseFee,
-                            nativeTokenPrice: gasTokenPrice,
-                            maxGasDropoff,
-                            gasDropoffMargin: margin,
-                            executionParams: {
-                                evm: {
-                                    gasPrice,
-                                    gasPriceMargin: margin,
-                                },
-                            },
+                },
+            };
+
+            describe("Add", () => {
+                const createAddPeerIx = (opts?: {
+                    ownerOrAssistant?: PublicKey;
+                    args?: AddPeerArgs;
+                }) =>
+                    swapLayer.addPeerIx(
+                        {
+                            ownerOrAssistant: opts?.ownerOrAssistant ?? payer.publicKey,
                         },
+                        opts?.args ?? {
+                            chain: foreignChain,
+                            address: foreignRecipientAddress,
+                            relayParams: startParams,
+                        },
+                    );
+
+                it("Cannot Add Peer (Only Owner or Assistant)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [await createAddPeerIx({ ownerOrAssistant: feeUpdater.publicKey })],
+                        [feeUpdater],
+                        "OwnerOrAssistantOnly",
+                    );
+                });
+
+                it("Cannot Add Peer (ChainId == 0)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createAddPeerIx({
+                                args: {
+                                    chain: 0,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: startParams,
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "ChainNotAllowed",
+                    );
+                });
+
+                it("Cannot Add Peer (ChainId == 1)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createAddPeerIx({
+                                args: {
+                                    chain: wormholeSdk.CHAIN_ID_SOLANA,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: startParams,
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "ChainNotAllowed",
+                    );
+                });
+
+                it("Cannot Add Peer (InvalidPeer)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createAddPeerIx({
+                                args: {
+                                    chain: foreignChain,
+                                    address: new Array(32).fill(0),
+                                    relayParams: startParams,
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidPeer",
+                    );
+                });
+
+                it("Cannot Add Peer (Invalid Base Fee)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createAddPeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: { ...startParams, baseFee: 0 },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidBaseFee",
+                    );
+                });
+
+                it("Cannot Add Peer (Invalid Native Token Price)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createAddPeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: { ...startParams, nativeTokenPrice: new BN(0) },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidNativeTokenPrice",
+                    );
+                });
+
+                it("Cannot Add Peer (Invalid Gas Dropoff Margin)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createAddPeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: { ...startParams, gasDropoffMargin: 4294967295 },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidMargin",
+                    );
+                });
+
+                it("Cannot Add Peer (Invalid Gas Price)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createAddPeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: {
+                                        ...startParams,
+                                        executionParams: {
+                                            evm: { gasPrice: 0, gasPriceMargin: 69 },
+                                        },
+                                    },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidGasPrice",
+                    );
+                });
+
+                it("Cannot Add Peer (Invalid Gas Price Margin)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createAddPeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: {
+                                        ...startParams,
+                                        executionParams: {
+                                            evm: { gasPrice: 10000, gasPriceMargin: 4294967295 },
+                                        },
+                                    },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidMargin",
+                    );
+                });
+
+                it("Add Peer As Owner", async () => {
+                    await expectIxOk(connection, [await createAddPeerIx()], [payer]);
+
+                    const peer = await swapLayer.fetchPeer(foreignChain);
+                    hackedExpectDeepEqual(
+                        peer,
+                        new Peer(foreignChain, foreignRecipientAddress, startParams),
+                    );
+                });
+            });
+
+            describe("Update", () => {
+                const createUpdatePeerIx = (opts?: { owner?: PublicKey; args?: AddPeerArgs }) =>
+                    swapLayer.updatePeerIx(
+                        {
+                            owner: opts?.owner ?? payer.publicKey,
+                        },
+                        opts?.args ?? {
+                            chain: foreignChain,
+                            address: foreignSwapLayerAddress,
+                            relayParams: testParams,
+                        },
+                    );
+
+                it("Cannot Update Peer (Owner Only)", async () => {
+                    expectIxErr(
+                        connection,
+                        [await createUpdatePeerIx({ owner: ownerAssistant.publicKey })],
+                        [ownerAssistant],
+                        "OwnerOnly",
+                    );
+                });
+
+                it("Cannot Update Peer (InvalidPeer)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createUpdatePeerIx({
+                                args: {
+                                    chain: foreignChain,
+                                    address: new Array(32).fill(0),
+                                    relayParams: startParams,
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidPeer",
+                    );
+                });
+
+                it("Cannot Update Peer (Invalid Base Fee)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createUpdatePeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: { ...testParams, baseFee: 0 },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidBaseFee",
+                    );
+                });
+
+                it("Cannot Update Peer (Invalid Native Token Price)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createUpdatePeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: { ...testParams, nativeTokenPrice: new BN(0) },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidNativeTokenPrice",
+                    );
+                });
+
+                it("Cannot Update Peer (Invalid Gas Dropoff Margin)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createUpdatePeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: { ...testParams, gasDropoffMargin: 4294967295 },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidMargin",
+                    );
+                });
+
+                it("Cannot Update Peer (Invalid Gas Price)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createUpdatePeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: {
+                                        ...testParams,
+                                        executionParams: {
+                                            evm: { gasPrice: 0, gasPriceMargin: 69 },
+                                        },
+                                    },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidGasPrice",
+                    );
+                });
+
+                it("Cannot Update Peer (Invalid Gas Price Margin)", async () => {
+                    await expectIxErr(
+                        connection,
+                        [
+                            await createUpdatePeerIx({
+                                args: {
+                                    chain: foreignChain as wormholeSdk.ChainId,
+                                    address: foreignSwapLayerAddress,
+                                    relayParams: {
+                                        ...testParams,
+                                        executionParams: {
+                                            evm: { gasPrice: 10000, gasPriceMargin: 4294967295 },
+                                        },
+                                    },
+                                },
+                            }),
+                        ],
+                        [payer],
+                        "InvalidMargin",
+                    );
+                });
+
+                it("Update Peer As Owner", async () => {
+                    await expectIxOk(connection, [await createUpdatePeerIx()], [payer]);
+
+                    const peer = await swapLayer.fetchPeer(foreignChain);
+                    hackedExpectDeepEqual(
+                        peer,
+                        new Peer(foreignChain, foreignSwapLayerAddress, testParams),
+                    );
+                });
+            });
+        });
+
+        describe("Ownership Transfer Request", async function () {
+            const createSubmitOwnershipTransferIx = (opts?: {
+                sender?: PublicKey;
+                newOwner?: PublicKey;
+            }) =>
+                swapLayer.submitOwnershipTransferIx({
+                    owner: opts?.sender ?? owner.publicKey,
+                    newOwner: opts?.newOwner ?? feeUpdater.publicKey,
+                });
+
+            const createConfirmOwnershipTransferIx = (opts?: { sender?: PublicKey }) =>
+                swapLayer.confirmOwnershipTransferIx({
+                    pendingOwner: opts?.sender ?? feeUpdater.publicKey,
+                });
+
+            // Instruction to cancel an ownership transfer request.
+            const createCancelOwnershipTransferIx = (opts?: { sender?: PublicKey }) =>
+                swapLayer.cancelOwnershipTransferIx({
+                    owner: opts?.sender ?? owner.publicKey,
+                });
+
+            it("Submit Ownership Transfer Request as Deployer (Payer)", async function () {
+                await expectIxOk(
+                    connection,
+                    [
+                        await createSubmitOwnershipTransferIx({
+                            sender: payer.publicKey,
+                            newOwner: owner.publicKey,
+                        }),
+                    ],
+                    [payer],
+                );
+
+                // Confirm that the pending owner variable is set in the owner config.
+                const custodianData = await swapLayer.fetchCustodian();
+
+                hackedExpectDeepEqual(custodianData.pendingOwner, owner.publicKey);
+            });
+
+            it("Confirm Ownership Transfer Request as Pending Owner", async function () {
+                await expectIxOk(
+                    connection,
+                    [await createConfirmOwnershipTransferIx({ sender: owner.publicKey })],
+                    [payer, owner],
+                );
+
+                // Confirm that the custodian reflects the current ownership status.
+                {
+                    const custodianData = await swapLayer.fetchCustodian();
+                    hackedExpectDeepEqual(custodianData.owner, owner.publicKey);
+                    hackedExpectDeepEqual(custodianData.pendingOwner, null);
+                }
+            });
+
+            it("Cannot Submit Ownership Transfer Request (New Owner == Address(0))", async function () {
+                await expectIxErr(
+                    connection,
+                    [
+                        await createSubmitOwnershipTransferIx({
+                            newOwner: PublicKey.default,
+                        }),
+                    ],
+                    [payer, owner],
+                    "InvalidNewOwner",
+                );
+            });
+
+            it("Cannot Submit Ownership Transfer Request (New Owner == Owner)", async function () {
+                await expectIxErr(
+                    connection,
+                    [
+                        await createSubmitOwnershipTransferIx({
+                            newOwner: owner.publicKey,
+                        }),
+                    ],
+                    [payer, owner],
+                    "AlreadyOwner",
+                );
+            });
+
+            it("Cannot Submit Ownership Transfer Request as Non-Owner", async function () {
+                await expectIxErr(
+                    connection,
+                    [
+                        await createSubmitOwnershipTransferIx({
+                            sender: ownerAssistant.publicKey,
+                        }),
+                    ],
+                    [payer, ownerAssistant],
+                    "OwnerOnly",
+                );
+            });
+
+            it("Submit Ownership Transfer Request as Owner", async function () {
+                await expectIxOk(
+                    connection,
+                    [await createSubmitOwnershipTransferIx()],
+                    [payer, owner],
+                );
+
+                // Confirm that the pending owner variable is set in the owner config.
+                const custodianData = await swapLayer.fetchCustodian();
+                expect(custodianData.pendingOwner).to.eql(feeUpdater.publicKey);
+            });
+
+            it("Cannot Confirm Ownership Transfer Request as Non Pending Owner", async function () {
+                await expectIxErr(
+                    connection,
+                    [
+                        await createConfirmOwnershipTransferIx({
+                            sender: ownerAssistant.publicKey,
+                        }),
+                    ],
+                    [payer, ownerAssistant],
+                    "NotPendingOwner",
+                );
+            });
+
+            it("Confirm Ownership Transfer Request as Pending Owner", async function () {
+                await expectIxOk(
+                    connection,
+                    [await createConfirmOwnershipTransferIx()],
+                    [payer, feeUpdater],
+                );
+
+                // Confirm that the custodian reflects the current ownership status.
+                {
+                    const custodianData = await swapLayer.fetchCustodian();
+                    hackedExpectDeepEqual(custodianData.owner, feeUpdater.publicKey);
+                    hackedExpectDeepEqual(custodianData.pendingOwner, null);
+                }
+
+                // Set the owner back to the payer key.
+                await expectIxOk(
+                    connection,
+                    [
+                        await createSubmitOwnershipTransferIx({
+                            sender: feeUpdater.publicKey,
+                            newOwner: owner.publicKey,
+                        }),
+                    ],
+                    [payer, feeUpdater],
+                );
+
+                await expectIxOk(
+                    connection,
+                    [await createConfirmOwnershipTransferIx({ sender: owner.publicKey })],
+                    [payer, owner],
+                );
+
+                // Confirm that the payer is the owner again.
+                {
+                    const custodianData = await swapLayer.fetchCustodian();
+                    hackedExpectDeepEqual(custodianData.owner, owner.publicKey);
+                    hackedExpectDeepEqual(custodianData.pendingOwner, null);
+                }
+            });
+
+            it("Cannot Cancel Ownership Request as Non-Owner", async function () {
+                // First, submit the ownership transfer request.
+                await expectIxOk(
+                    connection,
+                    [await createSubmitOwnershipTransferIx()],
+                    [payer, owner],
+                );
+
+                // Confirm that the pending owner variable is set in the owner config.
+                {
+                    const custodianData = await swapLayer.fetchCustodian();
+                    expect(custodianData.pendingOwner).to.eql(feeUpdater.publicKey);
+                }
+
+                // Confirm that the cancel ownership transfer request fails.
+                await expectIxErr(
+                    connection,
+                    [await createCancelOwnershipTransferIx({ sender: ownerAssistant.publicKey })],
+                    [payer, ownerAssistant],
+                    "OwnerOnly",
+                );
+            });
+
+            it("Cancel Ownership Request as Owner", async function () {
+                await expectIxOk(
+                    connection,
+                    [await createCancelOwnershipTransferIx()],
+                    [payer, owner],
+                );
+
+                // Confirm the pending owner field was reset.
+                const custodianData = await swapLayer.fetchCustodian();
+                expect(custodianData.pendingOwner).to.eql(null);
+            });
+        });
+
+        describe("Update Owner Assistant", async function () {
+            // Create the update owner assistant instruction.
+            const createUpdateOwnerAssistantIx = (opts?: {
+                sender?: PublicKey;
+                newAssistant?: PublicKey;
+            }) =>
+                swapLayer.updateOwnerAssistantIx({
+                    owner: opts?.sender ?? owner.publicKey,
+                    newOwnerAssistant: opts?.newAssistant ?? feeUpdater.publicKey,
+                });
+
+            it("Cannot Update Assistant (New Assistant == Address(0))", async function () {
+                await expectIxErr(
+                    connection,
+                    [await createUpdateOwnerAssistantIx({ newAssistant: PublicKey.default })],
+                    [payer, owner],
+                    "AssistantZeroPubkey",
+                );
+            });
+
+            it("Cannot Update Assistant as Non-Owner", async function () {
+                await expectIxErr(
+                    connection,
+                    [await createUpdateOwnerAssistantIx({ sender: ownerAssistant.publicKey })],
+                    [payer, ownerAssistant],
+                    "OwnerOnly",
+                );
+            });
+
+            it("Update Assistant as Owner", async function () {
+                await expectIxOk(
+                    connection,
+                    [await createUpdateOwnerAssistantIx()],
+                    [payer, owner],
+                );
+
+                // Confirm the assistant field was updated.
+                const custodianData = await swapLayer.fetchCustodian();
+                expect(custodianData.ownerAssistant).to.eql(feeUpdater.publicKey);
+
+                // Set the assistant back to the assistant key.
+                await expectIxOk(
+                    connection,
+                    [
+                        await createUpdateOwnerAssistantIx({
+                            newAssistant: ownerAssistant.publicKey,
+                        }),
+                    ],
+                    [payer, owner],
+                );
+            });
+        });
+
+        describe("Update Fee Updater", async function () {
+            // Create the update owner assistant instruction.
+            const createUpdateFeeUpdaterIx = (opts?: {
+                sender?: PublicKey;
+                newFeeUpdater?: PublicKey;
+            }) =>
+                swapLayer.updateFeeUpdaterIx({
+                    ownerOrAssistant: opts?.sender ?? owner.publicKey,
+                    newFeeUpdater: opts?.newFeeUpdater ?? feeRecipient,
+                });
+
+            it("Cannot Update Fee Updater (New Fee Updater == Address(0))", async function () {
+                await expectIxErr(
+                    connection,
+                    [await createUpdateFeeUpdaterIx({ newFeeUpdater: PublicKey.default })],
+                    [payer, owner],
+                    "FeeUpdaterZeroPubkey",
+                );
+            });
+
+            it("Cannot Update Fee Updater Without Owner or Assistant", async function () {
+                await expectIxErr(
+                    connection,
+                    [await createUpdateFeeUpdaterIx({ sender: payer.publicKey })],
+                    [payer],
+                    "OwnerOrAssistantOnly",
+                );
+            });
+
+            it("Update Fee Updater as Owner", async function () {
+                await expectIxOk(connection, [await createUpdateFeeUpdaterIx()], [payer, owner]);
+
+                // Confirm the fee updater field was updated.
+                const custodianData = await swapLayer.fetchCustodian();
+                hackedExpectDeepEqual(custodianData.feeRecipientToken, feeRecipientToken);
+
+                // Revert back to original fee updater.
+                await expectIxOk(
+                    connection,
+                    [
+                        await createUpdateFeeUpdaterIx({
+                            newFeeUpdater: feeUpdater.publicKey,
+                        }),
+                    ],
+                    [payer, owner],
+                );
+            });
+        });
+
+        describe("Update Fee Recipient", async function () {
+            const localVariables = new Map<string, any>();
+
+            it("Cannot Update Fee Recipient with Non-Existent ATA", async function () {
+                const ix = await swapLayer.updateFeeRecipientIx({
+                    ownerOrAssistant: ownerAssistant.publicKey,
+                    newFeeRecipient,
+                });
+
+                await expectIxErr(
+                    connection,
+                    [ix],
+                    [ownerAssistant],
+                    "new_fee_recipient_token. Error Code: AccountNotInitialized",
+                );
+
+                localVariables.set("ix", ix);
+            });
+
+            it("Update Fee Recipient as Owner Assistant", async function () {
+                const ix = localVariables.get("ix") as TransactionInstruction;
+                expect(localVariables.delete("ix")).is.true;
+
+                await splToken.getOrCreateAssociatedTokenAccount(
+                    connection,
+                    payer,
+                    USDC_MINT_ADDRESS,
+                    newFeeRecipient,
+                );
+
+                await expectIxOk(connection, [ix], [ownerAssistant]);
+
+                const custodianData = await swapLayer.fetchCustodian();
+                expect(custodianData.feeRecipientToken).to.eql(
+                    splToken.getAssociatedTokenAddressSync(USDC_MINT_ADDRESS, newFeeRecipient),
+                );
+            });
+
+            it("Cannot Update Fee Recipient without Owner or Assistant", async function () {
+                const ix = await swapLayer.updateFeeRecipientIx({
+                    ownerOrAssistant: payer.publicKey,
+                    newFeeRecipient: feeRecipient,
+                });
+
+                await expectIxErr(connection, [ix], [payer], "Error Code: OwnerOrAssistantOnly");
+            });
+
+            it("Cannot Update Fee Recipient to Default Pubkey", async function () {
+                const ix = await swapLayer.updateFeeRecipientIx({
+                    ownerOrAssistant: ownerAssistant.publicKey,
+                    newFeeRecipient: PublicKey.default,
+                });
+
+                await expectIxErr(connection, [ix], [ownerAssistant], "FeeRecipientZeroPubkey");
+            });
+
+            it("Update Fee Recipient as Owner", async function () {
+                const ix = await swapLayer.updateFeeRecipientIx({
+                    ownerOrAssistant: owner.publicKey,
+                    newFeeRecipient: feeRecipient,
+                });
+                await expectIxOk(connection, [ix], [owner]);
+
+                const custodianData = await swapLayer.fetchCustodian();
+                expect(custodianData.feeRecipientToken).to.eql(feeRecipientToken);
+            });
+        });
+
+        describe("Update Relay Parameters", () => {
+            const updateParams: RelayParams = {
+                baseFee: 200000,
+                nativeTokenPrice: new BN(4000000),
+                maxGasDropoff: 200000,
+                gasDropoffMargin: 50000,
+                executionParams: {
+                    evm: {
+                        gasPrice: 500000,
+                        gasPriceMargin: 50000,
+                    },
+                },
+            };
+
+            const createUpdateRelayParamsIx = (opts?: {
+                feeUpdater?: PublicKey;
+                args?: UpdateRelayParametersArgs;
+            }) =>
+                swapLayer.updateRelayParamsIx(
+                    {
+                        feeUpdater: opts?.feeUpdater ?? feeUpdater.publicKey,
+                    },
+                    opts?.args ?? {
+                        chain: foreignChain,
+                        relayParams: updateParams,
                     },
                 );
 
-                await expectIxOk(connection, [ix], [payer]);
+            it("Cannot Update Relay Parameters (Invalid Fee Updater)", async () => {
+                await expectIxErr(
+                    connection,
+                    [await createUpdateRelayParamsIx({ feeUpdater: payer.publicKey })],
+                    [payer],
+                    "InvalidFeeUpdater",
+                );
+            });
+
+            it("Cannot Update Relay Parameters (Invalid Base Fee)", async () => {
+                await expectIxErr(
+                    connection,
+                    [
+                        await createUpdateRelayParamsIx({
+                            args: {
+                                chain: foreignChain as wormholeSdk.ChainId,
+                                relayParams: { ...updateParams, baseFee: 0 },
+                            },
+                        }),
+                    ],
+                    [feeUpdater],
+                    "InvalidBaseFee",
+                );
+            });
+
+            it("Cannot Update Relay Parameters (Invalid Native Token Price)", async () => {
+                await expectIxErr(
+                    connection,
+                    [
+                        await createUpdateRelayParamsIx({
+                            args: {
+                                chain: foreignChain as wormholeSdk.ChainId,
+                                relayParams: { ...updateParams, nativeTokenPrice: new BN(0) },
+                            },
+                        }),
+                    ],
+                    [feeUpdater],
+                    "InvalidNativeTokenPrice",
+                );
+            });
+
+            it("Cannot Update Relay Parameters (Invalid Gas Dropoff Margin)", async () => {
+                await expectIxErr(
+                    connection,
+                    [
+                        await createUpdateRelayParamsIx({
+                            args: {
+                                chain: foreignChain as wormholeSdk.ChainId,
+                                relayParams: { ...updateParams, gasDropoffMargin: 4294967295 },
+                            },
+                        }),
+                    ],
+                    [feeUpdater],
+                    "InvalidMargin",
+                );
+            });
+
+            it("Cannot Update Relay Parameters (Invalid Gas Price)", async () => {
+                await expectIxErr(
+                    connection,
+                    [
+                        await createUpdateRelayParamsIx({
+                            args: {
+                                chain: foreignChain as wormholeSdk.ChainId,
+                                relayParams: {
+                                    ...updateParams,
+                                    executionParams: { evm: { gasPrice: 0, gasPriceMargin: 69 } },
+                                },
+                            },
+                        }),
+                    ],
+                    [feeUpdater],
+                    "InvalidGasPrice",
+                );
+            });
+
+            it("Cannot Update Relay Parameters (Invalid Gas Price Margin)", async () => {
+                await expectIxErr(
+                    connection,
+                    [
+                        await createUpdateRelayParamsIx({
+                            args: {
+                                chain: foreignChain as wormholeSdk.ChainId,
+                                relayParams: {
+                                    ...updateParams,
+                                    executionParams: {
+                                        evm: { gasPrice: 10000, gasPriceMargin: 4294967295 },
+                                    },
+                                },
+                            },
+                        }),
+                    ],
+                    [feeUpdater],
+                    "InvalidMargin",
+                );
+            });
+
+            it("Update Relay Parameters as Owner", async () => {
+                let relayParams = {
+                    ...testParams,
+                    baseFee: 69,
+                };
+                await expectIxOk(
+                    connection,
+                    [
+                        await createUpdateRelayParamsIx({
+                            feeUpdater: owner.publicKey,
+                            args: {
+                                chain: foreignChain as wormholeSdk.ChainId,
+                                relayParams,
+                            },
+                        }),
+                    ],
+                    [owner],
+                );
+
+                const peer = await swapLayer.fetchPeer(foreignChain);
+                hackedExpectDeepEqual(peer.relayParams, relayParams);
+            });
+
+            it("Update Relay Parameters as Owner Assistant", async () => {
+                let relayParams = {
+                    ...testParams,
+                    baseFee: 690,
+                };
+                await expectIxOk(
+                    connection,
+                    [
+                        await createUpdateRelayParamsIx({
+                            feeUpdater: owner.publicKey,
+                            args: {
+                                chain: foreignChain as wormholeSdk.ChainId,
+                                relayParams,
+                            },
+                        }),
+                    ],
+                    [owner],
+                );
+
+                const peer = await swapLayer.fetchPeer(foreignChain);
+                hackedExpectDeepEqual(peer.relayParams, relayParams);
+            });
+
+            it("Update Relay Parameters as Fee Updater", async () => {
+                let relayParams = {
+                    ...testParams,
+                };
+                await expectIxOk(
+                    connection,
+                    [
+                        await createUpdateRelayParamsIx({
+                            feeUpdater: owner.publicKey,
+                            args: {
+                                chain: foreignChain as wormholeSdk.ChainId,
+                                relayParams,
+                            },
+                        }),
+                    ],
+                    [owner],
+                );
+
+                const peer = await swapLayer.fetchPeer(foreignChain);
+                hackedExpectDeepEqual(peer.relayParams, relayParams);
             });
         });
     });
@@ -403,10 +1313,7 @@ describe("Swap Layer", () => {
                     // Balance check.
                     const recipientBefore = await getUsdcAtaBalance(connection, payer.publicKey);
                     const payerLamportBefore = await connection.getBalance(payer.publicKey);
-                    const feeRecipientBefore = await getUsdcAtaBalance(
-                        connection,
-                        feeRecipient.publicKey,
-                    );
+                    const feeRecipientBefore = await getUsdcAtaBalance(connection, feeRecipient);
 
                     const transferIx = await swapLayer.completeTransferRelayIx(
                         {
@@ -426,10 +1333,7 @@ describe("Swap Layer", () => {
                     // Balance check.
                     const recipientAfter = await getUsdcAtaBalance(connection, payer.publicKey);
                     const payerLamportAfter = await connection.getBalance(payer.publicKey);
-                    const feeRecipientAfter = await getUsdcAtaBalance(
-                        connection,
-                        feeRecipient.publicKey,
-                    );
+                    const feeRecipientAfter = await getUsdcAtaBalance(connection, feeRecipient);
 
                     expect(recipientAfter).to.equal(
                         recipientBefore + message.deposit!.header.amount,
@@ -472,10 +1376,7 @@ describe("Swap Layer", () => {
                     );
                     const recipientLamportBefore = await connection.getBalance(recipient.publicKey);
                     const payerLamportBefore = await connection.getBalance(payer.publicKey);
-                    const feeRecipientBefore = await getUsdcAtaBalance(
-                        connection,
-                        feeRecipient.publicKey,
-                    );
+                    const feeRecipientBefore = await getUsdcAtaBalance(connection, feeRecipient);
 
                     const transferIx = await swapLayer.completeTransferRelayIx(
                         {
@@ -496,10 +1397,7 @@ describe("Swap Layer", () => {
                     const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
                     const recipientLamportAfter = await connection.getBalance(recipient.publicKey);
                     const payerLamportAfter = await connection.getBalance(payer.publicKey);
-                    const feeRecipientAfter = await getUsdcAtaBalance(
-                        connection,
-                        feeRecipient.publicKey,
-                    );
+                    const feeRecipientAfter = await getUsdcAtaBalance(connection, feeRecipient);
 
                     expect(recipientAfter - recipientBefore).to.equal(
                         message.deposit!.header.amount - relayerFee,
@@ -543,10 +1441,7 @@ describe("Swap Layer", () => {
                     );
                     const recipientLamportBefore = await connection.getBalance(recipient.publicKey);
                     const payerLamportBefore = await connection.getBalance(payer.publicKey);
-                    const feeRecipientBefore = await getUsdcAtaBalance(
-                        connection,
-                        feeRecipient.publicKey,
-                    );
+                    const feeRecipientBefore = await getUsdcAtaBalance(connection, feeRecipient);
 
                     const transferIx = await swapLayer.completeTransferRelayIx(
                         {
@@ -567,10 +1462,7 @@ describe("Swap Layer", () => {
                     const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
                     const recipientLamportAfter = await connection.getBalance(recipient.publicKey);
                     const payerLamportAfter = await connection.getBalance(payer.publicKey);
-                    const feeRecipientAfter = await getUsdcAtaBalance(
-                        connection,
-                        feeRecipient.publicKey,
-                    );
+                    const feeRecipientAfter = await getUsdcAtaBalance(connection, feeRecipient);
 
                     expect(recipientAfter - recipientBefore).to.equal(
                         message.deposit!.header.amount - relayerFee,

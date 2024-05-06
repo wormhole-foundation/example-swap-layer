@@ -1,36 +1,27 @@
 mod add;
 pub use add::*;
 
-use crate::{
-    error::SwapLayerError,
-    state::{ExecutionParams, RelayParams},
-};
+mod update;
+pub use update::*;
+
+use crate::utils::relay_parameters::verify_relay_params;
+use crate::{error::SwapLayerError, state::Peer};
 use anchor_lang::prelude::*;
+use common::wormhole_cctp_solana::wormhole::SOLANA_CHAIN;
 
-pub fn verify_relay_params(params: &RelayParams) -> Result<()> {
-    require!(params.base_fee > 0, SwapLayerError::InvalidBaseFee);
+pub fn handle_add_peer(peer: &mut Account<Peer>, args: AddPeerArgs) -> Result<()> {
     require!(
-        params.native_token_price > 0,
-        SwapLayerError::InvalidNativeTokenPrice
+        args.chain != 0 && args.chain != SOLANA_CHAIN,
+        SwapLayerError::ChainNotAllowed
     );
-    require!(
-        params.gas_dropoff_margin <= crate::MAX_BPS,
-        SwapLayerError::InvalidMargin
-    );
+    require!(args.address != [0; 32], SwapLayerError::InvalidPeer);
 
-    match params.execution_params {
-        ExecutionParams::Evm {
-            gas_price,
-            gas_price_margin,
-        } => {
-            require!(gas_price > 0, SwapLayerError::InvalidGasPrice);
-            require!(
-                gas_price_margin <= crate::MAX_BPS,
-                SwapLayerError::InvalidMargin
-            );
-        }
-        ExecutionParams::None => {}
-    }
+    // Verify the relay parameters.
+    verify_relay_params(&args.relay_params)?;
+
+    peer.chain = args.chain;
+    peer.address = args.address;
+    peer.relay_params = args.relay_params;
 
     Ok(())
 }
