@@ -12,7 +12,7 @@
     "updateFeesLocalTestnet": "ENV=localTestnet sh ./ts-scripts/shell/updateFeesSwapLayer.sh",
     "runAllLocalTestnet": "ENV=localTestnet sh ./ts-scripts/shell/fullDeployAndConfigure.sh",
     "runAllTestnet": "ENV=testnet sh ./ts-scripts/shell/fullDeployAndConfigure.sh",
-    "testSendTestnet": "ENV=testnet sh ./ts-scripts/shell/testSend.sh",
+    "testRegularSendTestnet": "ENV=testnet sh ./ts-scripts/shell/testRegularSend.sh",
     "testRegularSendLocal": "ENV=localTestnet sh ./ts-scripts/shell/testRegularSend.sh",
     "deployTestnet": "ENV=testnet sh ./ts-scripts/shell/deploySwapLayer.sh",
     "configureTestnet": "ENV=testnet sh ./ts-scripts/shell/configureSwapLayer.sh",
