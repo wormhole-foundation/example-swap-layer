@@ -92,6 +92,8 @@ abstract contract SwapLayerBase {
   }
 
   //returns the consumed input amount on exact out swaps and the output amount on exact in swaps
+  //revertOnFailure guarantees that the caller will either receive the requested output token with
+  //  within the specified limits, or the call will revert.
   function _swap(
     uint swapType,
     bool isExactIn,
@@ -119,6 +121,7 @@ abstract contract SwapLayerBase {
     else if (revertOnFailure)
       revert InvalidSwapType(swapType);
     else
+      //invalid swaps are ignored when not reverting on failure to avoid funds getting stuck
       return 0;
 
     return swapFunc(

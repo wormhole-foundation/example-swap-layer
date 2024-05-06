@@ -11,12 +11,12 @@ import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 import { FeeParams, FeeParamsLib } from "./FeeParams.sol";
 import { IoTokenMOS } from "./InitiateParams.sol";
 import {
-  ADDRESS_SIZE,
+  UNIVERSAL_ADDRESS_SIZE,
   SWAP_TYPE_UNISWAPV3,
   SWAP_TYPE_TRADERJOE,
   SWAP_TYPE_GENERIC_SOLANA,
   IoToken,
-  parseSwapTypeAndCount
+  parseSwapTypeAndCountAndSkipParams
 } from "./Params.sol";
 
 struct FeeParamsState {
@@ -149,19 +149,19 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
       ) / 1 ether;
     }
 
-    uint swapCount = 0;
     uint swapType;
+    uint swapCount = 0;
     if (outputMOS.mode != IoToken.Usdc) {
       uint offset = outputMOS.offset;
       if (outputMOS.mode == IoToken.Other)
-        offset += ADDRESS_SIZE;
+        offset += UNIVERSAL_ADDRESS_SIZE;
 
-      (swapType, swapCount, ) = parseSwapTypeAndCount(params, offset);
+      (swapType, swapCount, ) = parseSwapTypeAndCountAndSkipParams(params, offset);
     }
 
     if (targetChain == SOLANA_CHAIN_ID) {
-      //TODO figure out what other dynamic fees might go into Solana fee calculations
-      if (swapType != SWAP_TYPE_GENERIC_SOLANA)
+      //TODO figure out what other (dynamic) fees might go into Solana fee calculations
+      if (swapCount != 0 && swapType != SWAP_TYPE_GENERIC_SOLANA)
         revert InvalidSwapTypeForChain(targetChain, swapType);
 
       //add the cost of ATA rent for non-gas tokens

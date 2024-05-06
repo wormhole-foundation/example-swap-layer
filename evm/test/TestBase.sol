@@ -98,7 +98,7 @@ contract SwapLayerTestBase is Test {
       )));
 
       liquidityLayer.setCctpAllowance(type(uint256).max);
-      
+
       liquidityLayer.addRouterEndpoint(
         FOREIGN_CHAIN_ID,
         Endpoint(FOREIGN_LIQUIDITY_LAYER, FOREIGN_LIQUIDITY_LAYER),

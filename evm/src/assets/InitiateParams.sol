@@ -98,21 +98,21 @@ uint constant PERMIT2_PERMIT_SIZE =
 //    acquire layout
 //   16 bytes  input amount
 //  1: GAS
-//    swap struct
+//    swap layout
 //  2: ERC20
 //    acquire layout
 //    1 byte   approveCheck
 //   20 bytes  token address
 //   16 bytes  input amount
-//    swap struct
+//    swap layout
 //
 // 1 byte   output token type
 //  0: USDC
 //  1: GAS
-//    swap struct
+//    swap layout
 //  2: Token
 //   32 bytes  token address
-//    swap struct
+//    swap layout
 
 struct TransferMOS {
   TransferMode mode;
@@ -183,7 +183,7 @@ function parseParamBaseStructure(
         offset = skipAcquire(params, offset);
         offset += ADDRESS_SIZE + SWAP_PARAM_AMOUNT_SIZE + BOOL_SIZE;
       }
-      offset = skipSwap(params, offset);
+      (,, offset) = parseSwapTypeAndCountAndSkipParams(params, offset);
     }
 
     mos.input = IoTokenMOS(inputTokenType, paramBlockOffset, offset - paramBlockOffset);
@@ -192,11 +192,11 @@ function parseParamBaseStructure(
     IoToken outputTokenType;
     (outputTokenType, offset) = parseIoToken(params, offset);
     paramBlockOffset = offset;
-    if (outputTokenType == IoToken.Gas)
-      offset = skipSwap(params, offset);
-    else if (outputTokenType == IoToken.Other) {
-      offset += UNIVERSAL_ADDRESS_SIZE; //token address
-      offset = skipSwap(params, offset);
+    if (outputTokenType != IoToken.Usdc) {
+      if (outputTokenType == IoToken.Other)
+        offset += UNIVERSAL_ADDRESS_SIZE; //token address
+
+      (,, offset) = parseSwapTypeAndCountAndSkipParams(params, offset);
     }
 
     mos.output = IoTokenMOS(outputTokenType, paramBlockOffset, offset - paramBlockOffset);
