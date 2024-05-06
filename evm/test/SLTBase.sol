@@ -25,7 +25,7 @@ import "swap-layer/assets/Percentage.sol";
 import "swap-layer/assets/GasPrice.sol";
 import "swap-layer/assets/GasDropoff.sol";
 
-contract SwapLayerTestBase is Test {
+contract SLTBase is Test {
   using UsdcDealer for IUSDC;
 
   uint16  constant FOREIGN_CHAIN_ID               = 0xF00F;

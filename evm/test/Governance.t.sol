@@ -5,13 +5,13 @@ pragma solidity ^0.8.24;
 import "wormhole-sdk/libraries/BytesParsing.sol";
 
 import { IdempotentUpgrade } from "wormhole-sdk/proxy/ProxyBase.sol";
-import { SwapLayerTestBase } from "./TestBase.sol";
+import { SLTBase } from "./SLTBase.sol";
 import "./utils/UpgradeTester.sol";
 
 import "swap-layer/assets/SwapLayerGovernance.sol";
 import "swap-layer/assets/SwapLayerQuery.sol";
 
-contract SwapLayerGovernanceTest is SwapLayerTestBase {
+contract GovernanceTest is SLTBase {
   using BytesParsing for bytes;
 
   function setUp() public {

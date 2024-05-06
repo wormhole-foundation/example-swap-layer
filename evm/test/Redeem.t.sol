@@ -5,34 +5,40 @@ pragma solidity ^0.8.24;
 import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 
 import { Messages } from "liquidity-layer/shared/Messages.sol";
+import { OrderResponse } from "liquidity-layer/interfaces/ITokenRouter.sol";
 
-import "swap-layer/assets/SwapLayerRedeem.sol";
+import "swap-layer/SwapLayerIntegrationBase.sol";
 import { encodeSwapMessage } from "swap-layer/assets/Message.sol";
 
-import "./SwapBase.sol";
+import "./SLTSwapBase.sol";
 
-contract SwapLayerRedeemTest is SwapLayerSwapBase {
+contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
   using BytesParsing for bytes;
   using Messages for Messages.Fill;
   using { toUniversalAddress } for address;
 
+  function _swapLayer() override internal view returns (ISwapLayer) {
+    return ISwapLayer(payable(address(swapLayer)));
+  }
+
   function testRedeemDirect() public {
     uint usdcAmount = USER_AMOUNT * 1e6;
-    bytes memory redeemParams;
     bytes memory swapMessage = encodeSwapMessage(
       user.toUniversalAddress(),
       abi.encodePacked(RedeemMode.Direct),
       abi.encodePacked(IoToken.Usdc)
     );
-    bytes memory redeemReturn = _redeem(usdcAmount, redeemParams, swapMessage);
-    (address outputToken, uint outputAmount) = abi.decode(redeemReturn, (address, uint));
+
+    (address outputToken, uint outputAmount) =
+      _swapLayerRedeem(_attestation(usdcAmount, swapMessage));
+
     assertEq(outputToken, address(usdc));
     assertEq(outputAmount, usdcAmount);
+    assertEq(outputAmount, usdc.balanceOf(user));
   }
 
   function testRedeemUniswapEthSwap() public {
     uint usdcAmount = USER_AMOUNT * 1e6;
-    bytes memory redeemParams;
     bytes memory swapMessage = encodeSwapMessage(
       user.toUniversalAddress(),
       abi.encodePacked(RedeemMode.Direct),
@@ -49,18 +55,17 @@ contract SwapLayerRedeemTest is SwapLayerSwapBase {
     );
 
     uint balanceBefore = user.balance;
-    bytes memory redeemReturn = _redeem(usdcAmount, redeemParams, swapMessage);
+    (address outputToken, uint outputAmount) =
+      _swapLayerRedeem(_attestation(usdcAmount, swapMessage));
     uint ethReceived = user.balance - balanceBefore;
 
-    (address outputToken, uint outputAmount) = abi.decode(redeemReturn, (address, uint));
     assertEq(outputToken, address(0));
     assertEq(outputAmount, ethReceived);
     assertTrue(ethReceived > 0);
   }
 
-  function _redeem(
+  function _attestation(
     uint amount,
-    bytes memory redeemParams,
     bytes memory swapMessage
   ) private returns (bytes memory) {
     Messages.Fill memory fill = Messages.Fill({
@@ -73,10 +78,6 @@ contract SwapLayerRedeemTest is SwapLayerSwapBase {
     (bytes memory encodedVaa, bytes memory encodedCctpMessage, bytes memory cctpAttestation) =
       wormholeCctpSimulator.craftWormholeCctpRedeemParams(amount, fill.encode());
 
-    return swapLayer.redeem(
-      AttestationType.LiquidityLayer,
-      abi.encode(OrderResponse(encodedVaa, encodedCctpMessage, cctpAttestation)),
-      redeemParams
-    );
+    return abi.encode(OrderResponse(encodedVaa, encodedCctpMessage, cctpAttestation));
   }
 }

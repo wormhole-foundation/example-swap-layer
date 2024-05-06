@@ -9,7 +9,7 @@ import { Math } from "@openzeppelin/utils/math/Math.sol";
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
 
-import { SwapLayerTestBase } from "./TestBase.sol";
+import { SLTBase } from "./SLTBase.sol";
 import { INonfungiblePositionManager } from "./external/IUniswap.sol";
 import { ITJLBRouter, ITJLBFactory } from "./external/ITraderJoe.sol";
 import { PriceHelper as TJMath } from "./external/TJMath/PriceHelper.sol";
@@ -17,7 +17,7 @@ import { PriceHelper as TJMath } from "./external/TJMath/PriceHelper.sol";
 import "swap-layer/assets/Params.sol";
 import "swap-layer/assets/SwapLayerQuery.sol";
 
-contract SwapLayerSwapBase is SwapLayerTestBase {
+contract SLTSwapBase is SLTBase {
   using BytesParsing for bytes;
 
   uint24 constant UNISWAP_FEE = 500;
