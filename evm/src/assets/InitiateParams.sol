@@ -6,8 +6,6 @@ import "wormhole-sdk/libraries/BytesParsing.sol";
 
 import "./Params.sol";
 
-import "forge-std/console.sol";
-
 using BytesParsing for bytes;
 
 enum TransferMode {
@@ -141,6 +139,7 @@ struct ModesOffsetsSizes {
 }
 
 function parseParamBaseStructure(
+  uint16 targetChain,
   bytes memory params
 ) pure returns (ModesOffsetsSizes memory mos) { unchecked {
   uint offset = 0;
@@ -193,8 +192,11 @@ function parseParamBaseStructure(
     (outputTokenType, offset) = parseIoToken(params, offset);
     paramBlockOffset = offset;
     if (outputTokenType != IoToken.Usdc) {
-      if (outputTokenType == IoToken.Other)
-        offset += UNIVERSAL_ADDRESS_SIZE; //token address
+      if (outputTokenType == IoToken.Other) {
+        bytes32 universalAddr;
+        (universalAddr, offset) = params.asBytes32Unchecked(offset);
+        checkAddr(targetChain, universalAddr);
+      }
 
       (,, offset) = parseSwapTypeAndCountAndSkipParams(params, offset);
     }

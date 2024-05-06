@@ -40,7 +40,7 @@ contract SwapLayerRedeemTest is SwapLayerSwapBase {
         IoToken.Gas,
         uint32(0),  //deadline
         uint128(0), //minOutputAmount
-        uint8(SWAP_TYPE_UNISWAPV3),
+        SWAP_TYPE_UNISWAPV3,
         UNISWAP_FEE,
         uint8(1),   //pathLength
         address(mockToken),

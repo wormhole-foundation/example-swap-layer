@@ -9,6 +9,7 @@ import "@openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
 import "wormhole-sdk/interfaces/token/IPermit2.sol";
 import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
 
+import { checkAddr } from "./Params.sol";
 import "./SwapLayerRelayingFees.sol";
 import "./InitiateParams.sol";
 import { encodeSwapMessage, encodeSwapMessageRelayParams } from "./Message.sol";
@@ -27,7 +28,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     bytes32 recipient, //= redeemer in case of a payload
     bytes memory params
   ) external payable returns (bytes memory) { unchecked {
-    ModesOffsetsSizes memory mos = parseParamBaseStructure(params);
+    checkAddr(targetChain, recipient);
+    ModesOffsetsSizes memory mos = parseParamBaseStructure(targetChain, params);
 
     uint64 fastTransferFee = 0;
     uint32 fastTransferDeadline = 0;

@@ -196,7 +196,7 @@ contract SwapLayerInitiateTest is SwapLayerSwapBase {
         IoToken.Gas,  //input token
         uint32(_deadline()), //deadline
         uint128(0),   //minOutputAmount
-        uint8(SWAP_TYPE_UNISWAPV3),
+        SWAP_TYPE_UNISWAPV3,
         UNISWAP_FEE,
         uint8(1),     //pathLength
         address(mockToken),
@@ -248,7 +248,7 @@ contract SwapLayerInitiateTest is SwapLayerSwapBase {
         IoToken.Gas,  //input token
         uint32(_deadline()), //deadline
         uint128(0),   //minOutputAmount
-        uint8(SWAP_TYPE_UNISWAPV3),
+        SWAP_TYPE_UNISWAPV3,
         UNISWAP_FEE,
         uint8(1),     //pathLength
         address(mockToken),

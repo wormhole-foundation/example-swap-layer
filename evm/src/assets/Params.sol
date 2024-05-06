@@ -5,9 +5,12 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/token/ERC20/IERC20.sol";
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
+
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 
 using BytesParsing for bytes;
+
+uint constant SOLANA_CHAIN_ID = 1; //TODO this should come from elsewhere
 
 uint constant MODE_SIZE = 1;
 uint constant BOOL_SIZE = 1;
@@ -33,12 +36,12 @@ uint constant RELAY_MAX_RELAYER_FEE_SIZE = 6;
 uint constant RELAY_PARAM_SIZE = RELAY_GAS_DROPOFF_SIZE + RELAY_MAX_RELAYER_FEE_SIZE;
 
 //not using an enum here to allow custom values, better grouping and not panicing on parse failure
-uint constant SWAP_TYPE_INVALID = 0; //special, internal only value
+uint8 constant SWAP_TYPE_INVALID = 0; //special, internal only value
 //group evm swap types in 1-16
-uint constant SWAP_TYPE_UNISWAPV3 = 1;
-uint constant SWAP_TYPE_TRADERJOE = 2;
+uint8 constant SWAP_TYPE_UNISWAPV3 = 1;
+uint8 constant SWAP_TYPE_TRADERJOE = 2;
 //group solana swap types starting at 16
-uint constant SWAP_TYPE_GENERIC_SOLANA = 16;
+uint8 constant SWAP_TYPE_GENERIC_SOLANA = 16;
 
 enum IoToken {
   Usdc,
@@ -51,6 +54,8 @@ enum RedeemMode {
   Payload,
   Relay
 }
+
+error InvalidAddress(bytes32 addr);
 
 //swap layout:
 // 4 bytes  deadline (unix timestamp, 0 = no deadline)
@@ -162,4 +167,9 @@ function parseRelayParams(
   (gasDropoff,  offset) = params.asUint32Unchecked(offset);
   (relayingFee, offset) = params.asUint48Unchecked(offset);
   return (GasDropoff.wrap(gasDropoff), relayingFee, offset);
+}
+
+function checkAddr(uint16 chainId, bytes32 addr) pure {
+  if (addr == 0 || (chainId != SOLANA_CHAIN_ID && bytes12(addr) != 0))
+    revert InvalidAddress(addr);
 }

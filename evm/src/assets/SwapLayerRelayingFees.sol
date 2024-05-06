@@ -11,6 +11,7 @@ import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 import { FeeParams, FeeParamsLib } from "./FeeParams.sol";
 import { IoTokenMOS } from "./InitiateParams.sol";
 import {
+  SOLANA_CHAIN_ID,
   UNIVERSAL_ADDRESS_SIZE,
   SWAP_TYPE_UNISWAPV3,
   SWAP_TYPE_TRADERJOE,
@@ -53,8 +54,6 @@ enum FeeUpdate {
 abstract contract SwapLayerRelayingFees is SwapLayerBase {
   using BytesParsing for bytes;
 
-  //TODO this should come from elsewhere
-  uint private constant SOLANA_CHAIN_ID = 1;
   uint private constant SOLANA_ATA_RENT_LAMPORTS = 2039280;
   uint private constant LAMPORTS_PER_SOL = 1e9;
   //uint private constant BIT128 = 1 << 128;

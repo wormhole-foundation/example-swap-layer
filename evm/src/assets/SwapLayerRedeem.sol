@@ -26,7 +26,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
   using SafeERC20 for IERC20;
 
   //params structure:
-  //  redeemMode direct:
+  //  redeemMode direct/payload:
   //    optionally either empty (=execute what's specified in the message) or used to override
   //      1 byte   input token type
   //        0: USDC
@@ -36,7 +36,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
   //         20 bytes  token address
   //          swap struct
   //    if overridden, a failed swap for any reason will revert the transaction (just like initiate)
-  //  redeemMode payload/relay:
+  //  redeemMode relay:
   //    no extra params allowed
 
   function redeem(
@@ -94,8 +94,10 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
     else {
       if (outputTokenType == IoToken.Gas)
         outputToken = IERC20(address(_wnative));
-      else
+      else {
+        offset += UNIVERSAL_ADDRESS_SIZE - ADDRESS_SIZE; //skip 12 zero bytes
         (outputToken, offset) = parseIERC20(swapParams, offset);
+      }
 
       uint256 deadline;
       uint minOutputAmount;
