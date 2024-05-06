@@ -1,37 +1,14 @@
 import { tryNativeToUint8Array } from "@certusone/wormhole-sdk";
+import { InitiateArgs, encodeInitiateArgs } from "../../ts-sdk";
 import {
-  GovernanceCommand,
-  InitiateArgs,
-  encodeGovernanceCommandsBatch,
-  encodeInitiateArgs,
-} from "../../ts-sdk";
-import {
-  deploySwapLayerImplementation,
-  deploySwapLayerProxy,
-} from "../helpers/deployments";
-import {
-  ChainInfo,
   TestSendConfig,
   getChain,
   getOperatingChains,
   getSigner,
   getSwapLayer,
-  getSwapLayerAddress,
   init,
-  loadChains,
-  loadPrivateKey,
-  loadSwapLayerConfiguration,
   loadTestSendConfig,
-  writeOutputFiles,
 } from "../helpers/env";
-import {
-  UniversalAddress,
-  toNative,
-} from "@wormhole-foundation/sdk-definitions";
-import { Wormhole } from "@wormhole-foundation/connect-sdk";
-import { EvmPlatform } from "@wormhole-foundation/connect-sdk-evm";
-import { get } from "http";
-import { Signer } from "ethers";
 
 const processName = "testBasicSendSwapLayer";
 init();
@@ -88,12 +65,18 @@ function createInitiateArgs(config: TestSendConfig): InitiateArgs {
     isExactIn: true,
     inputToken: {
       type: "Gas",
+      // acquireMode: {
+      //   mode: "Preapproved",
+      // },
       swap: {
-        type: "Uniswap",
-        limitAmount: BigInt(config.limit),
         deadline: parseInt(config.deadline),
-        legFirstFee: parseInt(config.firstLegFee),
-        path: [],
+        limitAmount: BigInt(config.limit),
+        //amount: BigInt(config.sendAmount),
+        type: {
+          id: "UniswapV3",
+          legFirstFee: parseInt(config.firstLegFee),
+          path: [],
+        },
       },
     },
   };
