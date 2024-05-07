@@ -16,9 +16,7 @@ import {
     LiquidityLayerDeposit,
     LiquidityLayerMessage,
 } from "../../../lib/example-liquidity-layer/solana/ts/src/common";
-import * as matchingEngineSdk from "../../../lib/example-liquidity-layer/solana/ts/src/matchingEngine";
 import * as tokenRouterSdk from "../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
-import { VaaAccount } from "../../../lib/example-liquidity-layer/solana/ts/src/wormhole";
 import {
     CircleAttester,
     ETHEREUM_USDC_ADDRESS,
@@ -43,6 +41,7 @@ import {
     calculateRelayerFee,
     denormalizeGasDropOff,
     localnet,
+    U32_MAX,
 } from "../src/swapLayer";
 import { FEE_UPDATER_KEYPAIR, hackedExpectDeepEqual } from "./helpers";
 
@@ -79,28 +78,23 @@ describe("Swap Layer", () => {
         tokenRouterSdk.localnet(),
         USDC_MINT_ADDRESS,
     );
-    const matchingswapLayer = new matchingEngineSdk.MatchingEngineProgram(
-        connection,
-        matchingEngineSdk.localnet(),
-        USDC_MINT_ADDRESS,
-    );
 
     let tokenRouterLkupTable: PublicKey;
 
-    describe("Admin", () => {
-        const testParams: RelayParams = {
-            baseFee: 100000,
-            nativeTokenPrice: new BN(1000000),
-            maxGasDropoff: 500000,
-            gasDropoffMargin: 10000,
-            executionParams: {
-                evm: {
-                    gasPrice: 100000,
-                    gasPriceMargin: 10000,
-                },
+    const relayParamsForTest: RelayParams = {
+        baseFee: 100000,
+        nativeTokenPrice: new BN(1000000),
+        maxGasDropoff: 500000,
+        gasDropoffMargin: 10000,
+        executionParams: {
+            evm: {
+                gasPrice: 100000,
+                gasPriceMargin: 10000,
             },
-        };
+        },
+    };
 
+    describe("Admin", () => {
         describe("Initialize", () => {
             it("Initialize", async () => {
                 const ix = await swapLayer.initializeIx({
@@ -415,7 +409,7 @@ describe("Swap Layer", () => {
                         opts?.args ?? {
                             chain: foreignChain,
                             address: foreignSwapLayerAddress,
-                            relayParams: testParams,
+                            relayParams: relayParamsForTest,
                         },
                     );
 
@@ -453,7 +447,7 @@ describe("Swap Layer", () => {
                                 args: {
                                     chain: foreignChain as wormholeSdk.ChainId,
                                     address: foreignSwapLayerAddress,
-                                    relayParams: { ...testParams, baseFee: 0 },
+                                    relayParams: { ...relayParamsForTest, baseFee: 0 },
                                 },
                             }),
                         ],
@@ -470,7 +464,10 @@ describe("Swap Layer", () => {
                                 args: {
                                     chain: foreignChain as wormholeSdk.ChainId,
                                     address: foreignSwapLayerAddress,
-                                    relayParams: { ...testParams, nativeTokenPrice: new BN(0) },
+                                    relayParams: {
+                                        ...relayParamsForTest,
+                                        nativeTokenPrice: new BN(0),
+                                    },
                                 },
                             }),
                         ],
@@ -487,7 +484,10 @@ describe("Swap Layer", () => {
                                 args: {
                                     chain: foreignChain as wormholeSdk.ChainId,
                                     address: foreignSwapLayerAddress,
-                                    relayParams: { ...testParams, gasDropoffMargin: 4294967295 },
+                                    relayParams: {
+                                        ...relayParamsForTest,
+                                        gasDropoffMargin: 4294967295,
+                                    },
                                 },
                             }),
                         ],
@@ -505,7 +505,7 @@ describe("Swap Layer", () => {
                                     chain: foreignChain as wormholeSdk.ChainId,
                                     address: foreignSwapLayerAddress,
                                     relayParams: {
-                                        ...testParams,
+                                        ...relayParamsForTest,
                                         executionParams: {
                                             evm: { gasPrice: 0, gasPriceMargin: 69 },
                                         },
@@ -527,7 +527,7 @@ describe("Swap Layer", () => {
                                     chain: foreignChain as wormholeSdk.ChainId,
                                     address: foreignSwapLayerAddress,
                                     relayParams: {
-                                        ...testParams,
+                                        ...relayParamsForTest,
                                         executionParams: {
                                             evm: { gasPrice: 10000, gasPriceMargin: 4294967295 },
                                         },
@@ -546,7 +546,7 @@ describe("Swap Layer", () => {
                     const peer = await swapLayer.fetchPeer(foreignChain);
                     hackedExpectDeepEqual(
                         peer,
-                        new Peer(foreignChain, foreignSwapLayerAddress, testParams),
+                        new Peer(foreignChain, foreignSwapLayerAddress, relayParamsForTest),
                     );
                 });
             });
@@ -1043,7 +1043,7 @@ describe("Swap Layer", () => {
 
             it("Update Relay Parameters as Owner", async () => {
                 let relayParams = {
-                    ...testParams,
+                    ...relayParamsForTest,
                     baseFee: 69,
                 };
                 await expectIxOk(
@@ -1066,7 +1066,7 @@ describe("Swap Layer", () => {
 
             it("Update Relay Parameters as Owner Assistant", async () => {
                 let relayParams = {
-                    ...testParams,
+                    ...relayParamsForTest,
                     baseFee: 690,
                 };
                 await expectIxOk(
@@ -1089,7 +1089,7 @@ describe("Swap Layer", () => {
 
             it("Update Relay Parameters as Fee Updater", async () => {
                 let relayParams = {
-                    ...testParams,
+                    ...relayParamsForTest,
                 };
                 await expectIxOk(
                     connection,
@@ -1117,6 +1117,205 @@ describe("Swap Layer", () => {
         let wormholeSequence = 2000n;
         describe("USDC Transfer (Relay)", function () {
             describe("Outbound", function () {
+                it("Cannot Initiate Transfer (Invalid Prepared Order)", async function () {
+                    const amountIn = 6900000000n;
+                    const gasDropoff = 100000;
+                    const maxRelayerFee = 9999999999999;
+
+                    // Pass the payer key as the prepared order.
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: payer.publicKey,
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain as wormholeSdk.ChainId,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: foreignRecipientAddress,
+                        },
+                    );
+
+                    await expectIxErr(connection, [ix], [payer], "InvalidPreparedOrder");
+                });
+
+                it("Cannot Initiate Transfer (Invalid Peer)", async function () {
+                    const amountIn = 6900000000n;
+                    const gasDropoff = 100000;
+                    const maxRelayerFee = 9999999999999;
+                    const invalidChain = 69;
+
+                    const preparedOrder = Keypair.generate();
+
+                    // Pass the payer key as the prepared order.
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: invalidChain as wormholeSdk.ChainId,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: foreignRecipientAddress,
+                        },
+                    );
+
+                    await expectIxErr(
+                        connection,
+                        [ix],
+                        [payer, preparedOrder],
+                        "AccountNotInitialized",
+                    );
+                });
+
+                it("Cannot Initiate Transfer (Invalid Recipient)", async function () {
+                    const amountIn = 6900000000n;
+                    const gasDropoff = 100000;
+                    const maxRelayerFee = 9999999999999;
+
+                    const preparedOrder = Keypair.generate();
+
+                    // Pass the payer key as the prepared order.
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain as wormholeSdk.ChainId,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: new Array(32).fill(0),
+                        },
+                    );
+
+                    await expectIxErr(connection, [ix], [payer, preparedOrder], "InvalidRecipient");
+                });
+
+                it("Cannot Initiate Transfer (Max Relayer Fee Exceeded)", async function () {
+                    const amountIn = 6900000000n;
+                    const gasDropoff = 100000;
+
+                    // Set the max relayer fee to the minimum.
+                    const maxRelayerFee = 1;
+
+                    const preparedOrder = Keypair.generate();
+
+                    // Pass the payer key as the prepared order.
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain as wormholeSdk.ChainId,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: foreignRecipientAddress,
+                        },
+                    );
+
+                    await expectIxErr(
+                        connection,
+                        [ix],
+                        [payer, preparedOrder],
+                        "ExceedsMaxRelayingFee",
+                    );
+                });
+
+                it("Cannot Initiate Transfer (Relaying Disabled)", async function () {
+                    const amountIn = 6900000000n;
+                    const gasDropoff = 100000;
+                    const maxRelayerFee = 9999999999999;
+
+                    // Update the relay parameters to disable relaying.
+                    await updateRelayParamsForTest(
+                        swapLayer,
+                        foreignChain,
+                        {
+                            ...relayParamsForTest,
+                            baseFee: U32_MAX,
+                        },
+                        feeUpdater,
+                    );
+
+                    const preparedOrder = Keypair.generate();
+
+                    // Pass the payer key as the prepared order.
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain as wormholeSdk.ChainId,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: foreignRecipientAddress,
+                        },
+                    );
+
+                    await expectIxErr(connection, [ix], [payer, preparedOrder], "RelayingDisabled");
+
+                    // Set the relay parameters back to the original.
+                    await updateRelayParamsForTest(
+                        swapLayer,
+                        foreignChain,
+                        relayParamsForTest,
+                        feeUpdater,
+                    );
+                });
+
+                it("Cannot Initiate Transfer (Invalid Gas Dropoff)", async function () {
+                    const amountIn = 6900000000n;
+                    const maxRelayerFee = 9999999999999;
+
+                    // Set the gas dropoff to a value larger than the max.
+                    const gasDropoff = relayParamsForTest.maxGasDropoff + 1;
+
+                    const preparedOrder = Keypair.generate();
+
+                    // Pass the payer key as the prepared order.
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain as wormholeSdk.ChainId,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: foreignRecipientAddress,
+                        },
+                    );
+
+                    await expectIxErr(
+                        connection,
+                        [ix],
+                        [payer, preparedOrder],
+                        "InvalidGasDropoff",
+                    );
+                });
+
                 it("Initiate Transfer With Gas Dropoff", async function () {
                     const amountIn = 6900000000n;
                     const gasDropoff = 100000;
@@ -1147,11 +1346,6 @@ describe("Swap Layer", () => {
                         {
                             payer: payer.publicKey,
                             preparedOrder: preparedOrder.publicKey,
-                            tokenRouterCustodian: tokenRouter.custodianAddress(),
-                            tokenRouterProgram: tokenRouter.ID,
-                            preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(
-                                preparedOrder.publicKey,
-                            ),
                         },
                         {
                             amountIn: new BN(amountIn.toString()),
@@ -1242,11 +1436,6 @@ describe("Swap Layer", () => {
                         {
                             payer: payer.publicKey,
                             preparedOrder: preparedOrder.publicKey,
-                            tokenRouterCustodian: tokenRouter.custodianAddress(),
-                            tokenRouterProgram: tokenRouter.ID,
-                            preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(
-                                preparedOrder.publicKey,
-                            ),
                         },
                         {
                             amountIn: new BN(amountIn.toString()),
@@ -1338,9 +1527,6 @@ describe("Swap Layer", () => {
                             payer: payer.publicKey,
                             beneficiary: beneficiary.publicKey,
                             preparedFill,
-                            tokenRouterCustody:
-                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                            tokenRouterProgram: tokenRouter.ID,
                             recipient: payer.publicKey,
                         },
                         foreignChain,
@@ -1400,9 +1586,6 @@ describe("Swap Layer", () => {
                             payer: payer.publicKey,
                             beneficiary: beneficiary.publicKey,
                             preparedFill,
-                            tokenRouterCustody:
-                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                            tokenRouterProgram: tokenRouter.ID,
                             recipient: recipient.publicKey,
                         },
                         foreignChain,
@@ -1464,9 +1647,6 @@ describe("Swap Layer", () => {
                             payer: payer.publicKey,
                             beneficiary: beneficiary.publicKey,
                             preparedFill,
-                            tokenRouterCustody:
-                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                            tokenRouterProgram: tokenRouter.ID,
                             recipient: recipient.publicKey,
                         },
                         foreignChain,
@@ -1514,11 +1694,6 @@ describe("Swap Layer", () => {
                         {
                             payer: payer.publicKey,
                             preparedOrder: preparedOrder.publicKey,
-                            tokenRouterCustodian: tokenRouter.custodianAddress(),
-                            tokenRouterProgram: tokenRouter.ID,
-                            preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(
-                                preparedOrder.publicKey,
-                            ),
                         },
                         {
                             amountIn: new BN(amountIn.toString()),
@@ -1605,9 +1780,6 @@ describe("Swap Layer", () => {
                             payer: payer.publicKey,
                             beneficiary: beneficiary.publicKey,
                             preparedFill,
-                            tokenRouterCustody:
-                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                            tokenRouterProgram: tokenRouter.ID,
                             recipient: recipient.publicKey,
                         },
                         foreignChain,
@@ -1653,9 +1825,6 @@ describe("Swap Layer", () => {
                             payer: payer.publicKey,
                             beneficiary: beneficiary.publicKey,
                             preparedFill,
-                            tokenRouterCustody:
-                                tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                            tokenRouterProgram: tokenRouter.ID,
                         },
                         foreignChain,
                     );
@@ -1763,8 +1932,9 @@ async function createAndRedeemCctpFillForTest(
         units: 300_000,
     });
 
-    const { value: lookupTableAccount } =
-        await connection.getAddressLookupTable(tokenRouterLkupTable);
+    const { value: lookupTableAccount } = await connection.getAddressLookupTable(
+        tokenRouterLkupTable,
+    );
 
     await expectIxOk(connection, [computeIx, ix], [payer], {
         addressLookupTableAccounts: [lookupTableAccount!],
@@ -1880,4 +2050,23 @@ function encodeRelayUsdcTransfer(
     buf.writeUInt8(0, 44);
 
     return buf;
+}
+
+async function updateRelayParamsForTest(
+    swapLayer: SwapLayerProgram,
+    foreignChain: wormholeSdk.ChainId,
+    relayParams: RelayParams,
+    feeUpdater: Keypair,
+) {
+    const ix = await swapLayer.updateRelayParamsIx(
+        {
+            feeUpdater: feeUpdater.publicKey,
+        },
+        {
+            chain: foreignChain,
+            relayParams,
+        },
+    );
+
+    await expectIxOk(swapLayer.program.provider.connection, [ix], [feeUpdater]);
 }
