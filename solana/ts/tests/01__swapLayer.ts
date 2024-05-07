@@ -21,6 +21,9 @@ import {
     RelayParams,
     UpdateRelayParametersArgs,
     AddPeerArgs,
+    calculateRelayerFee,
+    SwapType,
+    denormalizeGasDropOff,
 } from "../src/swapLayer";
 import { use as chaiUse, expect } from "chai";
 import * as matchingEngineSdk from "../../../lib/example-liquidity-layer/solana/ts/src/matchingEngine";
@@ -1118,8 +1121,16 @@ describe("Swap Layer", () => {
                     const amountIn = 6900000000n;
                     const gasDropoff = 100000;
                     const maxRelayerFee = 9999999999999;
-                    // TODO: calculate this in the test.
-                    const expectedRelayerFee = 212110n;
+
+                    // Fetch peer data.
+                    const peer = await swapLayer.fetchPeer(foreignChain);
+
+                    const expectedRelayerFee = calculateRelayerFee(
+                        peer.relayParams,
+                        denormalizeGasDropOff(gasDropoff),
+                        { none: {} },
+                        0,
+                    );
 
                     // Balance check.
                     const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
@@ -1205,8 +1216,16 @@ describe("Swap Layer", () => {
                     const amountIn = 6900000000n;
                     const gasDropoff = 0;
                     const maxRelayerFee = 9999999999999;
-                    // TODO: calculate this in the test.
-                    const expectedRelayerFee = 110100n;
+
+                    // Fetch peer data.
+                    const peer = await swapLayer.fetchPeer(foreignChain);
+
+                    const expectedRelayerFee = calculateRelayerFee(
+                        peer.relayParams,
+                        denormalizeGasDropOff(gasDropoff),
+                        { none: {} },
+                        0,
+                    );
 
                     // Balance check.
                     const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
