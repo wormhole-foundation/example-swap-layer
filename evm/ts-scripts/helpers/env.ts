@@ -430,3 +430,14 @@ export const loadTestSendConfig = (): TestSendConfig => {
   const config = JSON.parse(configFile.toString());
   return config;
 };
+
+export const loadFastSendConfig = (): TestSendConfig => {
+  const configFile = fs.readFileSync(
+    `./ts-scripts/config/${env}/scriptConfigs/testFastSend.json`
+  );
+  if (!configFile) {
+    throw Error("Failed to find config file for this process!");
+  }
+  const config = JSON.parse(configFile.toString());
+  return config;
+};
