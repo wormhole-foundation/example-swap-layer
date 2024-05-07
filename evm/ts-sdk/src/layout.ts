@@ -5,7 +5,6 @@ import {
   NamedLayoutItem,
   UintLayoutItem,
   ManualSizePureBytes,
-  LayoutToType,
   zip
 } from "@wormhole-foundation/sdk-base";
 import { layoutItems } from "@wormhole-foundation/sdk-definitions"
@@ -326,8 +325,6 @@ const relayingFeeQueryLayout = [
   { name: "swapType",    ...enumItem(swapTypes)     },
 ] as const satisfies Layout;
 
-type RelayingFeeQuery = LayoutToType<typeof relayingFeeQueryLayout>;
-
 export const queryLayout = {
   binary: "switch",
   idSize: 1,
@@ -366,12 +363,12 @@ export const feeParamUpdateItem = {
   idSize: 1,
   idTag: "param",
   layouts: [
-    [[0, "GasPrice"],                [{ name: "value", ...timestampedGasPriceItem }]],
-    [[1, "GasTokenPrice"],           [{ name: "value", ...gasTokenPriceItem       }]],
-    [[2, "BaseFee"],                 [{ name: "value", ...baseFeeItem             }]],
-    [[3, "GasPriceMargin"],          [{ name: "value", ...percentageItem          }]],
-    [[4, "GasDropoffMargin"],        [{ name: "value", ...percentageItem          }]],
-    [[5, "MaxGasDropoff"],           [{ name: "value", ...gasDropoffItem          }]],
+    [[0, "GasPrice"        ], [{ name: "value", ...timestampedGasPriceItem }]],
+    [[1, "GasTokenPrice"   ], [{ name: "value", ...gasTokenPriceItem       }]],
+    [[2, "BaseFee"         ], [{ name: "value", ...baseFeeItem             }]],
+    [[3, "GasPriceMargin"  ], [{ name: "value", ...percentageItem          }]],
+    [[4, "GasDropoffMargin"], [{ name: "value", ...percentageItem          }]],
+    [[5, "MaxGasDropoff"   ], [{ name: "value", ...gasDropoffItem          }]],
   ],
 } as const satisfies LayoutItem;
 
