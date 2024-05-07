@@ -105,12 +105,13 @@ const gasTokenPriceItem = { binary: "uint", size: 8 } as const satisfies UintLay
 //this layout reflects the FeeParams type in SwapLayerRelayingFees.sol which uses a packed layout
 //  to fit into a single storage slot
 export const feeParamsLayout = [
-  { name: "baseFee",                 ...baseFeeItem       },
-  { name: "gasPrice",                ...gasPriceItem      },
-  { name: "gasPriceMargin",          ...percentageItem    },
-  { name: "maxGasDropoff",           ...gasDropoffItem    },
-  { name: "gasDropoffMargin",        ...percentageItem    },
+  { name: "unused", binary: "uint", size: 8, custom: BigInt(0), omit: true },
   { name: "gasTokenPrice",           ...gasTokenPriceItem },
+  { name: "gasDropoffMargin",        ...percentageItem    },
+  { name: "maxGasDropoff",           ...gasDropoffItem    },
+  { name: "gasPriceMargin",          ...percentageItem    },
+  { name: "gasPrice",                ...gasPriceItem      },
+  { name: "baseFee",                 ...baseFeeItem       },
 ] as const satisfies Layout;
 
 // ---- initiate params ----
@@ -189,7 +190,7 @@ const swapItem = {
     { name: "type", binary: "switch", idSize: 1, layouts: [
       [[1, "UniswapV3"], sharedUniswapTraderJoeLayout],
       [[2, "TraderJoe"], sharedUniswapTraderJoeLayout],
-      [[16, "GenericSolana"], [/* TODO */]]
+      [[16, "GenericSolana"], []]
     ]},
   ]
 } as const satisfies NamedLayoutItem;
@@ -201,17 +202,17 @@ const inputTokenItem = {
   idTag: "type",
   layouts: [
     [[0, "Usdc"], [
-      acquireModeItem,
       { name: "amount", ...amountItem },
+      acquireModeItem,
     ]],
     [[1, "Gas"], [
       swapItem
     ]],
     [[2, "Other"], [
-      acquireModeItem,
       { name: "approveCheck", ...boolItem       },
       { name: "address",      ...evmAddressItem },
       { name: "amount",       ...amountItem     },
+      acquireModeItem,
       swapItem,
     ]],
   ]

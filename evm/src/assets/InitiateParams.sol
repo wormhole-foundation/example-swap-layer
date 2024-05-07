@@ -93,15 +93,15 @@ uint constant PERMIT2_PERMIT_SIZE =
 // 1 byte   isExactIn
 // 1 byte   input token type
 //  0: USDC
-//    acquire layout
 //   16 bytes  input amount
+//    acquire layout
 //  1: GAS
 //    swap layout
 //  2: ERC20
-//    acquire layout
 //    1 byte   approveCheck
 //   20 bytes  token address
 //   16 bytes  input amount
+//    acquire layout
 //    swap layout
 //
 // 1 byte   output token type
@@ -179,8 +179,8 @@ function parseParamBaseStructure(
     }
     else {
       if (inputTokenType == IoToken.Other) {
+        offset += BOOL_SIZE + ADDRESS_SIZE + SWAP_PARAM_AMOUNT_SIZE;
         offset = skipAcquire(params, offset);
-        offset += ADDRESS_SIZE + SWAP_PARAM_AMOUNT_SIZE + BOOL_SIZE;
       }
       (,, offset) = parseSwapTypeAndCountAndSkipParams(params, offset);
     }

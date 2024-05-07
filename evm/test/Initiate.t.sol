@@ -21,14 +21,14 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     _dealOverride(address(usdc), user, amount);
     vm.startPrank(user);
     usdc.approve(address(swapLayer), amount);
-    (uint amountOut, , ) = _swapLayerInitiate(InitiateUsdc(
-      TargetParams(
+    (uint amountOut, , ) = _swapLayerInitiate(InitiateUsdc({
+      targetParams: TargetParams(
         FOREIGN_CHAIN_ID,
         user.toUniversalAddress()
       ),
-      amount,
-      _swapLayerEncodeOutputParamsUsdc()
-    ));
+      amount: amount,
+      outputParams: _swapLayerEncodeOutputParamsUsdc()
+    }));
     assertEq(amount, amountOut);
   }
 

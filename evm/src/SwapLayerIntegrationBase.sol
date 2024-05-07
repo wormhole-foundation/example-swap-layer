@@ -13,6 +13,7 @@ import {QueryType, ImmutableType} from "./assets/SwapLayerQuery.sol";
 import {TransferMode, RedeemMode, IoToken, AcquireMode} from "./assets/InitiateParams.sol";
 import {AttestationType} from "./assets/SwapLayerRedeem.sol";
 
+//written in a way to avoid memory allocations as much as possible, hence some repetitive passages
 abstract contract SwapLayerIntegrationBase {
   using BytesParsing for bytes;
   using { toUniversalAddress } for address;
@@ -183,9 +184,8 @@ abstract contract SwapLayerIntegrationBase {
         uint8(TransferMode.LiquidityLayer),
         uint8(RedeemMode.Direct),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(),
-        params.inputToken,
-        _encodeAmount(params.amount),
+        _encodeTokenIn(params.inputToken),
+        _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
       )
@@ -282,9 +282,8 @@ abstract contract SwapLayerIntegrationBase {
         uint8(TransferMode.LiquidityLayer),
         _encodeRelayParams(params.relayParams),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(),
-        params.inputToken,
-        _encodeAmount(params.amount),
+        _encodeTokenIn(params.inputToken),
+        _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
       )
@@ -365,9 +364,8 @@ abstract contract SwapLayerIntegrationBase {
         uint8(TransferMode.LiquidityLayer),
         _encodePayloadParams(params.payload),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(),
-        params.inputToken,
-        _encodeAmount(params.amount),
+        _encodeTokenIn(params.inputToken),
+        _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
       )
@@ -468,9 +466,8 @@ abstract contract SwapLayerIntegrationBase {
         _encodeFastTransferParams(params.fastTransferParams),
         uint8(RedeemMode.Direct),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(),
-        params.inputToken,
-        _encodeAmount(params.amount),
+        _encodeTokenIn(params.inputToken),
+        _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
       )
@@ -570,9 +567,8 @@ abstract contract SwapLayerIntegrationBase {
         _encodeFastTransferParams(params.fastTransferParams),
         _encodeRelayParams(params.relayParams),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(),
-        params.inputToken,
-        _encodeAmount(params.amount),
+        _encodeTokenIn(params.inputToken),
+        _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
       )
@@ -672,9 +668,8 @@ abstract contract SwapLayerIntegrationBase {
         _encodeFastTransferParams(params.fastTransferParams),
         _encodePayloadParams(params.payload),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(),
-        params.inputToken,
-        _encodeAmount(params.amount),
+        _encodeTokenIn(params.inputToken),
+        _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
       )
@@ -820,9 +815,9 @@ abstract contract SwapLayerIntegrationBase {
     _checkMax(params.auctionDeadline, type(uint32).max);
 
     return uint88(((
-      uint(TransferMode.LiquidityLayerFast) << 48) +
-      params.maxFastFeeUsdc << 32) +
-      params.auctionDeadline
+      uint(TransferMode.LiquidityLayerFast)
+      << 48) + params.maxFastFeeUsdc
+      << 32) + params.auctionDeadline
     );
   }
 
@@ -830,9 +825,9 @@ abstract contract SwapLayerIntegrationBase {
     _checkMax(params.maxRelayerFeeUsdc, type(uint48).max);
 
     return uint88(((
-      uint(RedeemMode.Relay) << 32) +
-      uint(GasDropoff.unwrap(GasDropoffLib.to(params.gasDropoffWei))) << 48) +
-      params.maxRelayerFeeUsdc
+      uint(RedeemMode.Relay)
+      << 32) + uint(GasDropoff.unwrap(GasDropoffLib.to(params.gasDropoffWei)))
+      << 48) + params.maxRelayerFeeUsdc
     );
   }
 
@@ -843,19 +838,19 @@ abstract contract SwapLayerIntegrationBase {
   }
 
   function _encodeUsdcIn(uint amount) private pure returns (uint144) {
-    return uint144(((
-      uint(IoToken.Usdc) << 128) +
-      _encodeAmount(amount) << 8) +
-      uint(AcquireMode.Preapproved)
+    return uint144((uint(IoToken.Usdc) << 136) + uint(_encodeAmountPreapproved(amount)));
+  }
+
+  function _encodeTokenIn(address inputToken) private pure returns (uint16) {
+    return uint16(((
+      uint(IoToken.Other)
+      <<   8) +  _encodeBool(true) //approveCheck
+      << 160) + uint(uint160(inputToken))
     );
   }
 
-  function _encodeTokenIn() private pure returns (uint24) {
-    return uint24(((
-      uint(IoToken.Other) << 8) +
-      uint(AcquireMode.Preapproved) << 8) +
-      _encodeBool(true) //approveCheck
-    );
+  function _encodeAmountPreapproved(uint amount) private pure returns (uint136) {
+    return uint136((_encodeAmount(amount) << 8) + uint(AcquireMode.Preapproved));
   }
 
   function _encodeSwapParams(

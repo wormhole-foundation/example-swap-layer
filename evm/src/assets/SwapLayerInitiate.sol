@@ -139,10 +139,10 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       }
       else if (inputTokenType == IoToken.Other) {
         wormholeFee = msg.value; //same as above
+        (approveCheck, offset) = params.asBoolUnchecked(offset);
         (inputToken,  offset) = parseIERC20(params, offset);
         (inputAmount, offset) = params.asUint128Unchecked(offset);
         offset = _acquireInputTokens(inputAmount, inputToken, params, offset);
-        (approveCheck, offset) = params.asBoolUnchecked(offset);
       }
       else
         _assertExhaustive();
