@@ -44,6 +44,11 @@ ifndef SKIP_SUBMODULE_BUILD
 endif
 	anchor test -- --features integration-test
 
+.PHONY: anchor-build-idl
+anchor-build-idl:
+	anchor build -- --features localnet
+#	git diff --exit-code
+
 .PHONY: cargo-test-all
 cargo-test-all:
 	NETWORK=localnet $(MAKE) cargo-test
