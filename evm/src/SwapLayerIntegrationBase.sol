@@ -2,16 +2,38 @@
 
 pragma solidity ^0.8.24;
 
-import "wormhole-sdk/libraries/BytesParsing.sol";
-import "wormhole-sdk/interfaces/IWormhole.sol";
+import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
+import { IWormhole } from "wormhole-sdk/interfaces/IWormhole.sol";
 import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 
-import "./ISwapLayer.sol";
-import "./assets/FeeParams.sol";
-import "./assets/Message.sol";
-import {QueryType, ImmutableType} from "./assets/SwapLayerQuery.sol";
-import {TransferMode, RedeemMode, IoToken, AcquireMode} from "./assets/InitiateParams.sol";
-import {AttestationType} from "./assets/SwapLayerRedeem.sol";
+import {
+  BOOL_SIZE,
+  ADDRESS_SIZE,
+  MODE_SIZE,
+  SWAP_PARAM_AMOUNT_SIZE,
+  SWAP_PARAM_DEADLINE_SIZE,
+  SHARED_POOL_ID_SIZE,
+  SHARED_PATH_ELEMENT_SIZE,
+  SWAP_TYPE_TRADERJOE,
+  SWAP_TYPE_UNISWAPV3,
+  SWAP_TYPE_GENERIC_SOLANA
+} from "./assets/Params.sol";
+import { GasDropoff, GasDropoffLib } from "./assets/GasDropoff.sol";
+import { FeeParams } from "./assets/FeeParams.sol";
+//import "./assets/Message.sol";
+import { QueryType, ImmutableType } from "./assets/SwapLayerQuery.sol";
+import {
+  FAST_TRANSFER_MAX_FEE_SIZE,
+  FAST_TRANSFER_DEADLINE_SIZE,
+  RELAY_GAS_DROPOFF_SIZE,
+  RELAY_MAX_RELAYER_FEE_SIZE,
+  TransferMode,
+  RedeemMode,
+  IoToken,
+  AcquireMode
+} from "./assets/InitiateParams.sol";
+import { AttestationType } from "./assets/SwapLayerRedeem.sol";
+import { ISwapLayer } from "./ISwapLayer.sol";
 
 //written in a way to avoid memory allocations as much as possible, hence some repetitive passages
 abstract contract SwapLayerIntegrationBase {
@@ -427,7 +449,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 fastSequence
   ) {
     return _initiateFast(
-      2*_wormholeMsgFee(),
+      2 * _wormholeMsgFee(),
       params.targetParams.chainId,
       params.targetParams.recipient,
       abi.encodePacked(
@@ -459,7 +481,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 fastSequence
   ) {
     return _initiateFast(
-      2*_wormholeMsgFee(),
+      2 * _wormholeMsgFee(),
       params.targetParams.chainId,
       params.targetParams.recipient,
       abi.encodePacked(
@@ -527,7 +549,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 fastSequence
   ) {
     return _initiateFast(
-      2*_wormholeMsgFee(),
+      2 * _wormholeMsgFee(),
       params.targetParams.chainId,
       params.targetParams.recipient,
       abi.encodePacked(
@@ -560,7 +582,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 fastSequence
   ) {
     return _initiateFast(
-      2*_wormholeMsgFee(),
+      2 * _wormholeMsgFee(),
       params.targetParams.chainId,
       params.targetParams.recipient,
       abi.encodePacked(
@@ -628,7 +650,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 fastSequence
   ) {
     return _initiateFast(
-      2*_wormholeMsgFee(),
+      2 * _wormholeMsgFee(),
       params.targetParams.chainId,
       params.targetParams.recipient,
       abi.encodePacked(
@@ -661,7 +683,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 fastSequence
   ) {
     return _initiateFast(
-      2*_wormholeMsgFee(),
+      2 * _wormholeMsgFee(),
       params.targetParams.chainId,
       params.targetParams.recipient,
       abi.encodePacked(
@@ -816,18 +838,19 @@ abstract contract SwapLayerIntegrationBase {
 
     return uint88(((
       uint(TransferMode.LiquidityLayerFast)
-      << 48) + params.maxFastFeeUsdc
-      << 32) + params.auctionDeadline
+      <<  FAST_TRANSFER_MAX_FEE_SIZE * 8) + params.maxFastFeeUsdc
+      << FAST_TRANSFER_DEADLINE_SIZE * 8) + params.auctionDeadline
     );
   }
 
   function _encodeRelayParams(RelayParams memory params) private pure returns (uint88) {
     _checkMax(params.maxRelayerFeeUsdc, type(uint48).max);
 
+    uint gasDropoff = uint(GasDropoff.unwrap(GasDropoffLib.to(params.gasDropoffWei)));
     return uint88(((
       uint(RedeemMode.Relay)
-      << 32) + uint(GasDropoff.unwrap(GasDropoffLib.to(params.gasDropoffWei)))
-      << 48) + params.maxRelayerFeeUsdc
+      <<     RELAY_GAS_DROPOFF_SIZE * 8) + gasDropoff
+      << RELAY_MAX_RELAYER_FEE_SIZE * 8) + params.maxRelayerFeeUsdc
     );
   }
 
@@ -838,19 +861,25 @@ abstract contract SwapLayerIntegrationBase {
   }
 
   function _encodeUsdcIn(uint amount) private pure returns (uint144) {
-    return uint144((uint(IoToken.Usdc) << 136) + uint(_encodeAmountPreapproved(amount)));
+    return uint144((
+      uint(IoToken.Usdc)
+      << (SWAP_PARAM_AMOUNT_SIZE + MODE_SIZE) * 8) + uint(_encodeAmountPreapproved(amount))
+    );
   }
 
   function _encodeTokenIn(address inputToken) private pure returns (uint16) {
     return uint16(((
       uint(IoToken.Other)
-      <<   8) +  _encodeBool(true) //approveCheck
-      << 160) + uint(uint160(inputToken))
+      <<    BOOL_SIZE * 8) + _encodeBool(true) //approveCheck
+      << ADDRESS_SIZE * 8) + uint(uint160(inputToken))
     );
   }
 
   function _encodeAmountPreapproved(uint amount) private pure returns (uint136) {
-    return uint136((_encodeAmount(amount) << 8) + uint(AcquireMode.Preapproved));
+    return uint136((
+      _encodeAmount(amount)
+      << MODE_SIZE * 8) + uint(AcquireMode.Preapproved)
+    );
   }
 
   function _encodeSwapParams(
@@ -886,7 +915,7 @@ abstract contract SwapLayerIntegrationBase {
     uint limitAmount
   ) private pure returns (uint160) {
     _checkMax(swapDeadline, type(uint32).max);
-    return uint160((swapDeadline << 128) + _encodeAmount(limitAmount));
+    return uint160((swapDeadline << SWAP_PARAM_AMOUNT_SIZE * 8) + _encodeAmount(limitAmount));
   }
 
   function _swapPathStartOffset(
