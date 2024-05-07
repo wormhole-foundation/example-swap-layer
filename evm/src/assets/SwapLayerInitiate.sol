@@ -31,11 +31,11 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     checkAddr(targetChain, recipient);
     ModesOffsetsSizes memory mos = parseParamBaseStructure(targetChain, params);
 
-    uint64 fastTransferFee = 0;
+    uint64 maxFastFee = 0;
     uint32 fastTransferDeadline = 0;
     if (mos.transfer.mode == TransferMode.LiquidityLayerFast) {
       uint offset = mos.transfer.offset;
-      (fastTransferFee, offset) = params.asUint64Unchecked(offset);
+      (maxFastFee, offset   ) = params.asUint48Unchecked(offset);
       (fastTransferDeadline,) = params.asUint32Unchecked(offset);
     }
 
@@ -62,7 +62,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       (redeemPayload, ) = params.slice(mos.redeem.offset - MODE_SIZE, mos.redeem.size + MODE_SIZE);
 
     (uint64 usdcAmount, uint wormholeFee) =
-      _acquireUsdc(uint(fastTransferFee) + relayingFee, mos, params);
+      _acquireUsdc(uint(maxFastFee) + relayingFee, mos, params);
 
     bytes32 peer = _getPeer(targetChain);
     if (peer == bytes32(0))
@@ -82,7 +82,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
           targetChain,
           peer,
           swapMessage,
-          fastTransferFee,
+          maxFastFee,
           fastTransferDeadline
         );
 
