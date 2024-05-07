@@ -1,4 +1,5 @@
 export * from "./state";
+export * from "./relayerFees";
 
 import { Connection, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { BN, Program } from "@coral-xyz/anchor";
