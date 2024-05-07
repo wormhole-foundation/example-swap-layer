@@ -1,50 +1,50 @@
-import * as anchor from "@coral-xyz/anchor";
-import * as splToken from "@solana/spl-token";
 import * as wormholeSdk from "@certusone/wormhole-sdk";
+import { BN } from "@coral-xyz/anchor";
+import * as splToken from "@solana/spl-token";
 import {
     AddressLookupTableProgram,
+    ComputeBudgetProgram,
     Connection,
     Keypair,
     PublicKey,
     SystemProgram,
-    ComputeBudgetProgram,
     TransactionInstruction,
 } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
-import { expectIxOk, expectIxErr, getUsdcAtaBalance, hackedExpectDeepEqual } from "./helpers";
-import { FEE_UPDATER_KEYPAIR } from "./helpers";
-import {
-    SwapLayerProgram,
-    localnet,
-    Custodian,
-    Peer,
-    RelayParams,
-    UpdateRelayParametersArgs,
-    AddPeerArgs,
-    calculateRelayerFee,
-    SwapType,
-    denormalizeGasDropOff,
-} from "../src/swapLayer";
 import { use as chaiUse, expect } from "chai";
-import * as matchingEngineSdk from "../../../lib/example-liquidity-layer/solana/ts/src/matchingEngine";
-import * as tokenRouterSdk from "../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
+import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solana/ts/src/cctp";
 import {
     LiquidityLayerDeposit,
     LiquidityLayerMessage,
 } from "../../../lib/example-liquidity-layer/solana/ts/src/common";
-import {
-    postLiquidityLayerVaa,
-    LOCALHOST,
-    PAYER_KEYPAIR,
-    OWNER_KEYPAIR,
-    OWNER_ASSISTANT_KEYPAIR,
-    USDC_MINT_ADDRESS,
-    ETHEREUM_USDC_ADDRESS,
-    MOCK_GUARDIANS,
-    CircleAttester,
-} from "../../../lib/example-liquidity-layer/solana/ts/tests/helpers";
+import * as matchingEngineSdk from "../../../lib/example-liquidity-layer/solana/ts/src/matchingEngine";
+import * as tokenRouterSdk from "../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
 import { VaaAccount } from "../../../lib/example-liquidity-layer/solana/ts/src/wormhole";
-import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solana/ts/src/cctp";
+import {
+    CircleAttester,
+    ETHEREUM_USDC_ADDRESS,
+    LOCALHOST,
+    MOCK_GUARDIANS,
+    OWNER_ASSISTANT_KEYPAIR,
+    OWNER_KEYPAIR,
+    PAYER_KEYPAIR,
+    USDC_MINT_ADDRESS,
+    expectIxErr,
+    expectIxOk,
+    getUsdcAtaBalance,
+    postLiquidityLayerVaa,
+} from "../../../lib/example-liquidity-layer/solana/ts/tests/helpers";
+import {
+    AddPeerArgs,
+    Custodian,
+    Peer,
+    RelayParams,
+    SwapLayerProgram,
+    UpdateRelayParametersArgs,
+    calculateRelayerFee,
+    denormalizeGasDropOff,
+    localnet,
+} from "../src/swapLayer";
+import { FEE_UPDATER_KEYPAIR, hackedExpectDeepEqual } from "./helpers";
 
 chaiUse(require("chai-as-promised"));
 
@@ -1325,8 +1325,7 @@ describe("Swap Layer", () => {
                     );
                     const { vaa, message } = result!;
 
-                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
                     const beneficiary = Keypair.generate();
 
                     // Balance check.
@@ -1384,8 +1383,7 @@ describe("Swap Layer", () => {
                     );
                     const { vaa, message } = result!;
 
-                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
                     const beneficiary = Keypair.generate();
 
                     // Balance check.
@@ -1449,8 +1447,7 @@ describe("Swap Layer", () => {
                     );
                     const { vaa, message } = result!;
 
-                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
                     const beneficiary = Keypair.generate();
 
                     // Balance check.
@@ -1593,8 +1590,7 @@ describe("Swap Layer", () => {
                     );
                     const { vaa, message } = result!;
 
-                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
                     const beneficiary = Keypair.generate();
 
                     // Balance check.
@@ -1645,8 +1641,7 @@ describe("Swap Layer", () => {
                     );
                     const { vaa, message } = result!;
 
-                    const vaaAccount = await VaaAccount.fetch(connection, vaa);
-                    const preparedFill = tokenRouter.preparedFillAddress(vaaAccount.digest());
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
                     const beneficiary = Keypair.generate();
 
                     // Balance check.
@@ -1768,9 +1763,8 @@ async function createAndRedeemCctpFillForTest(
         units: 300_000,
     });
 
-    const { value: lookupTableAccount } = await connection.getAddressLookupTable(
-        tokenRouterLkupTable,
-    );
+    const { value: lookupTableAccount } =
+        await connection.getAddressLookupTable(tokenRouterLkupTable);
 
     await expectIxOk(connection, [computeIx, ix], [payer], {
         addressLookupTableAccounts: [lookupTableAccount!],
