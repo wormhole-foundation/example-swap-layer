@@ -105,14 +105,14 @@ const gasTokenPriceItem = { binary: "uint", size: 10 } as const satisfies UintLa
 //this layout reflects the FeeParams type in SwapLayerRelayingFees.sol which uses a packed layout
 //  to fit into a single storage slot
 export const feeParamsLayout = [
-  { name: "baseFee",                 ...baseFeeItem       },
-  { name: "gasPrice",                ...gasPriceItem      },
-  { name: "gasPriceMargin",          ...percentageItem    },
-  { name: "gasPriceTimestamp",       ...timestampItem     },
-  { name: "gasPriceUpdateThreshold", ...percentageItem    },
-  { name: "maxGasDropoff",           ...gasDropoffItem    },
-  { name: "gasDropoffMargin",        ...percentageItem    },
   { name: "gasTokenPrice",           ...gasTokenPriceItem },
+  { name: "gasDropoffMargin",        ...percentageItem    },
+  { name: "maxGasDropoff",           ...gasDropoffItem    },
+  { name: "gasPriceUpdateThreshold", ...percentageItem    },
+  { name: "gasPriceTimestamp",       ...timestampItem     },
+  { name: "gasPriceMargin",          ...percentageItem    },
+  { name: "gasPrice",                ...gasPriceItem      },
+  { name: "baseFee",                 ...baseFeeItem       },
 ] as const satisfies Layout;
 
 // ---- initiate params ----
@@ -203,8 +203,8 @@ const inputTokenItem = {
   idTag: "type",
   layouts: [
     [[0, "Usdc"], [
-      acquireModeItem,
       { name: "amount", ...amountItem },
+      acquireModeItem
     ]],
     [[1, "Gas"], [
       swapItem

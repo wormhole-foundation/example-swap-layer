@@ -5,7 +5,7 @@
   "sendGas": false,
   "sendToken": false,
   "tokenAddress": "",
-  "sendAmount": "1000000",
+  "sendAmount": "10000000",
   "limit": "0",
   "deadline": "0",
   "firstLegFee": "3000"

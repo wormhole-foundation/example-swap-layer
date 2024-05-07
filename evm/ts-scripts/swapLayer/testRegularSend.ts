@@ -90,17 +90,18 @@ function createInitiateArgs(config: TestSendConfig): InitiateArgs {
       acquireMode: {
         mode: "Preapproved",
       },
-      // swap: {
-      //   deadline: parseInt(config.deadline),
-      //   limitAmount: BigInt(config.limit),
-      //   //amount: BigInt(config.sendAmount),
-      //   type: {
-      //     id: "UniswapV3",
-      //     legFirstFee: parseInt(config.firstLegFee),
-      //     path: [],
-      //   },
-      // },
     },
+
+    // swap: {
+    //   deadline: parseInt(config.deadline),
+    //   limitAmount: BigInt(config.limit),
+    //   //amount: BigInt(config.sendAmount),
+    //   type: {
+    //     id: "UniswapV3",
+    //     legFirstFee: parseInt(config.firstLegFee),
+    //     path: [],
+    //   },
+    // },
   };
 
   return output;
