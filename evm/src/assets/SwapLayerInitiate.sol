@@ -43,7 +43,16 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     bytes memory redeemPayload;
     if (mos.redeem.mode == RedeemMode.Relay) {
       (GasDropoff gasDropoff, uint maxRelayingFee, ) = parseRelayParams(params, mos.redeem.offset);
-      relayingFee = _calcRelayingFee(targetChain, gasDropoff, params, mos.output);
+      uint swapCount = 0;
+      uint swapType; //unused if swapCount is 0
+      if (mos.output.mode != IoToken.Usdc) {
+        uint offset = mos.output.offset;
+        if (mos.output.mode == IoToken.Other)
+          offset += UNIVERSAL_ADDRESS_SIZE;
+
+        (swapType, swapCount, ) = parseSwapTypeAndCountAndSkipParams(params, offset);
+      }
+      relayingFee = _calcRelayingFee(targetChain, gasDropoff, mos.output.mode, swapCount, swapType);
       if (relayingFee > maxRelayingFee)
         revert ExceedsMaxRelayingFee(relayingFee, maxRelayingFee);
 

@@ -20,7 +20,6 @@ import {
 } from "./assets/Params.sol";
 import { GasDropoff, GasDropoffLib } from "./assets/GasDropoff.sol";
 import { FeeParams } from "./assets/FeeParams.sol";
-//import "./assets/Message.sol";
 import { QueryType, ImmutableType } from "./assets/SwapLayerQuery.sol";
 import {
   FAST_TRANSFER_MAX_FEE_SIZE,
@@ -877,7 +876,7 @@ abstract contract SwapLayerIntegrationBase {
 
   function _encodeAmountPreapproved(uint amount) private pure returns (uint136) {
     return uint136((
-      _encodeAmount(amount)
+      uint(_encodeAmount(amount))
       << MODE_SIZE * 8) + uint(AcquireMode.Preapproved)
     );
   }

@@ -4,10 +4,44 @@ import {
   LayoutItem,
   NamedLayoutItem,
   UintLayoutItem,
-  FixedSizeBytesLayoutItem,
+  ManualSizePureBytes,
+  LayoutToType,
+  zip
 } from "@wormhole-foundation/sdk-base";
 import { layoutItems } from "@wormhole-foundation/sdk-definitions"
 import { EvmAddress } from "@wormhole-foundation/connect-sdk-evm";
+
+//TODO this is the shittiest enumItem implementation that I could whip up "quickly":
+type SwitchEntry = readonly [number, string];
+type EntriesToSwitchLayouts<E extends readonly SwitchEntry[]> =
+  E extends readonly [infer Head, ...infer Tail extends readonly SwitchEntry[]]
+    ? [[Head, []], ...EntriesToSwitchLayouts<Tail>]
+    : [];
+
+function entriesToEmptyLayouts<const E extends readonly SwitchEntry[]>(
+  entries: E
+): EntriesToSwitchLayouts<E> {
+  return entries.map(entry => [entry, []] as const) as EntriesToSwitchLayouts<E>;
+}
+
+function enumItem<
+  const E extends readonly SwitchEntry[]
+>(entries: E) {
+  return {
+    binary: "bytes",
+    size: 1,
+    layout: {
+      binary: "switch",
+      idSize: 1,
+      idTag: "name",
+      layouts: entriesToEmptyLayouts(entries),
+    },
+    custom: {
+      to: (encoded: {name: E[number][1]}) => encoded.name,
+      from: (name: E[number][1]) => ({name}),
+    }
+  } as const;
+}
 
 // ---- basic types ----
 
@@ -34,11 +68,11 @@ const evmAddressItem = {
     to: (encoded: Uint8Array): string => new EvmAddress(encoded).toString(),
     from: (addr: string): Uint8Array => new EvmAddress(addr).toUint8Array(),
   } satisfies CustomConversion<Uint8Array, string>,
-} as const satisfies FixedSizeBytesLayoutItem;
+} as const satisfies ManualSizePureBytes;
 
 //TODO from payload/relayer - should be moved to layoutItems
 const addressChainItem = {
-  binary: "object",
+  binary: "bytes",
   layout: [
     { name: "chain", ...layoutItems.chainItem() },
     { name: "address", ...layoutItems.universalAddressItem },
@@ -122,7 +156,7 @@ const transferModeItem = {
   idSize: 1,
   idTag: "mode",
   layouts: [
-    [[0, "LiquidityLayer"], []],
+    [[0, "LiquidityLayer"    ], []],
     [[1, "LiquidityLayerFast"], [
       { name: "maxFee", binary: "uint", size: 6, ...forceBigIntConversion }, //atomic usdc
       { name: "deadline", ...timestampItem }, //according to block timestamp
@@ -136,9 +170,9 @@ const redeemModeItem = {
   idSize: 1,
   idTag: "mode",
   layouts: [
-    [[0, "Direct"], []],
+    [[0, "Direct" ], []],
     [[1, "Payload"], [{ name: "payload", binary: "bytes", lengthSize: 4 }]],
-    [[2, "Relay"], [
+    [[2, "Relay"  ], [
       { name: "gasDropoff", ...gasDropoffItem },
       { name: "maxRelayingFee", binary: "uint", size: 6, ...forceBigIntConversion },
     ]],
@@ -174,48 +208,64 @@ const acquireModeItem = {
 } as const satisfies NamedLayoutItem;
 
 const sharedUniswapTraderJoeLayout = [
-  { name: "legFirstFee", binary: "uint", size: 3 },
+  { name: "firstPoolId", binary: "uint", size: 3 },
   { name: "path", binary: "array", lengthSize: 1, layout: [
     { name: "address", ...evmAddressItem },
-    { name: "fee", binary: "uint", size: 3 },
+    { name: "poolId", binary: "uint", size: 3 },
   ]}
 ] as const satisfies Layout;
 
+const [swapTypes, swapItemLayouts] = [[
+    [1, "UniswapV3"],
+    [2, "TraderJoe"],
+    [16, "GenericSolana"],
+  ], [
+    sharedUniswapTraderJoeLayout,
+    sharedUniswapTraderJoeLayout,
+    [],
+  ]
+] as const;
+
 const swapItem = {
   name: "swap",
-  binary: "object",
+  binary: "bytes",
   layout: [
     { name: "deadline", ...timestampItem },
     { name: "limitAmount", ...amountItem },
-    { name: "type", binary: "switch", idSize: 1, layouts: [
-      [[1, "UniswapV3"], sharedUniswapTraderJoeLayout],
-      [[2, "TraderJoe"], sharedUniswapTraderJoeLayout],
-      [[16, "GenericSolana"], []]
-    ]},
+    { name: "type", binary: "switch", idSize: 1, layouts: zip([swapTypes, swapItemLayouts]) },
   ]
 } as const satisfies NamedLayoutItem;
+
+const [ioTokenTypes, inputTokenLayouts, outputTokenLayouts] = [[
+    [0, "Usdc"],
+    [1, "Gas"],
+    [2, "Other"],
+  ], [
+    [ { name: "amount", ...amountItem },
+      acquireModeItem
+    ],
+    [ swapItem],
+    [ { name: "approveCheck", ...boolItem       },
+      { name: "address",      ...evmAddressItem },
+      { name: "amount",       ...amountItem     },
+      acquireModeItem,
+      swapItem,
+    ]
+  ], [
+    [],
+    [ swapItem ],
+    [{ name: "address", ...layoutItems.universalAddressItem},
+      swapItem,
+    ]
+  ],
+] as const;
 
 const inputTokenItem = {
   name: "inputToken",
   binary: "switch",
   idSize: 1,
   idTag: "type",
-  layouts: [
-    [[0, "Usdc"], [
-      { name: "amount", ...amountItem },
-      acquireModeItem,
-    ]],
-    [[1, "Gas"], [
-      swapItem
-    ]],
-    [[2, "Other"], [
-      { name: "approveCheck", ...boolItem       },
-      { name: "address",      ...evmAddressItem },
-      { name: "amount",       ...amountItem     },
-      acquireModeItem,
-      swapItem,
-    ]],
-  ]
+  layouts: zip([ioTokenTypes, inputTokenLayouts]),
 } as const satisfies NamedLayoutItem;
 
 const outputTokenItem = {
@@ -223,13 +273,7 @@ const outputTokenItem = {
   binary: "switch",
   idSize: 1,
   idTag: "type",
-  layouts: [
-    [[0, "Usdc"],  []],
-    [[1, "Gas"],   [swapItem]],
-    [[2, "Other"], [{ name: "address", ...layoutItems.universalAddressItem},
-                    swapItem,
-                   ]],
-  ]
+  layouts: zip([ioTokenTypes, outputTokenLayouts])
 } as const satisfies NamedLayoutItem;
 
 export const initiateArgsLayout = [
@@ -274,20 +318,31 @@ const immutableTypeItem = {
   }
 } as const satisfies UintLayoutItem;
 
+const relayingFeeQueryLayout = [
+  { name: "chain",       ...layoutItems.chainItem() },
+  { name: "gasDropoff",  ...gasDropoffItem          },
+  { name: "outputToken", ...enumItem(ioTokenTypes)  },
+  { name: "swapCount",    binary: "uint", size: 1   },
+  { name: "swapType",    ...enumItem(swapTypes)     },
+] as const satisfies Layout;
+
+type RelayingFeeQuery = LayoutToType<typeof relayingFeeQueryLayout>;
+
 export const queryLayout = {
   binary: "switch",
   idSize: 1,
   idTag: "query",
   layouts: [
-    [[0, "FeeParams"],            [{ name: "chain", ...layoutItems.chainItem() }]],
-    [[1, "Peer"],                 [{ name: "chain", ...layoutItems.chainItem() }]],
-    [[2, "Immutable"],            [{ name: "immutable", ...immutableTypeItem   }]],
-    [[3, "Owner"],                []],
-    [[4, "PendingOwner"],         []],
-    [[5, "Assistant"],            []],
-    [[6, "FeeUpdater"],           []],
-    [[7, "FeeRecipient"],         []],
-    [[8, "Implementation"],       []],
+    [[0, "FeeParams"     ], [{ name: "chain", ...layoutItems.chainItem() }]],
+    [[1, "RelayingFee"   ], relayingFeeQueryLayout ],
+    [[2, "Peer"          ], [{ name: "chain", ...layoutItems.chainItem() }]],
+    [[3, "Immutable"     ], [{ name: "immutable", ...immutableTypeItem   }]],
+    [[4, "Owner"         ], []],
+    [[5, "PendingOwner"  ], []],
+    [[6, "Assistant"     ], []],
+    [[7, "FeeUpdater"    ], []],
+    [[8, "FeeRecipient"  ], []],
+    [[9, "Implementation"], []],
   ],
 } as const satisfies LayoutItem;
 
@@ -299,7 +354,7 @@ export const queriesBatchLayout = {
 // ---- governance types ----
 
 const timestampedGasPriceItem = {
-  binary: "object",
+  binary: "bytes",
   layout: [
     { name: "gasPriceTimestamp", ...timestampItem },
     { name: "gasPrice",          ...gasPriceItem  },

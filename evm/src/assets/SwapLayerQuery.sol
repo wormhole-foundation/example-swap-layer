@@ -4,6 +4,9 @@ pragma solidity ^0.8.24;
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
 
+import { FeeParams } from "./FeeParams.sol";
+import { GasDropoff } from "./GasDropoff.sol";
+import { IoToken, parseIoToken } from "./Params.sol";
 import { SwapLayerGovernance } from "./SwapLayerGovernance.sol";
 
 enum ImmutableType {
@@ -16,8 +19,10 @@ enum ImmutableType {
   LiquidityLayer
 }
 
+//sorted by expected frequency of on-chain queries
 enum QueryType {
-  FeeParams,
+  FeeParams, //first for oracle queries
+  RelayingFee,
   Peer,
   Immutable,
   Owner,
@@ -32,7 +37,9 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
   using BytesParsing for bytes;
 
   function batchQueries(bytes memory queries) external view returns (bytes memory) {
-    //this is memory inefficient due to unnecessary copying but it shouldn't matter in practice
+    //this is likely memory inefficient due to unnecessary copying (unless solc is smart enough to
+    //  realize that it can use a sort of tailrecursion and hence can just append to ret)
+    //in any case, it likely won't matter in practice
     bytes memory ret;
     uint offset = 0;
     while (offset < queries.length) {
@@ -42,9 +49,34 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
       if (query == QueryType.FeeParams || query == QueryType.Peer) {
         uint16 chainId;
         (chainId, offset) = queries.asUint16Unchecked(offset);
-        ret = query == QueryType.FeeParams
-          ? abi.encodePacked(ret, _getFeeParams(chainId))
-          : abi.encodePacked(ret, _getPeer(chainId));
+        ret = abi.encodePacked(ret,
+          query == QueryType.FeeParams
+          ? FeeParams.unwrap(_getFeeParams(chainId))
+          : uint(_getPeer(chainId))
+        );
+      }
+      else if (query == QueryType.RelayingFee) {
+        uint16 chainId;
+        uint32 gasDropoff;
+        IoToken outputTokenType;
+        uint swapCount;
+        uint swapType;
+        (chainId,         offset) = queries.asUint16Unchecked(offset);
+        (gasDropoff,      offset) = queries.asUint32Unchecked(offset);
+        (outputTokenType, offset) = parseIoToken(queries, offset);
+        (swapCount,       offset) = queries.asUint8Unchecked(offset);
+        (swapType,        offset) = queries.asUint8Unchecked(offset);
+        ret = abi.encodePacked(ret,
+          //unchecked cast, but if fee params are configured to allow a relaying fee of
+          //  log(2^48) - 6 ~= 8 i.e. 100M usdc then...
+          uint48(_calcRelayingFee(
+            chainId,
+            GasDropoff.wrap(gasDropoff),
+            outputTokenType,
+            swapCount,
+            swapType
+          ))
+        );
       }
       else if (query == QueryType.Immutable) {
         uint8 immutableType_;
