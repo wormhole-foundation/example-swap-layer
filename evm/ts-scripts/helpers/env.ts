@@ -27,6 +27,7 @@ export type ChainInfo = {
   liquidityLayerAddress: string;
   wethAddress: string;
   traderJoeRouterAddress: string;
+  usdcAddress: string;
 };
 
 export type Deployment = {
@@ -48,8 +49,7 @@ export type FeeConfig = {
 };
 
 export type SwapLayerConfig = {
-  shouldProposeUpdateEndpoints: boolean;
-  shouldRegisterEndpoints: boolean;
+  shouldUpdatePeers: boolean;
   shouldUpdateAssistant: boolean;
   shouldSweepTokens: boolean;
   shouldUpdateFeeRecipient: boolean;
@@ -88,6 +88,8 @@ export function init(overrides: { lastRunOverride?: boolean } = {}): string {
   require("dotenv").config({
     path: `./ts-scripts/.env${env != DEFAULT_ENV ? "." + env : ""}`,
   });
+
+  console.log("Using environment: " + env);
   return env;
 }
 
@@ -420,7 +422,18 @@ export const loadSwapLayerConfiguration = (): SwapLayerConfig => {
 
 export const loadTestSendConfig = (): TestSendConfig => {
   const configFile = fs.readFileSync(
-    `./ts-scripts/config/${env}/scriptConfigs/testSend.json`
+    `./ts-scripts/config/${env}/scriptConfigs/testRegularSend.json`
+  );
+  if (!configFile) {
+    throw Error("Failed to find config file for this process!");
+  }
+  const config = JSON.parse(configFile.toString());
+  return config;
+};
+
+export const loadFastSendConfig = (): TestSendConfig => {
+  const configFile = fs.readFileSync(
+    `./ts-scripts/config/${env}/scriptConfigs/testFastSend.json`
   );
   if (!configFile) {
     throw Error("Failed to find config file for this process!");

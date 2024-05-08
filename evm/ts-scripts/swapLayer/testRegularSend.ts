@@ -1,39 +1,18 @@
 import { tryNativeToUint8Array } from "@certusone/wormhole-sdk";
+import { InitiateArgs, encodeInitiateArgs } from "../../ts-sdk";
 import {
-  GovernanceCommand,
-  InitiateArgs,
-  encodeGovernanceCommandsBatch,
-  encodeInitiateArgs,
-} from "../../ts-sdk";
-import {
-  deploySwapLayerImplementation,
-  deploySwapLayerProxy,
-} from "../helpers/deployments";
-import {
-  ChainInfo,
   TestSendConfig,
   getChain,
   getOperatingChains,
   getSigner,
   getSwapLayer,
-  getSwapLayerAddress,
   init,
-  loadChains,
-  loadPrivateKey,
-  loadSwapLayerConfiguration,
   loadTestSendConfig,
-  writeOutputFiles,
 } from "../helpers/env";
-import {
-  UniversalAddress,
-  toNative,
-} from "@wormhole-foundation/sdk-definitions";
-import { Wormhole } from "@wormhole-foundation/connect-sdk";
-import { EvmPlatform } from "@wormhole-foundation/connect-sdk-evm";
-import { get } from "http";
-import { Signer } from "ethers";
+import { ethers } from "ethers";
 
 const processName = "testBasicSendSwapLayer";
+
 init();
 const chains = getOperatingChains();
 
@@ -54,15 +33,34 @@ async function run() {
   );
 
   try {
+    if (config.sendUsdc) {
+      console.log("USDC approval");
+      //Do an erc20 approval
+      //for USDC from the sender to the swap layer
+      const usdc = fromChain.usdcAddress;
+      const usdcContract = new ethers.Contract(
+        usdc,
+        ["function approve(address spender, uint256 amount) returns (bool)"],
+        getSigner(fromChain)
+      );
+      const approveTx = await usdcContract.approve(
+        swapLayer.address,
+        config.sendAmount
+      );
+      await approveTx.wait();
+      console.log("USDC approval tx: " + approveTx.hash);
+    }
     const testSend = await swapLayer.initiate(
       config.toChain,
       recipient,
       encodedCommands,
       {
         value: config.sendGas ? BigInt(config.sendAmount) : 0n,
+        gasLimit: 500000,
       }
     );
     console.log("Successfully initiated transfer!");
+    console.log("Tx: " + testSend.hash);
 
     //TODO wait for the transfer to arrive on the target chain
   } catch (e) {
@@ -87,15 +85,23 @@ function createInitiateArgs(config: TestSendConfig): InitiateArgs {
     },
     isExactIn: true,
     inputToken: {
-      type: "Gas",
-      swap: {
-        type: "Uniswap",
-        limitAmount: BigInt(config.limit),
-        deadline: parseInt(config.deadline),
-        legFirstFee: parseInt(config.firstLegFee),
-        path: [],
+      type: "Usdc",
+      amount: BigInt(config.sendAmount),
+      acquireMode: {
+        mode: "Preapproved",
       },
     },
+
+    // swap: {
+    //   deadline: parseInt(config.deadline),
+    //   limitAmount: BigInt(config.limit),
+    //   //amount: BigInt(config.sendAmount),
+    //   type: {
+    //     id: "UniswapV3",
+    //     legFirstFee: parseInt(config.firstLegFee),
+    //     path: [],
+    //   },
+    // },
   };
 
   return output;

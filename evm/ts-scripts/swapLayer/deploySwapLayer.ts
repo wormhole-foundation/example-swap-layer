@@ -23,7 +23,9 @@ async function run() {
 
   for (const chain of chains) {
     console.log(`Deploying for chain ${chain.chainId}...`);
+    console.log("Deploying SwapLayerImplementation");
     const SwapLayerImplementation = await deploySwapLayerImplementation(chain);
+    console.log("Deploying SwapLayerProxy");
     const SwapLayerProxy = await deploySwapLayerProxy(
       chain,
       SwapLayerImplementation.address
