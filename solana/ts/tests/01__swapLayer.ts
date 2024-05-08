@@ -1930,6 +1930,133 @@ describe("Swap Layer", () => {
             });
 
             describe("Inbound", function () {
+                it("Cannot Complete Transfer (Invalid Swap Message)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        Buffer.from("invalid message"),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferDirectIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: recipient.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidSwapMessage");
+                });
+
+                it("Cannot Complete Transfer (Invalid Peer)", async function () {
+                    // Create a valid transfer but from the wrong sender.
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        Array.from(
+                            Buffer.alloc(
+                                32,
+                                "00000000000000000000000000000000000000000000000000000000deadbeef",
+                                "hex",
+                            ),
+                        ), // Invalid Address.,
+                        wormholeSequence,
+                        encodeDirectUsdcTransfer(recipient.publicKey),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferDirectIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: recipient.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidPeer");
+                });
+
+                it("Cannot Complete Transfer (Peer Doesn't Exist)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeDirectUsdcTransfer(recipient.publicKey),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferDirectIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: recipient.publicKey,
+                        },
+                        69 as wormholeSdk.ChainId, // Invalid chain.
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "AccountNotInitialized");
+                });
+
+                it("Cannot Complete Transfer (Invalid Recipient)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeDirectUsdcTransfer(recipient.publicKey),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferDirectIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: payer.publicKey, // Pass invalid recipient.
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidRecipient");
+                });
+
+                it.skip("Cannot Complete Transfer (InvalidOutputToken)", async function () {
+                    // TODO: Need to use encoded swaptype for this test.
+                });
+
                 it("Complete Transfer (Recipient Not Payer)", async function () {
                     const result = await createAndRedeemCctpFillForTest(
                         connection,
