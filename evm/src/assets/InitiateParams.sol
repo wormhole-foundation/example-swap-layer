@@ -6,20 +6,19 @@ import "wormhole-sdk/libraries/BytesParsing.sol";
 
 import "./Params.sol";
 
-import "forge-std/console.sol";
-
 using BytesParsing for bytes;
 
-enum FastTransferMode {
-  Disabled,
-  Enabled
+enum TransferMode {
+  LiquidityLayer,
+  LiquidityLayerFast
+  //TokenBridge
 }
 
 enum AcquireMode {
   Preapproved,
   Permit,
-  Permit2Permit,
-  Permit2Transfer
+  Permit2Transfer,
+  Permit2Permit
 }
 
 uint constant FAST_TRANSFER_MAX_FEE_SIZE  = 6;
@@ -32,6 +31,15 @@ uint constant PERMIT_VALUE_SIZE = 32;
 uint constant PERMIT_DEADLINE_SIZE = 32;
 uint constant PERMIT_SIZE = PERMIT_VALUE_SIZE + PERMIT_DEADLINE_SIZE + SIGNATURE_SIZE;
 
+uint constant PERMIT2_TRANSFER_AMOUNT_SIZE = 32;
+uint constant PERMIT2_TRANSFER_NONCE_SIZE = 32;
+uint constant PERMIT2_TRANSFER_SIG_DEADLINE_SIZE = 32;
+uint constant PERMIT2_TRANSFER_SIZE =
+  PERMIT2_TRANSFER_AMOUNT_SIZE +
+  PERMIT2_TRANSFER_NONCE_SIZE +
+  PERMIT2_TRANSFER_SIG_DEADLINE_SIZE +
+  SIGNATURE_SIZE;
+
 uint constant PERMIT2_PERMIT_AMOUNT_SIZE = 20;
 uint constant PERMIT2_PERMIT_EXPIRATION_SIZE = 6;
 uint constant PERMIT2_PERMIT_NONCE_SIZE = 6;
@@ -41,15 +49,6 @@ uint constant PERMIT2_PERMIT_SIZE =
   PERMIT2_PERMIT_EXPIRATION_SIZE +
   PERMIT2_PERMIT_NONCE_SIZE +
   PERMIT2_PERMIT_SIG_DEADLINE_SIZE +
-  SIGNATURE_SIZE;
-
-uint constant PERMIT2_TRANSFER_AMOUNT_SIZE = 32;
-uint constant PERMIT2_TRANSFER_NONCE_SIZE = 32;
-uint constant PERMIT2_TRANSFER_SIG_DEADLINE_SIZE = 32;
-uint constant PERMIT2_TRANSFER_SIZE =
-  PERMIT2_TRANSFER_AMOUNT_SIZE +
-  PERMIT2_TRANSFER_NONCE_SIZE +
-  PERMIT2_TRANSFER_SIG_DEADLINE_SIZE +
   SIGNATURE_SIZE;
 
 //we don't support DAI's non-standard permit so it has to go through the permit2 interface
@@ -63,22 +62,22 @@ uint constant PERMIT2_TRANSFER_SIZE =
 //    32 bytes  value
 //    32 bytes  deadline
 //    65 bytes  signature (r, s, v)
+//  PERMIT2_TRANSFER:
+//    32 bytes  amount
+//    32 bytes  nonce
+//    32 bytes  sigDeadline
+//    65 bytes  signature (r, s, v)
 //  PERMIT2_PERMIT:
 //    20 bytes  amount
 //     6 bytes  expiration
 //     6 bytes  nonce
 //    32 bytes  sigDeadline
 //    65 bytes  signature (r, s, v)
-//  PERMIT2_TRANSFER:
-//    32 bytes  amount
-//    32 bytes  nonce
-//    32 bytes  sigDeadline
-//    65 bytes  signature (r, s, v)
 
 //initiate param layout:
-// 1 byte   fast transfer
-//  0: no
-//  1: yes
+// 1 byte   transfer mode
+//  0: liquidity layer
+//  1: liquidity layer fast
 //    6 bytes  max fee
 //    4 bytes  deadline
 //
@@ -94,27 +93,27 @@ uint constant PERMIT2_TRANSFER_SIZE =
 // 1 byte   isExactIn
 // 1 byte   input token type
 //  0: USDC
-//    acquire layout
 //   16 bytes  input amount
-//  1: GAS
-//    swap struct
-//  2: ERC20
 //    acquire layout
+//  1: GAS
+//    swap layout
+//  2: ERC20
 //    1 byte   approveCheck
 //   20 bytes  token address
 //   16 bytes  input amount
-//    swap struct
+//    acquire layout
+//    swap layout
 //
 // 1 byte   output token type
 //  0: USDC
 //  1: GAS
-//    swap struct
+//    swap layout
 //  2: Token
 //   32 bytes  token address
-//    swap struct
+//    swap layout
 
-struct FastTransferMOS {
-  FastTransferMode mode;
+struct TransferMOS {
+  TransferMode mode;
   uint offset;
   uint size;
 }
@@ -132,7 +131,7 @@ struct IoTokenMOS {
 }
 
 struct ModesOffsetsSizes {
-  FastTransferMOS fastTransfer;
+  TransferMOS transfer;
   RedeemMOS redeem;
   bool isExactIn;
   IoTokenMOS input;
@@ -140,19 +139,20 @@ struct ModesOffsetsSizes {
 }
 
 function parseParamBaseStructure(
+  uint16 targetChain,
   bytes memory params
 ) pure returns (ModesOffsetsSizes memory mos) { unchecked {
   uint offset = 0;
   uint paramBlockOffset;
   {
-    FastTransferMode fastTransferMode;
-    (fastTransferMode, offset) = parseFastTransferMode(params, offset);
+    TransferMode transferMode;
+    (transferMode, offset) = parseTransferMode(params, offset);
     paramBlockOffset = offset;
-    if (fastTransferMode == FastTransferMode.Enabled)
+    if (transferMode == TransferMode.LiquidityLayerFast)
       offset += FAST_TRANSFER_PARAM_SIZE;
 
-    mos.fastTransfer =
-      FastTransferMOS(fastTransferMode, paramBlockOffset, paramBlockOffset - offset);
+    mos.transfer =
+      TransferMOS(transferMode, paramBlockOffset, offset - paramBlockOffset);
   }
   {
     RedeemMode redeemMode;
@@ -166,7 +166,7 @@ function parseParamBaseStructure(
     else if (redeemMode == RedeemMode.Relay)
       offset += RELAY_PARAM_SIZE;
 
-    mos.redeem = RedeemMOS(redeemMode, paramBlockOffset, paramBlockOffset - offset);
+    mos.redeem = RedeemMOS(redeemMode, paramBlockOffset, offset - paramBlockOffset);
   }
   {
     (mos.isExactIn, offset) = params.asBoolUnchecked(offset);
@@ -179,43 +179,50 @@ function parseParamBaseStructure(
     }
     else {
       if (inputTokenType == IoToken.Other) {
+        offset += BOOL_SIZE + ADDRESS_SIZE + SWAP_PARAM_AMOUNT_SIZE;
         offset = skipAcquire(params, offset);
-        offset += ADDRESS_SIZE + SWAP_PARAM_AMOUNT_SIZE + BOOL_SIZE;
       }
-      offset = skipSwap(params, offset);
+      (,, offset) = parseSwapTypeAndCountAndSkipParams(params, offset);
     }
 
-    mos.input = IoTokenMOS(inputTokenType, paramBlockOffset, paramBlockOffset - offset);
+    mos.input = IoTokenMOS(inputTokenType, paramBlockOffset, offset - paramBlockOffset);
   }
   {
     IoToken outputTokenType;
     (outputTokenType, offset) = parseIoToken(params, offset);
     paramBlockOffset = offset;
-    if (outputTokenType == IoToken.Gas)
-      offset = skipSwap(params, offset);
-    else if (outputTokenType == IoToken.Other) {
-      offset += UNIVERSAL_ADDRESS_SIZE; //token address
-      offset = skipSwap(params, offset);
+    if (outputTokenType != IoToken.Usdc) {
+      if (outputTokenType == IoToken.Other) {
+        bytes32 universalAddr;
+        (universalAddr, offset) = params.asBytes32Unchecked(offset);
+        checkAddr(targetChain, universalAddr);
+      }
+
+      (,, offset) = parseSwapTypeAndCountAndSkipParams(params, offset);
     }
 
-    mos.output = IoTokenMOS(outputTokenType, paramBlockOffset, paramBlockOffset - offset);
+    mos.output = IoTokenMOS(outputTokenType, paramBlockOffset, offset - paramBlockOffset);
   }
 
   params.checkLength(offset);
 }}
 
-function parseFastTransferMode(
+function parseTransferMode(
   bytes memory params,
   uint offset
-) pure returns (FastTransferMode, uint) {
+) pure returns (TransferMode, uint) {
   uint8 value;
   (value, offset) = params.asUint8Unchecked(offset);
-  return (FastTransferMode(value), offset);
+  return (TransferMode(value), offset);
 }
 
 //gas optimization - cheaper than if else branch
 uint constant _ACQUIRE_MODE_SIZES_ARRAY =
-  (PERMIT_SIZE << 8) + (PERMIT2_PERMIT_SIZE << 16) + (PERMIT2_TRANSFER_SIZE << 24);
+  (                    0 << (uint8(AcquireMode.Preapproved    ) * 8)) +
+  (          PERMIT_SIZE << (uint8(AcquireMode.Permit         ) * 8)) +
+  (PERMIT2_TRANSFER_SIZE << (uint8(AcquireMode.Permit2Transfer) * 8)) +
+  (  PERMIT2_PERMIT_SIZE << (uint8(AcquireMode.Permit2Permit  ) * 8));
+
 function skipAcquire(
   bytes memory params,
   uint offset

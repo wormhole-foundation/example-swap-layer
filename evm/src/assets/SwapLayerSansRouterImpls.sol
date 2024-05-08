@@ -8,13 +8,33 @@ import "./SwapLayerQuery.sol";
 import "./SwapLayerInitiate.sol";
 import "./SwapLayerRedeem.sol";
 
-//Inheritance diagram: (SL = SwapLayer)
-//                  /-> SL-Query -> SL-Governance -\---> ProxyBase
-//SL-SansRouterImpls--> SL-Redeem -/                >--> SL-RelayingFees -> SL-Base
-//                  \-> SL-Initiate ---------------/
-
 error InvalidPeer();
 
+//# Inheritance diagram
+//
+//SL = SwapLayer
+//                    ┌─> SL-Query  ─┬─> SL-Governance ─┬─> ProxyBase
+//SL-SansRouterImpls ─┼─> SL-Redeem ─┘                  └─┬─> SL-RelayingFees ─> SL-Base
+//                    └─> SL-Initiate ────────────────────┘
+//
+//# General Remark
+//
+//This is a large contract and so a lot of care was taken to stay within the contract size limits.
+//This means that the code is not as expressive and more "compressed" than it could be, meaning
+//  that sometimes code is put in places or shared in a way that would normally be considered
+//  bad/non-canonical but that would, if done cleanly, result in more bytecode being generated.
+//E.g. two functions that are semantically somewhat different and should therefore be conceptually
+//  distinct might be combined into a single function regardless to save space.
+//Another example is that checks are used very sparsely/non-redundantly which can make it harder
+//  to understand the constraints of a given code path.
+//All of this is to say: This is a highly optimized contract that requires a lot care and context
+//  when making changes. Hands off if you're a junior or not sure what you're doing.
+//
+//[ ] I'm too young to die
+//[ ] Hey, not too rough
+//[ ] Hurt me plenty
+//[*] Ultra-Violence
+//[ ] Nightmare!
 abstract contract SwapLayerSansRouterImpls is SwapLayerQuery, SwapLayerInitiate, SwapLayerRedeem {
   using BytesParsing for bytes;
 
@@ -36,14 +56,12 @@ abstract contract SwapLayerSansRouterImpls is SwapLayerQuery, SwapLayerInitiate,
     address admin;
     address assistant;
     address feeRecipient;
-    bool    adminCanUpgradeContract;
-    (owner,                   offset) = args.asAddressUnchecked(offset);
-    (admin,                   offset) = args.asAddressUnchecked(offset);
-    (assistant,               offset) = args.asAddressUnchecked(offset);
-    (feeRecipient,            offset) = args.asAddressUnchecked(offset);
-    (adminCanUpgradeContract, offset) = args.asBoolUnchecked(offset);
+    (owner,        offset) = args.asAddressUnchecked(offset);
+    (admin,        offset) = args.asAddressUnchecked(offset);
+    (assistant,    offset) = args.asAddressUnchecked(offset);
+    (feeRecipient, offset) = args.asAddressUnchecked(offset);
 
-    _governanceConstruction(owner, admin, assistant, feeRecipient, adminCanUpgradeContract);
+    _governanceConstruction(owner, admin, assistant, feeRecipient);
 
     while (offset < args.length) {
       uint16 chain;

@@ -63,6 +63,13 @@ abstract contract SwapLayerBase {
     _traderJoeRouter = traderJoeRouter;
   }
 
+  //the semantic equivalent of a `default: assert(false)` case in a switch statement
+  //  used in if/else cascades that model switch statements that must be exhaustive
+  //  uses assert() because it can only be reached if there's a bug in the code
+  function _assertExhaustive() internal pure {
+    assert(false);
+  }
+
   function _getPeer(uint16 chainId) internal view returns (bytes32) {
     return swapLayerPeersState().peers[chainId];
   }
@@ -85,6 +92,8 @@ abstract contract SwapLayerBase {
   }
 
   //returns the consumed input amount on exact out swaps and the output amount on exact in swaps
+  //revertOnFailure guarantees that the caller will either receive the requested output token with
+  //  within the specified limits, or the call will revert.
   function _swap(
     uint swapType,
     bool isExactIn,
@@ -112,6 +121,7 @@ abstract contract SwapLayerBase {
     else if (revertOnFailure)
       revert InvalidSwapType(swapType);
     else
+      //invalid swaps are ignored when not reverting on failure to avoid funds getting stuck
       return 0;
 
     return swapFunc(

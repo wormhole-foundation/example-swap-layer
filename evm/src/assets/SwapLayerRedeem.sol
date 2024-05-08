@@ -6,12 +6,17 @@ import "@openzeppelin/token/ERC20/IERC20.sol";
 import "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
-import { OrderResponse as Attestations, RedeemedFill } from "liquidity-layer/interfaces/ITokenRouter.sol";
+import { OrderResponse, RedeemedFill } from "liquidity-layer/interfaces/ITokenRouter.sol";
 
 import "./SwapLayerGovernance.sol";
 import "./Params.sol";
 import { SwapMessageStructure, parseSwapMessageStructure } from "./Message.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
+
+enum AttestationType {
+  LiquidityLayer
+  //TokenBridge
+}
 
 error SenderNotRecipient(address sender, address recipient);
 error InvalidMsgValue(uint256 value, uint256 expected);
@@ -21,7 +26,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
   using SafeERC20 for IERC20;
 
   //params structure:
-  //  redeemMode direct:
+  //  redeemMode direct/payload:
   //    optionally either empty (=execute what's specified in the message) or used to override
   //      1 byte   input token type
   //        0: USDC
@@ -31,15 +36,15 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
   //         20 bytes  token address
   //          swap struct
   //    if overridden, a failed swap for any reason will revert the transaction (just like initiate)
-  //  redeemMode payload/relay:
+  //  redeemMode relay:
   //    no extra params allowed
 
-  //selector: 604009a9
   function redeem(
-    bytes memory params,
-    Attestations calldata attestations
+    AttestationType, //checked but otherwise ignored, only LiquidityLayer is supported for now
+    bytes calldata attestation,
+    bytes calldata params
   ) external payable returns (bytes memory) {
-    RedeemedFill memory fill = _liquidityLayer.redeemFill(attestations);
+    RedeemedFill memory fill = _liquidityLayer.redeemFill(abi.decode(attestation, (OrderResponse)));
     SwapMessageStructure memory sms = parseSwapMessageStructure(fill.message);
 
     bool senderIsRecipient = msg.sender == sms.recipient;
@@ -57,15 +62,13 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       params.checkLength(0);
     }
     else {
-      if (sms.redeemMode == RedeemMode.Payload) {
-        if (!senderIsRecipient)
+      if (!senderIsRecipient) {
+        if (sms.redeemMode == RedeemMode.Payload)
           revert SenderNotRecipient(msg.sender, sms.recipient);
-
-        //no extra params when redeeming with payload
-        params.checkLength(0);
+        else
+          //no extra params when redeeming for someone else
+          params.checkLength(0);
       }
-      else if (!senderIsRecipient)
-        params.checkLength(0);
       else
         overrideMsg = params.length > 0;
 
@@ -91,15 +94,17 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
     else {
       if (outputTokenType == IoToken.Gas)
         outputToken = IERC20(address(_wnative));
-      else
+      else {
+        offset += UNIVERSAL_ADDRESS_SIZE - ADDRESS_SIZE; //skip 12 zero bytes
         (outputToken, offset) = parseIERC20(swapParams, offset);
+      }
 
       uint256 deadline;
       uint minOutputAmount;
       uint swapType;
       bytes memory path;
       (deadline, minOutputAmount, swapType, path, offset) =
-        parseEvmSwapParams(_usdc, outputToken, swapParams, offset);
+        parseEvmSwapParams(address(_usdc), address(outputToken), swapParams, offset);
 
       outputAmount = _swap(
         swapType,
@@ -124,7 +129,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
     }
 
     if (outputTokenType == IoToken.Gas) {
-      outputToken = IERC20(address(0)); //0 represets the gas token itself
+      outputToken = IERC20(address(0)); //0 represents the gas token itself
       _wnative.withdraw(outputAmount);
       outputAmount = outputAmount + gasDropoff;
       _transferEth(sms.recipient, outputAmount);

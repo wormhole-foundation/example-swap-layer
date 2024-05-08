@@ -5,9 +5,12 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/token/ERC20/IERC20.sol";
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
+
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 
 using BytesParsing for bytes;
+
+uint constant SOLANA_CHAIN_ID = 1; //TODO this should come from elsewhere
 
 uint constant MODE_SIZE = 1;
 uint constant BOOL_SIZE = 1;
@@ -33,12 +36,12 @@ uint constant RELAY_MAX_RELAYER_FEE_SIZE = 6;
 uint constant RELAY_PARAM_SIZE = RELAY_GAS_DROPOFF_SIZE + RELAY_MAX_RELAYER_FEE_SIZE;
 
 //not using an enum here to allow custom values, better grouping and not panicing on parse failure
-uint constant SWAP_TYPE_INVALID = 0; //special, internal only value
+uint8 constant SWAP_TYPE_INVALID = 0; //special, internal only value
 //group evm swap types in 1-16
-uint constant SWAP_TYPE_UNISWAPV3 = 1;
-uint constant SWAP_TYPE_TRADERJOE = 2;
+uint8 constant SWAP_TYPE_UNISWAPV3 = 1;
+uint8 constant SWAP_TYPE_TRADERJOE = 2;
 //group solana swap types starting at 16
-uint constant SWAP_TYPE_GENERIC_SOLANA = 16; //TODO
+uint8 constant SWAP_TYPE_GENERIC_SOLANA = 16;
 
 enum IoToken {
   Usdc,
@@ -52,6 +55,8 @@ enum RedeemMode {
   Relay
 }
 
+error InvalidAddress(bytes32 addr);
+
 //swap layout:
 // 4 bytes  deadline (unix timestamp, 0 = no deadline)
 //16 bytes  limitAmount
@@ -62,15 +67,15 @@ enum RedeemMode {
 //   1 byte   pathLength
 //   n bytes  swap path (n = pathLength * (20+3) (token address + uni fee))
 // * solana:
-//   TODO
+//   0 bytes
 
 function parseEvmSwapParams(
-  IERC20 inputToken,
-  IERC20 outputToken,
+  address inputToken,
+  address outputToken,
   bytes memory params,
   uint offset
-) pure returns (uint, uint256, uint, bytes memory, uint) { unchecked {
-  uint256 deadline;
+) pure returns (uint, uint, uint, bytes memory, uint) { unchecked {
+  uint deadline;
   uint limitAmount;
   uint swapType;
   uint24 firstPoolId;
@@ -88,16 +93,11 @@ function parseEvmSwapParams(
   sliceLen = pathLength * SHARED_PATH_ELEMENT_SIZE;
   bytes memory partialPath;
   (partialPath, offset) = params.sliceUnchecked(offset, sliceLen);
-  bytes memory path = abi.encodePacked(
-    address(inputToken),
-    firstPoolId,
-    partialPath,
-    address(outputToken)
-  );
+  bytes memory path = abi.encodePacked(inputToken, firstPoolId, partialPath, outputToken);
   return (deadline, limitAmount, swapType, path, offset);
 }}
 
-function parseSwapTypeAndCount(
+function parseSwapTypeAndCountAndSkipParams(
   bytes memory params,
   uint offset
 ) pure returns (uint, uint, uint) { unchecked {
@@ -110,10 +110,20 @@ function parseSwapTypeAndCount(
     uint pathLength;
     (pathLength, offset) = params.asUint8Unchecked(offset);
     swapCount = pathLength + 1;
+    offset += pathLength * SHARED_PATH_ELEMENT_SIZE;
   }
   else if (swapType == SWAP_TYPE_GENERIC_SOLANA) {
-    //TODO SOLANA swapCount for solana swap type(s)
-    (swapCount, offset) = params.asUint8Unchecked(offset);
+    //The following line is somewhat hacky because Solana is a mess:
+    //On non-relayed transfers, the swap layer does not actually execute the swap itself, but
+    //  instead relies on a separate, arbitrary instruction that has to be determined by the
+    //  user/integrator when composing the transaction.
+    //So the only thing the EVM swap layer (i.e. this contract here) has to know is, when
+    //  calculating the relaying fees, whether any sort of swap is requested, because it will
+    //  have to be executed in a separate transaction (because unsuccessful swaps cause a failed
+    //  call and Solana fails to support speculative execution of CPIs despite its invoke function
+    //  returning a Result monad).
+    //So we return 1 here to indicate that a Solana swap is requested.
+    swapCount = 1;
   }
   else
     (swapType, swapCount, offset) = (SWAP_TYPE_INVALID, 0, params.length);
@@ -121,25 +131,10 @@ function parseSwapTypeAndCount(
   return (swapType, swapCount, offset);
 }}
 
-function skipSwap(
-  bytes memory params,
-  uint offset
-) pure returns (uint) { unchecked {
-  uint swapType;
-  uint swapCount;
-  (swapType, swapCount, offset) = parseSwapTypeAndCount(params, offset);
-  if (swapType == SWAP_TYPE_UNISWAPV3 || swapType == SWAP_TYPE_TRADERJOE)
-    offset += (swapCount - 1) * SHARED_PATH_ELEMENT_SIZE;
-  else if (swapType == SWAP_TYPE_GENERIC_SOLANA) {
-    //TODO SOLANA skip for solana swap type(s)
-  }
-  return offset;
-}}
-
 function parseIoToken(
   bytes memory params,
   uint offset
-) pure returns (IoToken ret, uint) {
+) pure returns (IoToken, uint) {
   uint8 val;
   (val, offset) = params.asUint8Unchecked(offset);
   return (IoToken(val), offset);
@@ -172,4 +167,9 @@ function parseRelayParams(
   (gasDropoff,  offset) = params.asUint32Unchecked(offset);
   (relayingFee, offset) = params.asUint48Unchecked(offset);
   return (GasDropoff.wrap(gasDropoff), relayingFee, offset);
+}
+
+function checkAddr(uint16 chainId, bytes32 addr) pure {
+  if (addr == 0 || (chainId != SOLANA_CHAIN_ID && bytes12(addr) != 0))
+    revert InvalidAddress(addr);
 }

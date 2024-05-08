@@ -11,7 +11,6 @@ import "wormhole-sdk/interfaces/IWormhole.sol";
 import "wormhole-sdk/interfaces/token/IWETH.sol";
 import "wormhole-sdk/interfaces/token/IUSDC.sol";
 import "wormhole-sdk/proxy/Proxy.sol";
-import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 import "wormhole-sdk/testing/UsdcDealer.sol";
 import "wormhole-sdk/testing/WormholeCctpSimulator.sol";
 
@@ -26,9 +25,8 @@ import "swap-layer/assets/Percentage.sol";
 import "swap-layer/assets/GasPrice.sol";
 import "swap-layer/assets/GasDropoff.sol";
 
-contract SwapLayerTestBase is Test {
+contract SLTBase is Test {
   using UsdcDealer for IUSDC;
-  using { toUniversalAddress } for address;
 
   uint16  constant FOREIGN_CHAIN_ID               = 0xF00F;
   bytes32 constant FOREIGN_LIQUIDITY_LAYER        = bytes32(uint256(uint160(address(1))));
@@ -83,7 +81,7 @@ contract SwapLayerTestBase is Test {
     );
   }
 
-  function deployBase() public {
+  function deployBase() internal {
     vm.startPrank(llOwner);
     {
       liquidityLayer = ITokenRouter(address(new ERC1967Proxy(
@@ -100,7 +98,7 @@ contract SwapLayerTestBase is Test {
       )));
 
       liquidityLayer.setCctpAllowance(type(uint256).max);
-      
+
       liquidityLayer.addRouterEndpoint(
         FOREIGN_CHAIN_ID,
         Endpoint(FOREIGN_LIQUIDITY_LAYER, FOREIGN_LIQUIDITY_LAYER),
@@ -125,8 +123,6 @@ contract SwapLayerTestBase is Test {
     feeParams = feeParams.baseFee(1e4); //1 cent
     feeParams = feeParams.gasPrice(GasPriceLib.to(1e10)); //10 gwei
     feeParams = feeParams.gasPriceMargin(PercentageLib.to(25, 0)); //25 % volatility margin
-    feeParams = feeParams.gasPriceTimestamp(uint32(block.timestamp));
-    feeParams = feeParams.gasPriceUpdateThreshold(PercentageLib.to(10, 0));
     feeParams = feeParams.maxGasDropoff(GasDropoffLib.to(1 ether));
     feeParams = feeParams.gasDropoffMargin(PercentageLib.to(1, 0)); //1 % volatility margin
     feeParams = feeParams.gasTokenPrice(1e5); //10 cent per fictional gas token
@@ -144,7 +140,6 @@ contract SwapLayerTestBase is Test {
         assistant,
         feeUpdater,
         feeRecipient,
-        false, //assistantIsEmpowered
         FOREIGN_CHAIN_ID,
         FOREIGN_SWAP_LAYER,
         feeParams

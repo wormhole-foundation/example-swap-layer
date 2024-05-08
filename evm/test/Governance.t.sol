@@ -5,13 +5,13 @@ pragma solidity ^0.8.24;
 import "wormhole-sdk/libraries/BytesParsing.sol";
 
 import { IdempotentUpgrade } from "wormhole-sdk/proxy/ProxyBase.sol";
-import { SwapLayerTestBase } from "./TestBase.sol";
+import { SLTBase } from "./SLTBase.sol";
 import "./utils/UpgradeTester.sol";
 
 import "swap-layer/assets/SwapLayerGovernance.sol";
 import "swap-layer/assets/SwapLayerQuery.sol";
 
-contract SwapLayerGovernanceTest is SwapLayerTestBase {
+contract GovernanceTest is SLTBase {
   using BytesParsing for bytes;
 
   function setUp() public {
@@ -23,6 +23,12 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
     (address implementation, ) =
       swapLayer.batchQueries(abi.encodePacked(QueryType.Implementation)).asAddressUnchecked(0);
 
+    vm.expectRevert(NotAuthorized.selector);
+    swapLayer.batchGovernanceCommands(
+      abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
+    );
+
+    vm.startPrank(assistant);
     vm.expectRevert(NotAuthorized.selector);
     swapLayer.batchGovernanceCommands(
       abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
@@ -41,31 +47,6 @@ contract SwapLayerGovernanceTest is SwapLayerTestBase {
     (address restoredImplementation, ) =
       swapLayer.batchQueries(abi.encodePacked(QueryType.Implementation)).asAddressUnchecked(0);
     assertEq(restoredImplementation, implementation);
-  }
-
-  function testAssistantContractUpgrade() public {
-    UpgradeTester upgradeTester = new UpgradeTester();
-    (bool assistantIsEmpowered, ) = swapLayer.batchQueries(abi.encodePacked(
-      QueryType.AssistantIsEmpowered
-    )).asBoolUnchecked(0);
-
-    assertEq(assistantIsEmpowered, false);
-
-    vm.startPrank(assistant);
-    vm.expectRevert(NotAuthorized.selector);
-    swapLayer.batchGovernanceCommands(
-      abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
-    );
-
-    vm.startPrank(owner);
-    swapLayer.batchGovernanceCommands(
-      abi.encodePacked(GovernanceCommand.EmpowerAssistant)
-    );
-
-    vm.startPrank(assistant);
-    swapLayer.batchGovernanceCommands(
-      abi.encodePacked(GovernanceCommand.UpgradeContract, address(upgradeTester))
-    );
   }
 
   function testOwnershipTransfer() public {

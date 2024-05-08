@@ -4,10 +4,43 @@ import {
   LayoutItem,
   NamedLayoutItem,
   UintLayoutItem,
-  FixedSizeBytesLayoutItem,
+  ManualSizePureBytes,
+  zip
 } from "@wormhole-foundation/sdk-base";
 import { layoutItems } from "@wormhole-foundation/sdk-definitions"
 import { EvmAddress } from "@wormhole-foundation/connect-sdk-evm";
+
+//TODO this is the shittiest enumItem implementation that I could whip up "quickly":
+type SwitchEntry = readonly [number, string];
+type EntriesToSwitchLayouts<E extends readonly SwitchEntry[]> =
+  E extends readonly [infer Head, ...infer Tail extends readonly SwitchEntry[]]
+    ? [[Head, []], ...EntriesToSwitchLayouts<Tail>]
+    : [];
+
+function entriesToEmptyLayouts<const E extends readonly SwitchEntry[]>(
+  entries: E
+): EntriesToSwitchLayouts<E> {
+  return entries.map(entry => [entry, []] as const) as EntriesToSwitchLayouts<E>;
+}
+
+function enumItem<
+  const E extends readonly SwitchEntry[]
+>(entries: E) {
+  return {
+    binary: "bytes",
+    size: 1,
+    layout: {
+      binary: "switch",
+      idSize: 1,
+      idTag: "name",
+      layouts: entriesToEmptyLayouts(entries),
+    },
+    custom: {
+      to: (encoded: {name: E[number][1]}) => encoded.name,
+      from: (name: E[number][1]) => ({name}),
+    }
+  } as const;
+}
 
 // ---- basic types ----
 
@@ -34,11 +67,11 @@ const evmAddressItem = {
     to: (encoded: Uint8Array): string => new EvmAddress(encoded).toString(),
     from: (addr: string): Uint8Array => new EvmAddress(addr).toUint8Array(),
   } satisfies CustomConversion<Uint8Array, string>,
-} as const satisfies FixedSizeBytesLayoutItem;
+} as const satisfies ManualSizePureBytes;
 
 //TODO from payload/relayer - should be moved to layoutItems
 const addressChainItem = {
-  binary: "object",
+  binary: "bytes",
   layout: [
     { name: "chain", ...layoutItems.chainItem() },
     { name: "address", ...layoutItems.universalAddressItem },
@@ -100,16 +133,15 @@ const percentageItem = {
   } satisfies CustomConversion<number, number>,
 } as const satisfies UintLayoutItem;
 
-const gasTokenPriceItem = { binary: "uint", size: 10 } as const satisfies UintLayoutItem;
+const gasTokenPriceItem = { binary: "uint", size: 8 } as const satisfies UintLayoutItem;
 
 //this layout reflects the FeeParams type in SwapLayerRelayingFees.sol which uses a packed layout
 //  to fit into a single storage slot
 export const feeParamsLayout = [
+  { name: "unused", binary: "uint", size: 8, custom: BigInt(0), omit: true },
   { name: "gasTokenPrice",           ...gasTokenPriceItem },
   { name: "gasDropoffMargin",        ...percentageItem    },
   { name: "maxGasDropoff",           ...gasDropoffItem    },
-  { name: "gasPriceUpdateThreshold", ...percentageItem    },
-  { name: "gasPriceTimestamp",       ...timestampItem     },
   { name: "gasPriceMargin",          ...percentageItem    },
   { name: "gasPrice",                ...gasPriceItem      },
   { name: "baseFee",                 ...baseFeeItem       },
@@ -117,14 +149,14 @@ export const feeParamsLayout = [
 
 // ---- initiate params ----
 
-const fastTransferModeItem = {
-  name: "fastTransferMode",
+const transferModeItem = {
+  name: "transferMode",
   binary: "switch",
   idSize: 1,
   idTag: "mode",
   layouts: [
-    [[0, "Disabled"], []],
-    [[1, "Enabled"], [
+    [[0, "LiquidityLayer"    ], []],
+    [[1, "LiquidityLayerFast"], [
       { name: "maxFee", binary: "uint", size: 6, ...forceBigIntConversion }, //atomic usdc
       { name: "deadline", ...timestampItem }, //according to block timestamp
     ]],
@@ -137,9 +169,9 @@ const redeemModeItem = {
   idSize: 1,
   idTag: "mode",
   layouts: [
-    [[0, "Direct"], []],
+    [[0, "Direct" ], []],
     [[1, "Payload"], [{ name: "payload", binary: "bytes", lengthSize: 4 }]],
-    [[2, "Relay"], [
+    [[2, "Relay"  ], [
       { name: "gasDropoff", ...gasDropoffItem },
       { name: "maxRelayingFee", binary: "uint", size: 6, ...forceBigIntConversion },
     ]],
@@ -158,16 +190,16 @@ const acquireModeItem = {
       { name: "deadline",    binary: "uint",  size: 32 },
       { name: "signature",   binary: "bytes", size: 65 },
     ]],
-    [[2, "Permit2Permit"], [
-      { name: "amount",      binary: "uint",  size: 20 },
-      { name: "expiration",  binary: "uint",  size:  6 },
-      { name: "nonce",       binary: "uint",  size:  6 },
+    [[2, "Permit2Transfer"], [
+      { name: "amount",      binary: "uint",  size: 32 },
+      { name: "nonce",       binary: "uint",  size: 32 },
       { name: "sigDeadline", binary: "uint",  size: 32 },
       { name: "signature",   binary: "bytes", size: 65 },
     ]],
-    [[3, "Permit2Transfer"], [
-      { name: "amount",      binary: "uint",  size: 32 },
-      { name: "nonce",       binary: "uint",  size: 32 },
+    [[3, "Permit2Permit"], [
+      { name: "amount",      binary: "uint",  size: 20 },
+      { name: "expiration",  binary: "uint",  size:  6 },
+      { name: "nonce",       binary: "uint",  size:  6 },
       { name: "sigDeadline", binary: "uint",  size: 32 },
       { name: "signature",   binary: "bytes", size: 65 },
     ]],
@@ -175,48 +207,64 @@ const acquireModeItem = {
 } as const satisfies NamedLayoutItem;
 
 const sharedUniswapTraderJoeLayout = [
-  { name: "legFirstFee", binary: "uint", size: 3 },
+  { name: "firstPoolId", binary: "uint", size: 3 },
   { name: "path", binary: "array", lengthSize: 1, layout: [
     { name: "address", ...evmAddressItem },
-    { name: "fee", binary: "uint", size: 3 },
+    { name: "poolId", binary: "uint", size: 3 },
   ]}
 ] as const satisfies Layout;
 
+const [swapTypes, swapItemLayouts] = [[
+    [1, "UniswapV3"],
+    [2, "TraderJoe"],
+    [16, "GenericSolana"],
+  ], [
+    sharedUniswapTraderJoeLayout,
+    sharedUniswapTraderJoeLayout,
+    [],
+  ]
+] as const;
+
 const swapItem = {
   name: "swap",
-  binary: "object",
+  binary: "bytes",
   layout: [
     { name: "deadline", ...timestampItem },
     { name: "limitAmount", ...amountItem },
-    { name: "type", binary: "switch", idSize: 1, layouts: [
-      [[1, "UniswapV3"], sharedUniswapTraderJoeLayout],
-      [[2, "TraderJoe"], sharedUniswapTraderJoeLayout],
-      [[16, "GenericSolana"], [/* TODO */]]
-    ]},
+    { name: "type", binary: "switch", idSize: 1, layouts: zip([swapTypes, swapItemLayouts]) },
   ]
 } as const satisfies NamedLayoutItem;
+
+const [ioTokenTypes, inputTokenLayouts, outputTokenLayouts] = [[
+    [0, "Usdc"],
+    [1, "Gas"],
+    [2, "Other"],
+  ], [
+    [ { name: "amount", ...amountItem },
+      acquireModeItem
+    ],
+    [ swapItem],
+    [ { name: "approveCheck", ...boolItem       },
+      { name: "address",      ...evmAddressItem },
+      { name: "amount",       ...amountItem     },
+      acquireModeItem,
+      swapItem,
+    ]
+  ], [
+    [],
+    [ swapItem ],
+    [{ name: "address", ...layoutItems.universalAddressItem},
+      swapItem,
+    ]
+  ],
+] as const;
 
 const inputTokenItem = {
   name: "inputToken",
   binary: "switch",
   idSize: 1,
   idTag: "type",
-  layouts: [
-    [[0, "Usdc"], [
-      { name: "amount", ...amountItem },
-      acquireModeItem
-    ]],
-    [[1, "Gas"], [
-      swapItem
-    ]],
-    [[2, "Other"], [
-      acquireModeItem,
-      { name: "approveCheck", ...boolItem       },
-      { name: "address",      ...evmAddressItem },
-      { name: "amount",       ...amountItem     },
-      swapItem,
-    ]],
-  ]
+  layouts: zip([ioTokenTypes, inputTokenLayouts]),
 } as const satisfies NamedLayoutItem;
 
 const outputTokenItem = {
@@ -224,17 +272,11 @@ const outputTokenItem = {
   binary: "switch",
   idSize: 1,
   idTag: "type",
-  layouts: [
-    [[0, "Usdc"],  []],
-    [[1, "Gas"],   [swapItem]],
-    [[2, "Other"], [{ name: "address", ...layoutItems.universalAddressItem},
-                    swapItem,
-                   ]],
-  ]
+  layouts: zip([ioTokenTypes, outputTokenLayouts])
 } as const satisfies NamedLayoutItem;
 
 export const initiateArgsLayout = [
-  fastTransferModeItem,
+  transferModeItem,
   redeemModeItem,
   { name: "isExactIn", ...boolItem },
   inputTokenItem,
@@ -275,21 +317,29 @@ const immutableTypeItem = {
   }
 } as const satisfies UintLayoutItem;
 
+const relayingFeeQueryLayout = [
+  { name: "chain",       ...layoutItems.chainItem() },
+  { name: "gasDropoff",  ...gasDropoffItem          },
+  { name: "outputToken", ...enumItem(ioTokenTypes)  },
+  { name: "swapCount",    binary: "uint", size: 1   },
+  { name: "swapType",    ...enumItem(swapTypes)     },
+] as const satisfies Layout;
+
 export const queryLayout = {
   binary: "switch",
   idSize: 1,
   idTag: "query",
   layouts: [
-    [[0, "FeeParams"],            [{ name: "chain", ...layoutItems.chainItem() }]],
-    [[1, "Peer"],                 [{ name: "chain", ...layoutItems.chainItem() }]],
-    [[2, "Immutable"],            [{ name: "immutable", ...immutableTypeItem   }]],
-    [[3, "AssistantIsEmpowered"], []],
-    [[4, "Owner"],                []],
-    [[5, "PendingOwner"],         []],
-    [[6, "Assistant"],            []],
-    [[7, "FeeUpdater"],           []],
-    [[8, "FeeRecipient"],         []],
-    [[9, "Implementation"],       []],
+    [[0, "FeeParams"     ], [{ name: "chain", ...layoutItems.chainItem() }]],
+    [[1, "RelayingFee"   ], relayingFeeQueryLayout ],
+    [[2, "Peer"          ], [{ name: "chain", ...layoutItems.chainItem() }]],
+    [[3, "Immutable"     ], [{ name: "immutable", ...immutableTypeItem   }]],
+    [[4, "Owner"         ], []],
+    [[5, "PendingOwner"  ], []],
+    [[6, "Assistant"     ], []],
+    [[7, "FeeUpdater"    ], []],
+    [[8, "FeeRecipient"  ], []],
+    [[9, "Implementation"], []],
   ],
 } as const satisfies LayoutItem;
 
@@ -301,7 +351,7 @@ export const queriesBatchLayout = {
 // ---- governance types ----
 
 const timestampedGasPriceItem = {
-  binary: "object",
+  binary: "bytes",
   layout: [
     { name: "gasPriceTimestamp", ...timestampItem },
     { name: "gasPrice",          ...gasPriceItem  },
@@ -313,13 +363,12 @@ export const feeParamUpdateItem = {
   idSize: 1,
   idTag: "param",
   layouts: [
-    [[0, "GasPrice"],                [{ name: "value", ...timestampedGasPriceItem }]],
-    [[1, "GasTokenPrice"],           [{ name: "value", ...gasTokenPriceItem       }]],
-    [[2, "BaseFee"],                 [{ name: "value", ...baseFeeItem             }]],
-    [[3, "GasPriceUpdateThreshold"], [{ name: "value", ...percentageItem          }]],
-    [[4, "GasPriceMargin"],          [{ name: "value", ...percentageItem          }]],
-    [[5, "GasDropoffMargin"],        [{ name: "value", ...percentageItem          }]],
-    [[6, "MaxGasDropoff"],           [{ name: "value", ...gasDropoffItem          }]],
+    [[0, "GasPrice"        ], [{ name: "value", ...timestampedGasPriceItem }]],
+    [[1, "GasTokenPrice"   ], [{ name: "value", ...gasTokenPriceItem       }]],
+    [[2, "BaseFee"         ], [{ name: "value", ...baseFeeItem             }]],
+    [[3, "GasPriceMargin"  ], [{ name: "value", ...percentageItem          }]],
+    [[4, "GasDropoffMargin"], [{ name: "value", ...percentageItem          }]],
+    [[5, "MaxGasDropoff"   ], [{ name: "value", ...gasDropoffItem          }]],
   ],
 } as const satisfies LayoutItem;
 
@@ -338,7 +387,6 @@ export const proxyConstructorArgsLayout = [
   { name: "assistant",            ...evmAddressItem },
   { name: "feeUpdater",           ...evmAddressItem },
   { name: "feeRecipient",         ...evmAddressItem },
-  { name: "assistantIsEmpowered", ...boolItem       },
 ] as const satisfies Layout;
 
 export const governanceCommandLayout = {
@@ -352,12 +400,10 @@ export const governanceCommandLayout = {
     [[1, "SweepTokens"],              [{ name: "token",           ...evmAddressItem }]],
     [[2, "UpdateFeeUpdater"],         [{ name: "newFeeUpdater",   ...evmAddressItem }]],
     [[3, "UpdateAssistant"],          [{ name: "newAssistant",    ...evmAddressItem }]],
-    [[4, "DisempowerAssistant"],      []],
-    [[5, "UpdateFeeRecipient"],       [{ name: "newFeeRecipient", ...evmAddressItem }]],
-    [[6, "UpgradeContract"],          [{ name: "implementation",  ...evmAddressItem }]],
-    [[7, "EmpowerAssistant"],         []],
-    [[8, "ProposeOwnershipTransfer"], [{ name: "pendingOwner",    ...evmAddressItem }]],
-    [[9, "RelinquishOwnership"],      []],
+    [[4, "UpdateFeeRecipient"],       [{ name: "newFeeRecipient", ...evmAddressItem }]],
+    [[5, "UpgradeContract"],          [{ name: "implementation",  ...evmAddressItem }]],
+    [[6, "ProposeOwnershipTransfer"], [{ name: "pendingOwner",    ...evmAddressItem }]],
+    [[7, "RelinquishOwnership"],      []],
   ],
 } as const satisfies Layout;
 

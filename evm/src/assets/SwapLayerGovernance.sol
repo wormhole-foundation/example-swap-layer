@@ -25,7 +25,6 @@ struct GovernanceState {
   address  assistant;
   address  feeUpdater;
   address  feeRecipient;
-  bool     assistantIsEmpowered;
 }
 
 // we use the designated eip1967 admin storage slot: keccak256("eip1967.proxy.admin") - 1
@@ -47,17 +46,14 @@ enum Role {
 }
 
 enum GovernanceCommand {
-  //assistant can add new peers, but only empowered assistant can change existing registrations
+  //assistant can add new peers, but only owner can change existing registrations
   UpdatePeer,
   SweepTokens,
   UpdateFeeUpdater,
   UpdateAssistant,
-  DisempowerAssistant,
-  //only available to assistant when empowered:
+  //only available to owner:
   UpdateFeeRecipient,
   UpgradeContract,
-  //only available to owner:
-  EmpowerAssistant,
   ProposeOwnershipTransfer,
   RelinquishOwnership
 }
@@ -74,8 +70,7 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
     address owner,
     address assistant,
     address feeUpdater,
-    address feeRecipient,
-    bool    assistantIsEmpowered
+    address feeRecipient
   ) internal {
     if (feeRecipient == address(0))
       revert InvalidFeeRecipient();
@@ -85,12 +80,10 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
     state.assistant      = assistant;
     state.feeUpdater     = feeUpdater;
     state.feeRecipient   = feeRecipient;
-    state.assistantIsEmpowered = assistantIsEmpowered;
   }
 
   // ---- externals ----
 
-  //selector: 9efc05ce
   function batchFeeUpdates(bytes memory updates) external {
     GovernanceState storage state = governanceState();
     if (msg.sender != state.feeUpdater &&
@@ -101,7 +94,6 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
     _batchFeeUpdates(updates);
   }
 
-  //selector: a9bb3dca
   function batchGovernanceCommands(bytes calldata commands) external {
     GovernanceState storage state = governanceState();
     bool isOwner;
@@ -128,7 +120,7 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
         (newPeer,   offset) = commands.asBytes32Unchecked(offset);
         bytes32 curPeer = _getPeer(peerChain);
         if (newPeer != curPeer) {
-          if (curPeer != bytes32(0) && !isOwner && !state.assistantIsEmpowered)
+          if (curPeer != bytes32(0) && !isOwner)
             revert NotAuthorized();
 
           _setPeer(peerChain, newPeer);
@@ -161,10 +153,8 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
         (newAssistant, offset) = commands.asAddressUnchecked(offset);
         _updateRole(Role.Assistant, newAssistant);
       }
-      else if (command == GovernanceCommand.DisempowerAssistant)
-        state.assistantIsEmpowered = false;
-      else { //owner or empowered assistant only commands
-        if (!isOwner && !state.assistantIsEmpowered)
+      else { //owner only commands
+        if (!isOwner)
           revert NotAuthorized();
 
         if (command == GovernanceCommand.UpdateFeeRecipient) {
@@ -180,25 +170,20 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
 
           _upgradeTo(newImplementation, new bytes(0));
         }
-        else { //owner only commands
-          if (!isOwner)
-            revert NotAuthorized();
+        else if (command == GovernanceCommand.ProposeOwnershipTransfer) {
+          address newOwner;
+          (newOwner, offset) = commands.asAddressUnchecked(offset);
 
-          if (command == GovernanceCommand.EmpowerAssistant)
-            state.assistantIsEmpowered = true;
-          else if (command == GovernanceCommand.ProposeOwnershipTransfer) {
-            address newOwner;
-            (newOwner, offset) = commands.asAddressUnchecked(offset);
-
-            state.pendingOwner = newOwner;
-          }
-          else { //must be GovernanceCommand.RelinquishOwnership
-            _updateRole(Role.Owner, address(0));
-
-            //ownership relinquishment must be the last command in the batch
-            commands.checkLength(offset);
-          }
+          state.pendingOwner = newOwner;
         }
+        else if (command == GovernanceCommand.RelinquishOwnership) {
+          _updateRole(Role.Owner, address(0));
+
+          //ownership relinquishment must be the last command in the batch
+          commands.checkLength(offset);
+        }
+        else
+          _assertExhaustive();
       }
     }
     commands.checkLength(offset);
@@ -226,10 +211,6 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
     return governanceState().feeRecipient;
   }
 
-  function _getAssistantIsEmpowered() internal view returns (bool) {
-    return governanceState().assistantIsEmpowered;
-  }
-
   // ---- private ----
 
   function _updateRole(Role role, address newAddress) private {
@@ -248,13 +229,16 @@ abstract contract SwapLayerGovernance is SwapLayerRelayingFees, ProxyBase {
       oldAddress = state.feeUpdater;
       state.feeUpdater = newAddress;
     }
-    else { //must be Role.FeeRecipient
-    if (newAddress == address(0))
+    else if (role == Role.FeeRecipient) {
+      if (newAddress == address(0))
         revert InvalidFeeRecipient();
 
       oldAddress = state.feeRecipient;
       state.feeRecipient = newAddress;
     }
+    else
+      _assertExhaustive();
+
     emit RoleUpdated(role, oldAddress, newAddress, block.timestamp);
   }
 }
