@@ -1498,6 +1498,202 @@ describe("Swap Layer", () => {
             });
 
             describe("Inbound", function () {
+                it("Cannot Complete Transfer (Invalid Fee Recipient)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    // Pass the payer token to as the fee recipient token.
+                    const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
+                        connection,
+                        payer,
+                        USDC_MINT_ADDRESS,
+                        payer.publicKey,
+                    );
+
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: payer.publicKey,
+                            feeRecipientToken: payerToken.address,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidFeeRecipient");
+                });
+
+                it("Cannot Complete Transfer (Peer Doesn't Exist)", async function () {
+                    const invalidChain = 69;
+
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: payer.publicKey,
+                        },
+                        invalidChain as wormholeSdk.ChainId,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "AccountNotInitialized");
+                });
+
+                it("Cannot Complete Transfer (Invalid Swap Message)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        Buffer.from("invalid message"),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: payer.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidSwapMessage");
+                });
+
+                it("Cannot Complete Transfer (Invalid Peer)", async function () {
+                    // Create a valid transfer but from the wrong sender.
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        Array.from(
+                            Buffer.alloc(
+                                32,
+                                "00000000000000000000000000000000000000000000000000000000deadbeef",
+                                "hex",
+                            ),
+                        ), // Invalid Address.
+                        wormholeSequence,
+                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: payer.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidPeer");
+                });
+
+                it.skip("Cannot Complete Transfer (InvalidOutputToken)", async function () {
+                    // TODO: Need to use encoded swaptype for this test.
+                });
+
+                it("Cannot Complete Transfer (Invalid Recipient)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: feeRecipient, // Invalid recipient
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidRecipient");
+                });
+
+                it("Cannot Complete Transfer (Invalid Redeem Mode)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeDirectUsdcTransfer(payer.publicKey), // Encode Direct instead of Relay.
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: payer.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidRedeemMode");
+                });
+
                 it("Complete Transfer (Payer == Recipient)", async function () {
                     const result = await createAndRedeemCctpFillForTest(
                         connection,
@@ -2069,4 +2265,19 @@ async function updateRelayParamsForTest(
     );
 
     await expectIxOk(swapLayer.program.provider.connection, [ix], [feeUpdater]);
+}
+
+async function addPeerForTest(
+    swapLayer: SwapLayerProgram,
+    ownerOrAssistant: Keypair,
+    addPeerArgs: AddPeerArgs,
+) {
+    const ix = await swapLayer.addPeerIx(
+        {
+            ownerOrAssistant: ownerOrAssistant.publicKey,
+        },
+        addPeerArgs,
+    );
+
+    expectIxOk(swapLayer.program.provider.connection, [ix], [ownerOrAssistant]);
 }

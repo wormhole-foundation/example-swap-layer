@@ -9,8 +9,7 @@ pub enum SwapLayerError {
     InvalidRelayerFee = 0x105,
     InvalidSwapMessage = 0x106,
     InvalidRecipient = 0x107,
-    InvalidFeeUpdater = 0x108,
-
+    InvalidFeeUpdater = 0x108, 
     ChainNotAllowed = 0x109,
     InvalidPeer = 0x10a,
     InvalidGasDropoff = 0x10b,
@@ -21,6 +20,7 @@ pub enum SwapLayerError {
     GasDropoffCalculationFailed = 0x110,
     ExceedsMaxRelayingFee = 0x111,
     InvalidPreparedOrder = 0x112,
+    InvalidFeeRecipient = 0x113,
 
     // EVM Execution Param errors
     InvalidBaseFee = 0x200,
