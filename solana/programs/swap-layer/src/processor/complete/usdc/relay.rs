@@ -57,7 +57,12 @@ pub struct CompleteTransferRelay<'info> {
     #[account(
         mut,
         constraint = {
-            custodian.fee_recipient_token.key() == fee_recipient_token.key()
+            require!(
+                custodian.fee_recipient_token.key() == fee_recipient_token.key(),
+                SwapLayerError::InvalidFeeRecipient
+            );
+
+            true
         }
     )]
     pub fee_recipient_token: Account<'info, token::TokenAccount>,
