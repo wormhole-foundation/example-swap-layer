@@ -14,7 +14,8 @@ pub mod utils;
 declare_id!("AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m");
 
 const CUSTODIAN_BUMP: u8 = 255;
-const SEED_PREFIX_COMPLETE: &[u8] = b"complete";
+const COMPLETE_TOKEN_SEED_PREFIX: &[u8] = b"complete";
+const SWAP_AUTHORITY_SEED_PREFIX: &[u8] = b"swap-authority";
 const MAX_BPS: u32 = 1_000_000; // 10,000.00 bps (100%)
 
 #[program]

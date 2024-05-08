@@ -3,26 +3,43 @@ import * as anchor from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import {
     AccountMeta,
+    ComputeBudgetProgram,
     Connection,
     Keypair,
     PublicKey,
+    Signer,
     TransactionInstruction,
 } from "@solana/web3.js";
 import * as legacyAnchor from "anchor-0.29.0";
 import { use as chaiUse, expect } from "chai";
-import * as tokenRouterSdk from "../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
+import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solana/ts/src/cctp";
 import {
+    FastMarketOrder,
+    LiquidityLayerDeposit,
+    LiquidityLayerMessage,
+    SlowOrderResponse,
+} from "../../../lib/example-liquidity-layer/solana/ts/src/common";
+import * as matchingEngineSdk from "../../../lib/example-liquidity-layer/solana/ts/src/matchingEngine";
+import { VaaAccount } from "../../../lib/example-liquidity-layer/solana/ts/src/wormhole";
+import {
+    CHAIN_TO_DOMAIN,
+    CircleAttester,
+    ETHEREUM_USDC_ADDRESS,
     LOCALHOST,
+    MOCK_GUARDIANS,
     OWNER_ASSISTANT_KEYPAIR,
     OWNER_KEYPAIR,
     PAYER_KEYPAIR,
+    REGISTERED_TOKEN_ROUTERS,
     expectIxOk,
+    getBlockTime,
+    postLiquidityLayerVaa,
 } from "../../../lib/example-liquidity-layer/solana/ts/tests/helpers";
 import SWAP_LAYER_IDL from "../../target/idl/swap_layer.json";
 import * as jupiter from "../src/jupiter";
 import { SwapLayerProgram, localnet } from "../src/swapLayer";
 import { IDL as WHIRLPOOL_IDL, Whirlpool } from "../src/types/whirlpool";
-import { FEE_UPDATER_KEYPAIR } from "./helpers";
+import { FEE_UPDATER_KEYPAIR, createLut } from "./helpers";
 
 chaiUse(require("chai-as-promised"));
 
@@ -59,13 +76,8 @@ describe("Jupiter V6 Testing", () => {
 
     // Program SDKs
     const swapLayer = new SwapLayerProgram(connection, localnet(), USDC_MINT_ADDRESS);
-    const tokenRouter = new tokenRouterSdk.TokenRouterProgram(
-        connection,
-        tokenRouterSdk.testnet(),
-        USDC_MINT_ADDRESS,
-    );
-
-    let tokenRouterLkupTable: PublicKey;
+    const tokenRouter = swapLayer.tokenRouterProgram();
+    const matchingEngine = tokenRouter.matchingEngineProgram();
 
     const whirlpoolProgram = new legacyAnchor.Program(WHIRLPOOL_IDL, WHIRLPOOL_PROGRAM_ID, {
         connection,
@@ -78,7 +90,40 @@ describe("Jupiter V6 Testing", () => {
         },
     );
 
-    describe("Whirlpool", () => {
+    const luts: [PublicKey, PublicKey] = [PublicKey.default, PublicKey.default];
+
+    let testCctpNonce = 2n ** 64n - 1n;
+
+    // Hack to prevent math overflow error when invoking CCTP programs.
+    testCctpNonce -= 100n * 6400n;
+
+    let wormholeSequence = 10000n;
+
+    describe("Setup", function () {
+        after("Setup Lookup Tables", async function () {
+            luts[0] = await createLut(
+                connection,
+                payer,
+                await tokenRouter
+                    .commonAccounts()
+                    .then((accounts) => Object.values(accounts).filter((key) => key !== undefined)),
+            );
+
+            luts[1] = await createLut(
+                connection,
+                payer,
+                await matchingEngine
+                    .commonAccounts()
+                    .then((accounts) => Object.values(accounts).filter((key) => key !== undefined)),
+            );
+        });
+
+        it("Placeholder", async function () {
+            // TODO
+        });
+    });
+
+    describe("Whirlpool", function () {
         it.skip("Swap USDT to USDC", async function () {
             const swapIx = jupiter.toTransactionInstruction(
                 jupiterV6SwapIxResponseWhirlpool.swapInstruction,
@@ -122,7 +167,33 @@ describe("Jupiter V6 Testing", () => {
     });
 
     describe("Complete Swap Passthrough (WIP)", function () {
-        // TODO
+        const emittedEvents: EmittedFilledLocalFastOrder[] = [];
+        let listenerId: number | null;
+
+        before("Start Event Listener", async function () {
+            listenerId = matchingEngine.onFilledLocalFastOrder((event, slot, signature) => {
+                emittedEvents.push({ event, slot, signature });
+            });
+        });
+
+        after("Stop Event Listener", async function () {
+            if (listenerId !== null) {
+                matchingEngine.program.removeEventListener(listenerId!);
+            }
+        });
+
+        // afterEach("Clear Emitted Events", function () {
+        //     while (emittedEvents.length > 0) {
+        //         emittedEvents.pop();
+        //     }
+        // });
+
+        it("Generate Fast Fill", async function () {
+            const { fastFill, preparedFill } = await redeemFastFillForTest(
+                { payer: payer.publicKey },
+                emittedEvents,
+            );
+        });
 
         it.skip("Swap USDT to USDC", async function () {
             const ixData = Buffer.from(
@@ -160,6 +231,435 @@ describe("Jupiter V6 Testing", () => {
             // const txSig = await expectIxOk(connection, [ix], [payer]);
         });
     });
+
+    type PrepareOrderResponseForTestOptionalOpts = {
+        args?: matchingEngineSdk.CctpMessageArgs;
+    };
+
+    async function prepareOrderResponseCctpForTest(
+        accounts: {
+            payer: PublicKey;
+        },
+        opts: ObserveCctpOrderVaasOpts & PrepareOrderResponseForTestOptionalOpts = {},
+    ): Promise<
+        | undefined
+        | {
+              fastVaa: PublicKey;
+              finalizedVaa: PublicKey;
+              args: matchingEngineSdk.CctpMessageArgs;
+              preparedOrderResponse: PublicKey;
+              prepareOrderResponseInstruction?: TransactionInstruction;
+          }
+    > {
+        let { args } = opts;
+
+        const { fastVaa, fastVaaAccount, finalizedVaa } = await (async () => {
+            const { fast, finalized } = await observeCctpOrderVaas(opts);
+            args ??= finalized!.cctp;
+
+            return {
+                fastVaa: fast.vaa,
+                fastVaaAccount: fast.vaaAccount,
+                finalizedVaa: finalized!.vaa,
+            };
+        })();
+
+        const ix = await matchingEngine.prepareOrderResponseCctpIx(
+            {
+                payer: accounts.payer,
+                fastVaa,
+                finalizedVaa,
+            },
+            args!,
+        );
+
+        const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
+            units: 280_000,
+        });
+
+        const addressLookupTableAccounts = await Promise.all(
+            luts.map(async (lookupTableAddress) => {
+                const { value } = await connection.getAddressLookupTable(lookupTableAddress);
+
+                return value;
+            }),
+        );
+        await expectIxOk(connection, [computeIx, ix], [payer], {
+            addressLookupTableAccounts,
+        });
+
+        return {
+            fastVaa,
+            finalizedVaa,
+            args: args!,
+            preparedOrderResponse: matchingEngine.preparedOrderResponseAddress(
+                fastVaaAccount.digest(),
+            ),
+        };
+    }
+
+    async function reserveFastFillSequenceNoAuctionForTest(accounts: {
+        payer: PublicKey;
+        fastVaa?: PublicKey;
+        auction?: PublicKey;
+        preparedOrderResponse?: PublicKey;
+    }): Promise<
+        | undefined
+        | {
+              fastVaa: PublicKey;
+              fastVaaAccount: VaaAccount;
+              reservedSequence: PublicKey;
+              finalizedVaa?: PublicKey;
+              finalizedVaaAccount?: VaaAccount;
+          }
+    > {
+        let preparedOrderResponse: PublicKey | undefined;
+        const { fastVaa, fastVaaAccount, finalizedVaa, finalizedVaaAccount } = await (async () => {
+            if (accounts.preparedOrderResponse === undefined) {
+                const result = await prepareOrderResponseCctpForTest({
+                    payer: accounts.payer,
+                });
+                const { fastVaa, finalizedVaa } = result!;
+                preparedOrderResponse = result!.preparedOrderResponse;
+
+                return {
+                    fastVaa,
+                    fastVaaAccount: await VaaAccount.fetch(connection, fastVaa),
+                    finalizedVaa: finalizedVaa,
+                    finalizedVaaAccount: await VaaAccount.fetch(connection, finalizedVaa),
+                };
+            } else if (accounts.fastVaa !== undefined) {
+                preparedOrderResponse = accounts.preparedOrderResponse;
+                return {
+                    fastVaa: accounts.fastVaa,
+                    fastVaaAccount: await VaaAccount.fetch(connection, accounts.fastVaa),
+                };
+            } else {
+                throw new Error("fastVaa must be defined if preparedOrderResponse is defined");
+            }
+        })();
+
+        const ix = await matchingEngine.reserveFastFillSequenceNoAuctionIx({
+            ...accounts,
+            fastVaa: accounts.fastVaa ?? fastVaa,
+            preparedOrderResponse,
+        });
+
+        await expectIxOk(connection, [ix], [payer]);
+
+        return {
+            fastVaa,
+            fastVaaAccount,
+            reservedSequence: matchingEngine.reservedFastFillSequenceAddress(
+                fastVaaAccount.digest(),
+            ),
+            finalizedVaa,
+            finalizedVaaAccount,
+        };
+    }
+
+    type EmittedFilledLocalFastOrder = {
+        event: matchingEngineSdk.LocalFastOrderFilled;
+        slot: number;
+        signature: string;
+    };
+
+    async function settleAuctionNoneLocalForTest(
+        accounts: {
+            payer: PublicKey;
+            reservedSequence?: PublicKey;
+        },
+        emittedEvents: EmittedFilledLocalFastOrder[],
+    ): Promise<undefined | { event: matchingEngineSdk.LocalFastOrderFilled }> {
+        const reserveResult = await reserveFastFillSequenceNoAuctionForTest({
+            payer: accounts.payer,
+        });
+
+        const ix = await matchingEngine.settleAuctionNoneLocalIx({
+            ...accounts,
+            reservedSequence: reserveResult!.reservedSequence,
+        });
+
+        await expectIxOk(connection, [ix], [payer]);
+
+        // Check event.
+        while (emittedEvents.length == 0) {
+            console.log("waiting...");
+            await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+
+        return emittedEvents.shift()!;
+    }
+
+    async function redeemFastFillForTest(
+        accounts: { payer: PublicKey },
+        emittedEvents: EmittedFilledLocalFastOrder[],
+    ) {
+        const settleResult = await settleAuctionNoneLocalForTest(
+            { payer: payer.publicKey },
+            emittedEvents,
+        );
+        const {
+            event: {
+                seeds: { sourceChain, orderSender, sequence },
+            },
+        } = settleResult!;
+
+        const fastFill = matchingEngine.fastFillAddress(
+            sourceChain as wormholeSdk.ChainId,
+            orderSender,
+            sequence,
+        );
+
+        const ix = await tokenRouter.redeemFastFillIx({
+            ...accounts,
+            fastFill,
+        });
+
+        await expectIxOk(connection, [ix], [payer]);
+
+        return { fastFill, preparedFill: tokenRouter.preparedFillAddress(fastFill) };
+    }
+
+    type ForTestOpts = {
+        signers?: Signer[];
+        errorMsg?: string | null;
+    };
+
+    function setDefaultForTestOpts<T extends ForTestOpts>(
+        opts: T,
+        overrides: {
+            signers?: Signer[];
+        } = {},
+    ): [{ signers: Signer[]; errorMsg: string | null }, Omit<T, keyof ForTestOpts>] {
+        let { signers, errorMsg } = opts;
+        signers ??= overrides.signers ?? [payer];
+        delete opts.signers;
+
+        errorMsg ??= null;
+        delete opts.errorMsg;
+
+        return [{ signers, errorMsg }, { ...opts }];
+    }
+
+    function newFastMarketOrder(
+        args: {
+            amountIn?: bigint;
+            minAmountOut?: bigint;
+            initAuctionFee?: bigint;
+            targetChain?: wormholeSdk.ChainName;
+            maxFee?: bigint;
+            deadline?: number;
+            redeemerMessage?: Buffer;
+        } = {},
+    ): FastMarketOrder {
+        const {
+            amountIn,
+            targetChain,
+            minAmountOut,
+            maxFee,
+            initAuctionFee,
+            deadline,
+            redeemerMessage,
+        } = args;
+
+        return {
+            amountIn: amountIn ?? 1_000_000_000n,
+            minAmountOut: minAmountOut ?? 0n,
+            targetChain: wormholeSdk.coalesceChainId(targetChain ?? "solana"),
+            redeemer: Array.from(swapLayer.custodianAddress().toBuffer()),
+            sender: new Array(32).fill(2),
+            refundAddress: new Array(32).fill(3),
+            maxFee: maxFee ?? 42069n,
+            initAuctionFee: initAuctionFee ?? 1_250_000n,
+            deadline: deadline ?? 0,
+            redeemerMessage: redeemerMessage ?? Buffer.from("Somebody set up us the bomb"),
+        };
+    }
+
+    function newSlowOrderResponse(args: { baseFee?: bigint } = {}): SlowOrderResponse {
+        const { baseFee } = args;
+
+        return {
+            baseFee: baseFee ?? 420n,
+        };
+    }
+
+    type VaaResult = {
+        vaa: PublicKey;
+        vaaAccount: VaaAccount;
+    };
+
+    type FastObservedResult = VaaResult & {
+        fastMarketOrder: FastMarketOrder;
+    };
+
+    type FinalizedObservedResult = VaaResult & {
+        slowOrderResponse: SlowOrderResponse;
+        cctp: matchingEngineSdk.CctpMessageArgs;
+    };
+
+    type ObserveCctpOrderVaasOpts = {
+        sourceChain?: wormholeSdk.ChainName;
+        emitter?: Array<number>;
+        vaaTimestamp?: number;
+        fastMarketOrder?: FastMarketOrder;
+        finalized?: boolean;
+        slowOrderResponse?: SlowOrderResponse;
+        finalizedSourceChain?: wormholeSdk.ChainName;
+        finalizedEmitter?: Array<number>;
+        finalizedSequence?: bigint;
+        finalizedVaaTimestamp?: number;
+    };
+
+    async function observeCctpOrderVaas(opts: ObserveCctpOrderVaasOpts = {}): Promise<{
+        fast: FastObservedResult;
+        finalized?: FinalizedObservedResult;
+    }> {
+        let {
+            sourceChain,
+            emitter,
+            vaaTimestamp,
+            fastMarketOrder,
+            finalized,
+            slowOrderResponse,
+            finalizedSourceChain,
+            finalizedEmitter,
+            finalizedSequence,
+            finalizedVaaTimestamp,
+        } = opts;
+        sourceChain ??= "ethereum";
+        emitter ??= REGISTERED_TOKEN_ROUTERS[sourceChain] ?? new Array(32).fill(0);
+        vaaTimestamp ??= await getBlockTime(connection);
+        fastMarketOrder ??= newFastMarketOrder();
+        finalized ??= true;
+        slowOrderResponse ??= newSlowOrderResponse();
+        finalizedSourceChain ??= sourceChain;
+        finalizedEmitter ??= emitter;
+        finalizedSequence ??= finalized ? wormholeSequence++ : 0n;
+        finalizedVaaTimestamp ??= vaaTimestamp;
+
+        const sourceCctpDomain = CHAIN_TO_DOMAIN[sourceChain];
+        if (sourceCctpDomain === undefined) {
+            throw new Error(`Invalid source chain: ${sourceChain}`);
+        }
+
+        const fastVaa = await postLiquidityLayerVaa(
+            connection,
+            payer,
+            MOCK_GUARDIANS,
+            emitter,
+            wormholeSequence++,
+            new LiquidityLayerMessage({
+                fastMarketOrder,
+            }),
+            { sourceChain, timestamp: vaaTimestamp },
+        );
+        const fastVaaAccount = await VaaAccount.fetch(connection, fastVaa);
+        const fast = { fastMarketOrder, vaa: fastVaa, vaaAccount: fastVaaAccount };
+
+        if (finalized) {
+            const { amountIn: amount } = fastMarketOrder;
+            const cctpNonce = testCctpNonce++;
+
+            // Concoct a Circle message.
+            const { destinationCctpDomain, burnMessage, encodedCctpMessage, cctpAttestation } =
+                await craftCctpTokenBurnMessage(sourceCctpDomain, cctpNonce, amount);
+
+            const finalizedMessage = new LiquidityLayerMessage({
+                deposit: new LiquidityLayerDeposit(
+                    {
+                        tokenAddress: burnMessage.burnTokenAddress,
+                        amount,
+                        sourceCctpDomain,
+                        destinationCctpDomain,
+                        cctpNonce,
+                        burnSource: Array.from(Buffer.alloc(32, "beefdead", "hex")),
+                        mintRecipient: Array.from(
+                            matchingEngine.cctpMintRecipientAddress().toBuffer(),
+                        ),
+                    },
+                    {
+                        slowOrderResponse,
+                    },
+                ),
+            });
+
+            const finalizedVaa = await postLiquidityLayerVaa(
+                connection,
+                payer,
+                MOCK_GUARDIANS,
+                finalizedEmitter,
+                finalizedSequence,
+                finalizedMessage,
+                { sourceChain: finalizedSourceChain, timestamp: finalizedVaaTimestamp },
+            );
+            const finalizedVaaAccount = await VaaAccount.fetch(connection, finalizedVaa);
+            return {
+                fast,
+                finalized: {
+                    slowOrderResponse,
+                    vaa: finalizedVaa,
+                    vaaAccount: finalizedVaaAccount,
+                    cctp: {
+                        encodedCctpMessage,
+                        cctpAttestation,
+                    },
+                },
+            };
+        } else {
+            return { fast };
+        }
+    }
+
+    async function craftCctpTokenBurnMessage(
+        sourceCctpDomain: number,
+        cctpNonce: bigint,
+        amount: bigint,
+        overrides: { destinationCctpDomain?: number } = {},
+    ) {
+        const { destinationCctpDomain: inputDestinationCctpDomain } = overrides;
+
+        const messageTransmitterProgram = matchingEngine.messageTransmitterProgram();
+        const { version, localDomain } =
+            await messageTransmitterProgram.fetchMessageTransmitterConfig(
+                messageTransmitterProgram.messageTransmitterConfigAddress(),
+            );
+        const destinationCctpDomain = inputDestinationCctpDomain ?? localDomain;
+
+        const tokenMessengerMinterProgram = matchingEngine.tokenMessengerMinterProgram();
+        const { tokenMessenger: sourceTokenMessenger } =
+            await tokenMessengerMinterProgram.fetchRemoteTokenMessenger(
+                tokenMessengerMinterProgram.remoteTokenMessengerAddress(sourceCctpDomain),
+            );
+
+        const burnMessage = new CctpTokenBurnMessage(
+            {
+                version,
+                sourceDomain: sourceCctpDomain,
+                destinationDomain: destinationCctpDomain,
+                nonce: cctpNonce,
+                sender: sourceTokenMessenger,
+                recipient: Array.from(tokenMessengerMinterProgram.ID.toBuffer()), // targetTokenMessenger
+                targetCaller: Array.from(matchingEngine.custodianAddress().toBuffer()), // targetCaller
+            },
+            0,
+            Array.from(wormholeSdk.tryNativeToUint8Array(ETHEREUM_USDC_ADDRESS, "ethereum")), // sourceTokenAddress
+            Array.from(matchingEngine.cctpMintRecipientAddress().toBuffer()), // mint recipient
+            amount,
+            new Array(32).fill(0), // burnSource
+        );
+
+        const encodedCctpMessage = burnMessage.encode();
+        const cctpAttestation = new CircleAttester().createAttestation(encodedCctpMessage);
+
+        return {
+            destinationCctpDomain,
+            burnMessage,
+            encodedCctpMessage,
+            cctpAttestation,
+        };
+    }
 });
 
 const jupiterV6SwapIxResponseWhirlpool = {

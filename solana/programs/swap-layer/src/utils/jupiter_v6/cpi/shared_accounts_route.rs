@@ -34,12 +34,10 @@ impl<'info> ToAccountMetas for SharedAccountsRoute<'info> {
             AccountMeta::new(*self.destination_account.key, false),
             AccountMeta::new_readonly(*self.source_mint.key, false),
             AccountMeta::new_readonly(*self.destination_mint.key, false),
-            AccountMeta::new_readonly(
-                self.platform_fee
-                    .as_ref()
-                    .map_or(program_id, |acc_info| *acc_info.key),
-                false,
-            ),
+            match self.platform_fee.as_ref() {
+                Some(acc_info) => AccountMeta::new(*acc_info.key, false),
+                None => AccountMeta::new_readonly(program_id, false),
+            },
             AccountMeta::new_readonly(
                 self.token_2022_program
                     .as_ref()
@@ -47,7 +45,7 @@ impl<'info> ToAccountMetas for SharedAccountsRoute<'info> {
                 false,
             ),
             AccountMeta::new_readonly(*self.event_authority.key, false),
-            AccountMeta::new(program_id, false),
+            AccountMeta::new_readonly(program_id, false),
         ]
     }
 }

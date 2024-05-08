@@ -1,14 +1,14 @@
-export * from "./state";
 export * from "./relayerFees";
+export * from "./state";
 
-import { Connection, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
+import * as wormholeSdk from "@certusone/wormhole-sdk";
 import { BN, Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
+import { Connection, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
+import * as tokenRouterSdk from "../../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
 import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
-import { Custodian, RelayParams, Peer } from "./state";
-import * as wormholeSdk from "@certusone/wormhole-sdk";
-import * as tokenRouterSdk from "../../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
+import { Custodian, Peer, RelayParams } from "./state";
 
 export const PROGRAM_IDS = ["AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m"] as const;
 
@@ -37,6 +37,12 @@ export type UpdateRelayParametersArgs = {
     relayParams: RelayParams;
 };
 
+type CheckedCustodianComposite = {
+    custodian: PublicKey;
+};
+
+type RegisteredPeerComposite = { peer: PublicKey };
+
 export class SwapLayerProgram {
     private _programId: ProgramId;
     private _mint: PublicKey;
@@ -62,21 +68,6 @@ export class SwapLayerProgram {
         );
     }
 
-    tokenRouterProgram(): tokenRouterSdk.TokenRouterProgram {
-        switch (this._programId) {
-            case localnet(): {
-                return new tokenRouterSdk.TokenRouterProgram(
-                    this.program.provider.connection,
-                    tokenRouterSdk.localnet(),
-                    this.mint,
-                );
-            }
-            default: {
-                throw new Error("unsupported network");
-            }
-        }
-    }
-
     custodianAddress(): PublicKey {
         return PublicKey.findProgramAddressSync([Buffer.from("custodian")], this.ID)[0];
     }
@@ -98,14 +89,14 @@ export class SwapLayerProgram {
         )[0];
     }
 
-    checkedCustodianComposite(addr?: PublicKey): { custodian: PublicKey } {
+    checkedCustodianComposite(addr?: PublicKey): CheckedCustodianComposite {
         return { custodian: addr ?? this.custodianAddress() };
     }
 
     adminComposite(
         ownerOrAssistant: PublicKey,
         custodian?: PublicKey,
-    ): { ownerOrAssistant: PublicKey; custodian: { custodian: PublicKey } } {
+    ): { ownerOrAssistant: PublicKey; custodian: CheckedCustodianComposite } {
         return { ownerOrAssistant, custodian: this.checkedCustodianComposite(custodian) };
     }
 
@@ -119,7 +110,7 @@ export class SwapLayerProgram {
     ownerOnlyComposite(
         owner: PublicKey,
         custodian?: PublicKey,
-    ): { owner: PublicKey; custodian: { custodian: PublicKey } } {
+    ): { owner: PublicKey; custodian: CheckedCustodianComposite } {
         return { owner, custodian: this.checkedCustodianComposite(custodian) };
     }
 
@@ -133,8 +124,51 @@ export class SwapLayerProgram {
     feeUpdaterComposite(
         feeUpdater: PublicKey,
         custodian?: PublicKey,
-    ): { feeUpdater: PublicKey; custodian: { custodian: PublicKey } } {
+    ): { feeUpdater: PublicKey; custodian: CheckedCustodianComposite } {
         return { feeUpdater, custodian: this.checkedCustodianComposite(custodian) };
+    }
+
+    registeredPeerComposite(chain: wormholeSdk.ChainId): RegisteredPeerComposite {
+        return { peer: this.peerAddress(chain) };
+    }
+
+    async consumeSwapLayerFillComposite(
+        accounts: {
+            preparedFill: PublicKey;
+            beneficiary: PublicKey;
+            associatedPeer?: PublicKey;
+        },
+        opts: { sourceChain?: wormholeSdk.ChainId } = {},
+    ): Promise<{
+        custodian: CheckedCustodianComposite;
+        fill: PublicKey;
+        fillCustodyToken: PublicKey;
+        associatedPeer: RegisteredPeerComposite;
+        beneficiary: PublicKey;
+        tokenRouterProgram: PublicKey;
+    }> {
+        const { preparedFill, beneficiary } = accounts;
+
+        let { associatedPeer: peer } = accounts;
+        let { sourceChain } = opts;
+
+        const tokenRouter = this.tokenRouterProgram();
+        if (sourceChain === undefined) {
+            const { info } = await tokenRouter.fetchPreparedFill(preparedFill);
+            // @ts-ignore: This is a real chain ID.
+            sourceChain = info.sourceChain;
+        }
+
+        peer ??= this.peerAddress(sourceChain);
+
+        return {
+            custodian: this.checkedCustodianComposite(),
+            fill: preparedFill,
+            fillCustodyToken: tokenRouter.preparedCustodyTokenAddress(preparedFill),
+            associatedPeer: { peer },
+            beneficiary,
+            tokenRouterProgram: tokenRouter.ID,
+        };
     }
 
     async fetchCustodian(input?: { address: PublicKey }): Promise<Custodian> {
@@ -377,7 +411,7 @@ export class SwapLayerProgram {
             recipientTokenAccount?: PublicKey;
             feeRecipientToken?: PublicKey;
         },
-        fromChain?: wormholeSdk.ChainId,
+        sourceChain?: wormholeSdk.ChainId,
     ) {
         let {
             payer,
@@ -389,11 +423,6 @@ export class SwapLayerProgram {
             feeRecipientToken,
         } = accounts;
 
-        if (fromChain === undefined && peer === undefined) {
-            throw new Error("from_chain or peer must be provided");
-        }
-
-        peer = peer ?? this.peerAddress(fromChain!);
         beneficiary ??= payer;
         recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.mint, recipient);
 
@@ -409,17 +438,19 @@ export class SwapLayerProgram {
             .completeTransferRelay()
             .accounts({
                 payer,
-                custodian: this.checkedCustodianComposite(),
+                consumeSwapLayerFill: await this.consumeSwapLayerFillComposite(
+                    {
+                        preparedFill,
+                        beneficiary,
+                        associatedPeer: peer,
+                    },
+                    { sourceChain },
+                ),
                 completeTokenAccount: this.completeTokenAccountKey(preparedFill),
                 recipient,
                 recipientTokenAccount,
                 usdc: this.usdcComposite(this.mint),
-                beneficiary,
-                peer,
-                preparedFill,
                 feeRecipientToken,
-                tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                tokenRouterProgram: tokenRouter.ID,
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
                 systemProgram: SystemProgram.programId,
             })
@@ -435,15 +466,9 @@ export class SwapLayerProgram {
             beneficiary?: PublicKey;
             recipientTokenAccount?: PublicKey;
         },
-        fromChain?: wormholeSdk.ChainId,
+        sourceChain?: wormholeSdk.ChainId,
     ) {
         let { payer, beneficiary, preparedFill, peer, recipient, recipientTokenAccount } = accounts;
-
-        if (fromChain === undefined && peer === undefined) {
-            throw new Error("from_chain or peer must be provided");
-        }
-
-        peer = peer ?? this.peerAddress(fromChain!);
 
         beneficiary ??= payer;
         recipient ??= payer;
@@ -454,20 +479,34 @@ export class SwapLayerProgram {
         return this.program.methods
             .completeTransferDirect()
             .accounts({
-                payer,
-                custodian: this.checkedCustodianComposite(),
-                beneficiary,
+                consumeSwapLayerFill: await this.consumeSwapLayerFillComposite(
+                    {
+                        preparedFill,
+                        beneficiary,
+                        associatedPeer: peer,
+                    },
+                    { sourceChain },
+                ),
                 recipient,
                 recipientTokenAccount,
-                usdc: this.usdcComposite(this.mint),
-                preparedFill,
-                peer,
-                tokenRouterCustody: tokenRouter.preparedCustodyTokenAddress(preparedFill),
-                tokenRouterProgram: tokenRouter.ID,
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
-                systemProgram: SystemProgram.programId,
             })
             .instruction();
+    }
+
+    tokenRouterProgram(): tokenRouterSdk.TokenRouterProgram {
+        switch (this._programId) {
+            case localnet(): {
+                return new tokenRouterSdk.TokenRouterProgram(
+                    this.program.provider.connection,
+                    tokenRouterSdk.localnet(),
+                    this.mint,
+                );
+            }
+            default: {
+                throw new Error("unsupported network");
+            }
+        }
     }
 }
 
