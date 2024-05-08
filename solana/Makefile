@@ -21,8 +21,8 @@ clean:
 fast-transfer-sync:
 	cd .. && $(MAKE) fast-transfer-sync
 
-node_modules: ../package-lock.json
-	cd .. && npm ci
+../node_modules:
+	cd .. && $(MAKE) node_modules
 
 .PHONY: clippy
 clippy:
@@ -38,7 +38,7 @@ cargo-test: fast-transfer-sync
 	cargo test --workspace --all-targets --features $(NETWORK)
 
 .PHONY: anchor-test
-anchor-test: node_modules $(CLONED_PROGRAMS)
+anchor-test: ../node_modules $(CLONED_PROGRAMS)
 ifndef SKIP_SUBMODULE_BUILD
 	cd .. && $(MAKE) fast-transfer-setup
 endif

@@ -2,6 +2,7 @@ pub mod gas_dropoff;
 pub mod jupiter_v6;
 pub mod relay_parameters;
 pub mod relayer_fees;
+pub mod token_router;
 
 use std::fmt;
 

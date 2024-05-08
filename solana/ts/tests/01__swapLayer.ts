@@ -2,7 +2,6 @@ import * as wormholeSdk from "@certusone/wormhole-sdk";
 import { BN } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import {
-    AddressLookupTableProgram,
     ComputeBudgetProgram,
     Connection,
     Keypair,
@@ -43,7 +42,7 @@ import {
     localnet,
     U32_MAX,
 } from "../src/swapLayer";
-import { FEE_UPDATER_KEYPAIR, hackedExpectDeepEqual } from "./helpers";
+import { FEE_UPDATER_KEYPAIR, createLut, hackedExpectDeepEqual } from "./helpers";
 
 chaiUse(require("chai-as-promised"));
 
@@ -151,32 +150,13 @@ describe("Swap Layer", () => {
             });
 
             after("Setup Lookup Table", async function () {
-                // Create.
-                const [createIx, lookupTable] = await connection.getSlot("finalized").then((slot) =>
-                    AddressLookupTableProgram.createLookupTable({
-                        authority: payer.publicKey,
-                        payer: payer.publicKey,
-                        recentSlot: slot,
-                    }),
-                );
-
-                await expectIxOk(connection, [createIx], [payer]);
-
                 const usdcCommonAccounts = await tokenRouter.commonAccounts();
 
-                // Extend.
-                const extendIx = AddressLookupTableProgram.extendLookupTable({
-                    payer: payer.publicKey,
-                    authority: payer.publicKey,
-                    lookupTable,
-                    addresses: Object.values(usdcCommonAccounts).filter((key) => key !== undefined),
-                });
-
-                await expectIxOk(connection, [extendIx], [payer], {
-                    confirmOptions: { commitment: "finalized" },
-                });
-
-                tokenRouterLkupTable = lookupTable;
+                tokenRouterLkupTable = await createLut(
+                    connection,
+                    payer,
+                    Object.values(usdcCommonAccounts).filter((key) => key !== undefined),
+                );
             });
 
             after("Transfer Lamports to Owner and Owner Assistant", async function () {
@@ -1533,7 +1513,12 @@ describe("Swap Layer", () => {
                         foreignChain,
                     );
 
-                    await expectIxErr(connection, [transferIx], [payer], "InvalidFeeRecipient");
+                    await expectIxErr(
+                        connection,
+                        [transferIx],
+                        [payer],
+                        "fee_recipient_token. Error Code: ConstraintAddress",
+                    );
                 });
 
                 it("Cannot Complete Transfer (Peer Doesn't Exist)", async function () {

@@ -22,7 +22,7 @@ cluster = "Localnet"
 wallet = "ts/tests/keys/pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ.json"
 
 [scripts]
-test = "npx ts-mocha -p ./tsconfig.anchor-test.json -t 1000000 ts/tests/[0-9]*.ts"
+test = "npx ts-mocha -p ./tsconfig.anchor-test.json -t 1000000 --exit ts/tests/[0-9]*.ts"
 
 [test]
 startup_wait = 20000
@@ -133,6 +133,21 @@ filename = "ts/tests/accounts/matching_engine/matching_engine_custodian.json"
 [[test.validator.account]]
 address = "BCyuV2SuRRfVBcCG82mtK9svwH9kTFtqGHdhLrfGJbzS"
 filename = "ts/tests/accounts/matching_engine/ethereum_token_router_endpoint.json"
+
+### Localnet Matching Engine -- Local Endpoint
+[[test.validator.account]]
+address = "DM2XBh6idYEGffbmpXpZ8imvvqr3wiGWQSPDPi7DUhK6"
+filename = "ts/tests/accounts/matching_engine/local_token_router_endpoint.json"
+
+### Localnet Matching Engine - Mint Recipient
+[[test.validator.account]]
+address = "35iwWKi7ebFyXNaqpswd1g9e9jrjvqWPV39nCQPaBbX1"
+filename = "ts/tests/accounts/matching_engine/matching_engine_mint_recipient.json"
+
+### Localnet Matching Engine - Local Custody Token (Ethereum)
+[[test.validator.account]]
+address = "Gv92Ev9RGL5gDrJe4QW7UuFqhDPtowcWsDEK5TFuxEXk"
+filename = "ts/tests/accounts/matching_engine/local_custody_token_ethereum.json"
 
 ### Localnet Token Router Program
 [[test.genesis]]
