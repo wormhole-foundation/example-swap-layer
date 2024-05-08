@@ -14,7 +14,7 @@ const ONE_SOL = 1_000_000_000n;
 const GAS_PRICE_SCALAR = 1_000_000n;
 const GAS_DROPOFF_SCALAR = 1_000n;
 
-const U32_MAX = 4294967295;
+export const U32_MAX = 4294967295;
 const MAX_BPS = 1_000_000n;
 
 // TODO: Need to implement serde for the following types. For now, we will use a dummy

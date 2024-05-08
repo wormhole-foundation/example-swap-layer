@@ -39,7 +39,7 @@ pub struct InitiateTransfer<'info> {
     #[account(
         mut,
         constraint = {
-            require!(*prepared_order.owner != payer.key(), SwapLayerError::PreparedOrderCannotBePayer);
+            require!(*prepared_order.key != payer.key(), SwapLayerError::InvalidPreparedOrder);
 
             true
         }
