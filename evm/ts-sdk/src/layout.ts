@@ -8,7 +8,7 @@ import {
   zip
 } from "@wormhole-foundation/sdk-base";
 import { layoutItems } from "@wormhole-foundation/sdk-definitions"
-import { EvmAddress } from "@wormhole-foundation/connect-sdk-evm";
+import { EvmAddress } from "@wormhole-foundation/sdk-evm";
 
 //TODO this is the shittiest enumItem implementation that I could whip up "quickly":
 type SwitchEntry = readonly [number, string];

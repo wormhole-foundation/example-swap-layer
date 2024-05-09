@@ -44,7 +44,7 @@ import { constMap, Network, Chain, MapLevel, MapLevels } from "@wormhole-foundat
 // >    chains** and be extremely careful to confirm mappings below.
 //
 // You will actually shoot yourself in the foot by using the provided addresses, but will be fine
-//   if you just use the same 0x3fC9... address everywhere, ..e. when you do **the exact opposite
+//   if you just use the same 0x3fC9... address everywhere, .i.e. when you do **the exact opposite
 // of what the docs tell you**.
 //
 // The deployment addresses of the V3-SwapRouter are equally unreliable.
