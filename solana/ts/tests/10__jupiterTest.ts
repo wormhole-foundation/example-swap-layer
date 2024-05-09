@@ -1,4 +1,3 @@
-import * as wormholeSdk from "@certusone/wormhole-sdk";
 import * as anchor from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import {
@@ -12,15 +11,15 @@ import {
 } from "@solana/web3.js";
 import * as legacyAnchor from "anchor-0.29.0";
 import { use as chaiUse, expect } from "chai";
-import { CctpTokenBurnMessage } from "../../../lib/example-liquidity-layer/solana/ts/src/cctp";
+import { CctpTokenBurnMessage } from "@wormhole-foundation/example-liquidity-layer-solana/cctp";
 import {
     FastMarketOrder,
     LiquidityLayerDeposit,
     LiquidityLayerMessage,
     SlowOrderResponse,
-} from "../../../lib/example-liquidity-layer/solana/ts/src/common";
-import * as matchingEngineSdk from "../../../lib/example-liquidity-layer/solana/ts/src/matchingEngine";
-import { VaaAccount } from "../../../lib/example-liquidity-layer/solana/ts/src/wormhole";
+} from "@wormhole-foundation/example-liquidity-layer-solana/common";
+import * as matchingEngineSdk from "@wormhole-foundation/example-liquidity-layer-solana/matchingEngine";
+import { VaaAccount } from "@wormhole-foundation/example-liquidity-layer-solana/wormhole";
 import {
     CHAIN_TO_DOMAIN,
     CircleAttester,
@@ -34,12 +33,13 @@ import {
     expectIxOk,
     getBlockTime,
     postLiquidityLayerVaa,
-} from "../../../lib/example-liquidity-layer/solana/ts/tests/helpers";
+} from "@wormhole-foundation/example-liquidity-layer-solana/testing";
 import SWAP_LAYER_IDL from "../../target/idl/swap_layer.json";
 import * as jupiter from "../src/jupiter";
 import { SwapLayerProgram, localnet } from "../src/swapLayer";
 import { IDL as WHIRLPOOL_IDL, Whirlpool } from "../src/types/whirlpool";
-import { FEE_UPDATER_KEYPAIR, createLut } from "./helpers";
+import { FEE_UPDATER_KEYPAIR, createLut, tryNativeToUint8Array } from "./helpers";
+import { Chain, toChainId } from "@wormhole-foundation/sdk-base";
 
 chaiUse(require("chai-as-promised"));
 
@@ -68,7 +68,7 @@ describe("Jupiter V6 Testing", () => {
     );
 
     // Sending chain information.
-    const foreignChain = wormholeSdk.CHAINS.sepolia;
+    const foreignChain = toChainId("Sepolia");
     const foreignEndpointAddress = Array.from(
         Buffer.alloc(32, "000000000000000000000000603541d1Cf7178C407aA7369b67CB7e0274952e2", "hex"),
     );
@@ -406,7 +406,7 @@ describe("Jupiter V6 Testing", () => {
         } = settleResult!;
 
         const fastFill = matchingEngine.fastFillAddress(
-            sourceChain as wormholeSdk.ChainId,
+            toChainId(sourceChain),
             orderSender,
             sequence,
         );
@@ -447,7 +447,7 @@ describe("Jupiter V6 Testing", () => {
             amountIn?: bigint;
             minAmountOut?: bigint;
             initAuctionFee?: bigint;
-            targetChain?: wormholeSdk.ChainName;
+            targetChain?: Chain;
             maxFee?: bigint;
             deadline?: number;
             redeemerMessage?: Buffer;
@@ -466,7 +466,7 @@ describe("Jupiter V6 Testing", () => {
         return {
             amountIn: amountIn ?? 1_000_000_000n,
             minAmountOut: minAmountOut ?? 0n,
-            targetChain: wormholeSdk.coalesceChainId(targetChain ?? "solana"),
+            targetChain: toChainId(targetChain ?? "Solana"),
             redeemer: Array.from(swapLayer.custodianAddress().toBuffer()),
             sender: new Array(32).fill(2),
             refundAddress: new Array(32).fill(3),
@@ -500,13 +500,13 @@ describe("Jupiter V6 Testing", () => {
     };
 
     type ObserveCctpOrderVaasOpts = {
-        sourceChain?: wormholeSdk.ChainName;
+        sourceChain?: Chain;
         emitter?: Array<number>;
         vaaTimestamp?: number;
         fastMarketOrder?: FastMarketOrder;
         finalized?: boolean;
         slowOrderResponse?: SlowOrderResponse;
-        finalizedSourceChain?: wormholeSdk.ChainName;
+        finalizedSourceChain?: Chain;
         finalizedEmitter?: Array<number>;
         finalizedSequence?: bigint;
         finalizedVaaTimestamp?: number;
@@ -528,7 +528,7 @@ describe("Jupiter V6 Testing", () => {
             finalizedSequence,
             finalizedVaaTimestamp,
         } = opts;
-        sourceChain ??= "ethereum";
+        sourceChain ??= "Ethereum";
         emitter ??= REGISTERED_TOKEN_ROUTERS[sourceChain] ?? new Array(32).fill(0);
         vaaTimestamp ??= await getBlockTime(connection);
         fastMarketOrder ??= newFastMarketOrder();
@@ -644,7 +644,7 @@ describe("Jupiter V6 Testing", () => {
                 targetCaller: Array.from(matchingEngine.custodianAddress().toBuffer()), // targetCaller
             },
             0,
-            Array.from(wormholeSdk.tryNativeToUint8Array(ETHEREUM_USDC_ADDRESS, "ethereum")), // sourceTokenAddress
+            Array.from(tryNativeToUint8Array(ETHEREUM_USDC_ADDRESS, "Ethereum")), // sourceTokenAddress
             Array.from(matchingEngine.cctpMintRecipientAddress().toBuffer()), // mint recipient
             amount,
             new Array(32).fill(0), // burnSource

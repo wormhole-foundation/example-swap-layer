@@ -1,4 +1,5 @@
 import * as wormholeSdk from "@certusone/wormhole-sdk";
+import { encoding } from "@wormhole-foundation/sdk-base";
 import { ethers } from "ethers";
 
 export const ID_DEPOSIT = 1;
@@ -51,9 +52,7 @@ export class LiquidityLayerDeposit {
         }
 
         const tokenAddress = Array.from(buf.subarray(offset, (offset += 32)));
-        const amount = BigInt(
-            ethers.BigNumber.from(buf.subarray(offset, (offset += 32))).toString(),
-        );
+        const amount = encoding.bignum.decode(buf.subarray(offset, (offset += 32)));
         const sourceCctpDomain = buf.readUInt32BE(offset);
         offset += 4;
         const destinationCctpDomain = buf.readUInt32BE(offset);
@@ -136,8 +135,9 @@ export class LiquidityLayerDeposit {
 
         // Special handling w/ uint256. This value will most likely encoded in < 32 bytes, so we
         // jump ahead by 32 and subtract the length of the encoded value.
-        const encodedAmount = ethers.utils.arrayify(ethers.BigNumber.from(amount.toString()));
-        buf.set(encodedAmount, (offset += 32) - encodedAmount.length);
+        const encodedAmount = encoding.bignum.toBytes(amount, 32);
+        buf.set(encodedAmount, offset);
+        offset += 32;
 
         offset = buf.writeUInt32BE(sourceCctpDomain, offset);
         offset = buf.writeUInt32BE(destinationCctpDomain, offset);

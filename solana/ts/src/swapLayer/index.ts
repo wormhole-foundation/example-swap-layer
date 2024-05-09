@@ -5,7 +5,7 @@ import * as wormholeSdk from "@certusone/wormhole-sdk";
 import { BN, Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import { Connection, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
-import * as tokenRouterSdk from "../../../../lib/example-liquidity-layer/solana/ts/src/tokenRouter";
+import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
 import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
 import { Custodian, Peer, RelayParams } from "./state";

@@ -17,33 +17,34 @@
         "build": "tsc -p tsconfig.json"
     },
     "dependencies": {
-        "@wormhole-foundation/sdk-base": "^0.6.5",
-        "@wormhole-foundation/sdk-definitions": "^0.6.5",
-        "@wormhole-foundation/sdk-solana": "^0.6.5",
-        "@wormhole-foundation/sdk-solana-core": "^0.6.5",
         "@certusone/wormhole-sdk": "^0.10.10",
         "@coral-xyz/anchor": "^0.30.0",
         "@jup-ag/api": "^6.0.20-test",
         "@solana/spl-token": "^0.4.3",
         "@solana/web3.js": "^1.91.6",
         "@types/node-fetch": "^2.6.11",
-        "@wormhole-foundation/sdk-evm": "0.6.0-beta.0",
+        "@wormhole-foundation/example-liquidity-layer-solana": "file:../lib/example-liquidity-layer/wormhole-foundation-example-liquidity-layer-solana-0.0.1.tgz",
+        "@wormhole-foundation/sdk-base": "^0.6.8-beta.0",
+        "@wormhole-foundation/sdk-definitions": "^0.6.8-beta.0",
+        "@wormhole-foundation/sdk-evm": "0.6.8-beta.0",
+        "@wormhole-foundation/sdk-solana": "^0.6.8-beta.0",
+        "@wormhole-foundation/sdk-solana-core": "^0.6.8-beta.0",
         "anchor-0.29.0": "npm:@coral-xyz/anchor@^0.29.0",
         "chai-as-promised": "^7.1.1",
         "ts-results": "^3.3.0",
         "tsx": "^4.7.2"
     },
     "devDependencies": {
-        "@types/node-fetch": "^2.6.11",
-        "tsx": "^4.7.2",
-        "ts-results": "^3.3.0",
         "@types/bn.js": "^5.1.0",
         "@types/chai": "^4.3.0",
         "@types/mocha": "^9.0.0",
         "@types/node": "^20.12.7",
+        "@types/node-fetch": "^2.6.11",
         "chai": "^4.3.4",
         "mocha": "^9.0.3",
         "prettier": "^2.6.2",
-        "ts-mocha": "^10.0.0"
+        "ts-mocha": "^10.0.0",
+        "ts-results": "^3.3.0",
+        "tsx": "^4.7.2"
     }
 }
