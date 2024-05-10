@@ -10,8 +10,7 @@
     "test": "npm run test --workspaces --if-present"
   },
   "dependencies": {
-    "@wormhole-foundation/sdk-base": "^0.6.8-beta.0",
-    "@wormhole-foundation/sdk-definitions": "^0.6.8-beta.0"
+    "@wormhole-foundation/sdk": "^0.6.8"
   },
   "devDependencies": {
     "typescript": "5.4.5",
