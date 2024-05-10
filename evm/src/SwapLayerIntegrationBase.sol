@@ -39,8 +39,13 @@ abstract contract SwapLayerIntegrationBase {
   using BytesParsing for bytes;
   using { toUniversalAddress } for address;
 
+  uint256 constant internal DOUBLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER = type(uint256).max;
+  uint256 constant internal SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER = type(uint256).max - 1;
+  uint256 constant internal OFFSET_WORMHOLE_MESSAGE_FEE_PLACEHOLDER = type(uint256).max - 2;
+
   error InvalidPathParams();
   error ExceedsMaximum(uint256 value, uint256 maximum);
+  error ExecutionFailed(bytes errorData);
 
   enum EvmSwapType {
     UniswapV3,
@@ -78,10 +83,33 @@ abstract contract SwapLayerIntegrationBase {
     uint256 limitAmount;
   }
 
-  function _swapLayer() virtual internal view returns (ISwapLayer);
+  struct ComposedInitiateParams {
+    uint256      msgValueOrPlaceholder;
+    TargetParams targetParams;
+    bytes        params;
+  }
+
+  function _swapLayer() internal virtual view returns (ISwapLayer);
+
+  function _swapLayerReplaceFeePlaceholderChecked(
+    uint256 msgValueOrPlaceholder,
+    uint256 wormholeMsgFee
+  ) internal pure returns (uint256) {
+    if (msgValueOrPlaceholder < SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER)
+      return msgValueOrPlaceholder;
+    else
+      return _swapLayerReplaceFeePlaceholderUnchecked(msgValueOrPlaceholder, wormholeMsgFee);
+  }
+
+  function _swapLayerReplaceFeePlaceholderUnchecked(
+    uint256 placeholder,
+    uint256 wormholeMsgFee
+  ) internal pure returns (uint256) {
+    return (placeholder - OFFSET_WORMHOLE_MESSAGE_FEE_PLACEHOLDER) * wormholeMsgFee;
+  }
 
   // -----------------------------------------------------------------------------------------------
-  // ------------------------------------------ Encoding -------------------------------------------
+  // ------------------------------------------- Encoding ------------------------------------------
   // -----------------------------------------------------------------------------------------------
 
   function _swapLayerEncodeOutputParamsUsdc() internal pure returns (bytes memory) {
@@ -91,10 +119,7 @@ abstract contract SwapLayerIntegrationBase {
   function _swapLayerEncodeOutputParamsNative(
     EvmSwapParams memory params
   ) internal pure returns (bytes memory) {
-    return abi.encodePacked(
-      IoToken.Gas,
-      _encodeSwapParams(params)
-    );
+    return abi.encodePacked(IoToken.Gas, _encodeSwapParams(params));
   }
 
   function _swapLayerEncodeOutputParamsToken(
@@ -131,6 +156,82 @@ abstract contract SwapLayerIntegrationBase {
   }
 
   // -----------------------------------------------------------------------------------------------
+  // ------------------------------------------- Initiate ------------------------------------------
+  // -----------------------------------------------------------------------------------------------
+
+  function _swapLayerDecodeInitiateSlowReturn(
+    bytes memory successData
+  ) internal pure returns (uint64, uint64, uint256) {
+    return abi.decode(successData, (uint64, uint64, uint256));
+  }
+
+  function _swapLayerDecodeInitiateRelaySlowReturn(
+    bytes memory successData
+  ) internal pure returns (uint64, uint64, uint256, uint64) {
+    return abi.decode(successData, (uint64, uint64, uint256, uint64));
+  }
+
+  function _swapLayerDecodeInitiateFastReturn(
+    bytes memory successData
+  ) internal pure returns (uint64, uint64, uint256, uint64) {
+    return abi.decode(successData, (uint64, uint64, uint256, uint64));
+  }
+
+  function _swapLayerDecodeInitiateRelayFastReturn(
+    bytes memory successData
+  ) internal pure returns (uint64, uint64, uint256, uint64, uint64) {
+    return abi.decode(successData, (uint64, uint64, uint256, uint64, uint64));
+  }
+
+  function _swapLayerInitiateRaw(
+    ComposedInitiateParams memory params
+  ) internal returns (bool success, bytes memory returnData) {
+    try _swapLayer().initiate{
+      value: _swapLayerReplaceFeePlaceholderChecked(params.msgValueOrPlaceholder)
+      }(
+        params.targetParams.chainId,
+        params.targetParams.recipient,
+        params.params
+      )
+    returns (bytes memory successData) { return (true,  successData); }
+    catch   (bytes memory errorData)   { return (false, errorData  ); }
+  }
+
+  function _swapLayerInitiate(
+    ComposedInitiateParams memory params
+  ) private returns (bytes memory) {
+    (bool success, bytes memory returnData) = _swapLayerInitiateRaw(params);
+    if (!success)
+      revert ExecutionFailed(returnData);
+
+    return returnData;
+  }
+
+  function _swapLayerInitiateSlow(
+    ComposedInitiateParams memory params
+  ) internal returns (uint64, uint64, uint256) {
+    return _swapLayerDecodeInitiateSlowReturn(_swapLayerInitiate(params));
+  }
+
+  function _swapLayerInitiateRelaySlow(
+    ComposedInitiateParams memory params
+  ) internal returns (uint64, uint64, uint256, uint64) {
+    return _swapLayerDecodeInitiateRelaySlowReturn(_swapLayerInitiate(params));
+  }
+
+  function _swapLayerInitiateFast(
+    ComposedInitiateParams memory params
+  ) internal returns (uint64, uint64, uint256, uint64) {
+    return _swapLayerDecodeInitiateFastReturn(_swapLayerInitiate(params));
+  }
+
+  function _swapLayerInitiateRelayFast(
+    ComposedInitiateParams memory params
+  ) internal returns (uint64, uint64, uint256, uint64, uint64) {
+    return _swapLayerDecodeInitiateRelayFastReturn(_swapLayerInitiate(params));
+  }
+
+  // -----------------------------------------------------------------------------------------------
   // ---------------------------------------- Initiate Slow ----------------------------------------
   // -----------------------------------------------------------------------------------------------
 
@@ -144,13 +245,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes         outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateNative memory params
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    return _initiateSlow(
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
       params.amount,
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+      params.targetParams,
       abi.encodePacked(
         uint8(TransferMode.LiquidityLayer),
         uint8(RedeemMode.Direct),
@@ -162,19 +262,24 @@ abstract contract SwapLayerIntegrationBase {
     );
   }
 
+  function _swapLayerInitiate(
+    InitiateNative memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _swapLayerInitiateSlow(_swapLayerComposeInitiate(params));
+  }
+
   struct InitiateUsdc {
     TargetParams  targetParams;
     uint256       amount;
     bytes         outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateUsdc memory params
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    return _initiateSlow(
-      _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+  ) internal pure returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
       abi.encodePacked(
         uint8(TransferMode.LiquidityLayer),
         uint8(RedeemMode.Direct),
@@ -183,6 +288,12 @@ abstract contract SwapLayerIntegrationBase {
         params.outputParams
       )
     );
+  }
+
+  function _swapLayerInitiate(
+    InitiateUsdc memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _swapLayerInitiateSlow(_swapLayerComposeInitiate(params));
   }
 
   struct InitiateToken {
@@ -194,13 +305,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes         outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateToken memory params
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    return _initiateSlow(
-      _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
       abi.encodePacked(
         uint8(TransferMode.LiquidityLayer),
         uint8(RedeemMode.Direct),
@@ -211,6 +321,12 @@ abstract contract SwapLayerIntegrationBase {
         params.outputParams
       )
     );
+  }
+
+  function _swapLayerInitiate(
+    InitiateToken memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _swapLayerInitiateSlow(_swapLayerComposeInitiate(params));
   }
 
   // ------------------------ Initiate Slow Relay ------------------------
@@ -224,18 +340,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes         outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateRelayNative memory params
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint256 relayingFeeUsdc
-  ) {
-    return _initiateRelaySlow(
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
       params.amount,
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+      params.targetParams,
       abi.encodePacked(
         uint8(TransferMode.LiquidityLayer),
         _encodeRelayParams(params.relayParams),
@@ -247,12 +357,39 @@ abstract contract SwapLayerIntegrationBase {
     );
   }
 
+  function _swapLayerInitiate(
+    InitiateRelayNative memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint256 relayingFeeUsdc
+  ) {
+    return _swapLayerInitiateRelaySlow(_swapLayerComposeInitiate(params));
+  }
+
   struct InitiateRelayUsdc {
     TargetParams  targetParams;
     RelayParams   relayParams;
     uint256       amount;
     bool          isExactIn;
     bytes         outputParams;
+  }
+
+  function _swapLayerComposeInitiate(
+    InitiateRelayUsdc memory params
+  ) internal pure returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
+      abi.encodePacked(
+        uint8(TransferMode.LiquidityLayer),
+        _encodeRelayParams(params.relayParams),
+        _encodeBool(params.isExactIn),
+        _encodeUsdcIn(params.amount),
+        params.outputParams
+      )
+    );
   }
 
   function _swapLayerInitiate(
@@ -263,18 +400,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256 protocolSequence,
     uint256 relayingFeeUsdc
   ) {
-    return _initiateRelaySlow(
-      _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
-      abi.encodePacked(
-        uint8(TransferMode.LiquidityLayer),
-        _encodeRelayParams(params.relayParams),
-        _encodeBool(params.isExactIn),
-        _encodeUsdcIn(params.amount),
-        params.outputParams
-      )
-    );
+    return _swapLayerInitiateRelaySlow(_swapLayerComposeInitiate(params));
   }
 
   struct InitiateRelayToken {
@@ -287,18 +413,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes         outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateRelayToken memory params
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint256 relayingFeeUsdc
-  ) {
-    return _initiateRelaySlow(
-      _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
       abi.encodePacked(
         uint8(TransferMode.LiquidityLayer),
         _encodeRelayParams(params.relayParams),
@@ -309,6 +429,17 @@ abstract contract SwapLayerIntegrationBase {
         params.outputParams
       )
     );
+  }
+
+  function _swapLayerInitiate(
+    InitiateRelayToken memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint256 relayingFeeUsdc
+  ) {
+    return _swapLayerInitiateRelaySlow(_swapLayerComposeInitiate(params));
   }
 
   // ------------------------ Initiate Slow Payload ------------------------
@@ -322,13 +453,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes         outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiatePayloadNative memory params
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    return _initiateSlow(
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
       params.amount,
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+      params.targetParams,
       abi.encodePacked(
         uint8(TransferMode.LiquidityLayer),
         _encodePayloadParams(params.payload),
@@ -340,6 +470,12 @@ abstract contract SwapLayerIntegrationBase {
     );
   }
 
+  function _swapLayerInitiate(
+    InitiatePayloadNative memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _swapLayerInitiateSlow(_swapLayerComposeInitiate(params));
+  }
+
   struct InitiatePayloadUsdc {
     TargetParams  targetParams;
     bytes         payload;
@@ -347,13 +483,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes         outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiatePayloadUsdc memory params
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    return _initiateSlow(
-      _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+  ) internal pure returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
       abi.encodePacked(
         uint8(TransferMode.LiquidityLayer),
         _encodePayloadParams(params.payload),
@@ -362,6 +497,12 @@ abstract contract SwapLayerIntegrationBase {
         params.outputParams
       )
     );
+  }
+
+  function _swapLayerInitiate(
+    InitiatePayloadUsdc memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _swapLayerInitiateSlow(_swapLayerComposeInitiate(params));
   }
 
   struct InitiatePayloadToken {
@@ -374,13 +515,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes         outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiatePayloadToken memory params
-  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
-    return _initiateSlow(
-      _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
       abi.encodePacked(
         uint8(TransferMode.LiquidityLayer),
         _encodePayloadParams(params.payload),
@@ -391,6 +531,12 @@ abstract contract SwapLayerIntegrationBase {
         params.outputParams
       )
     );
+  }
+
+  function _swapLayerInitiate(
+    InitiatePayloadToken memory params
+  ) internal returns (uint64 sentAmountUsdc, uint64 sequence, uint256 protocolSequence) {
+    return _swapLayerInitiateSlow(_swapLayerComposeInitiate(params));
   }
 
   // -----------------------------------------------------------------------------------------------
@@ -408,18 +554,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes              outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateNativeFast memory params
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint64 fastSequence
-  ) {
-    return _initiateFast(
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
       params.amount,
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+      params.targetParams,
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         uint8(RedeemMode.Direct),
@@ -431,12 +571,39 @@ abstract contract SwapLayerIntegrationBase {
     );
   }
 
+  function _swapLayerInitiate(
+    InitiateNativeFast memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence
+  ) {
+    return _swapLayerInitiateFast(_swapLayerComposeInitiate(params));
+  }
+
   struct InitiateUsdcFast {
     TargetParams       targetParams;
     FastTransferParams fastTransferParams;
     uint256            amount;
     bool               isExactIn;
     bytes              outputParams;
+  }
+
+  function _swapLayerComposeInitiate(
+    InitiateUsdcFast memory params
+  ) internal pure returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      DOUBLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        uint8(RedeemMode.Direct),
+        _encodeBool(params.isExactIn),
+        _encodeUsdcIn(params.amount),
+        params.outputParams
+      )
+    );
   }
 
   function _swapLayerInitiate(
@@ -447,18 +614,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256 protocolSequence,
     uint64 fastSequence
   ) {
-    return _initiateFast(
-      2 * _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
-      abi.encodePacked(
-        _encodeFastTransferParams(params.fastTransferParams),
-        uint8(RedeemMode.Direct),
-        _encodeBool(params.isExactIn),
-        _encodeUsdcIn(params.amount),
-        params.outputParams
-      )
-    );
+    return _swapLayerInitiateFast(_swapLayerComposeInitiate(params));
   }
 
   struct InitiateTokenFast {
@@ -471,18 +627,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes              outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateTokenFast memory params
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint64 fastSequence
-  ) {
-    return _initiateFast(
-      2 * _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      DOUBLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         uint8(RedeemMode.Direct),
@@ -493,6 +643,17 @@ abstract contract SwapLayerIntegrationBase {
         params.outputParams
       )
     );
+  }
+
+  function _swapLayerInitiate(
+    InitiateTokenFast memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence
+  ) {
+    return _swapLayerInitiateFast(_swapLayerComposeInitiate(params));
   }
 
   // ------------------------ Initiate Fast Relay ------------------------
@@ -507,18 +668,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes              outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateNativeRelayFast memory params
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint64 fastSequence
-  ) {
-    return _initiateFast(
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
       params.amount,
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+      params.targetParams,
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodeRelayParams(params.relayParams),
@@ -530,6 +685,18 @@ abstract contract SwapLayerIntegrationBase {
     );
   }
 
+  function _swapLayerInitiate(
+    InitiateNativeRelayFast memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence,
+    uint256 relayingFeeUsdc
+  ) {
+    return _swapLayerInitiateRelayFast(_swapLayerComposeInitiate(params));
+  }
+
   struct InitiateUsdcRelayFast {
     TargetParams       targetParams;
     FastTransferParams fastTransferParams;
@@ -539,18 +706,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes              outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateUsdcRelayFast memory params
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint64 fastSequence
-  ) {
-    return _initiateFast(
-      2 * _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+  ) internal pure returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      DOUBLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodeRelayParams(params.relayParams),
@@ -559,6 +720,18 @@ abstract contract SwapLayerIntegrationBase {
         params.outputParams
       )
     );
+  }
+
+  function _swapLayerInitiate(
+    InitiateUsdcRelayFast memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence,
+    uint256 relayingFeeUsdc
+  ) {
+    return _swapLayerInitiateRelayFast(_swapLayerComposeInitiate(params));
   }
 
   struct InitiateTokenRelayFast {
@@ -572,18 +745,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes              outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateTokenRelayFast memory params
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint64 fastSequence
-  ) {
-    return _initiateFast(
-      2 * _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      DOUBLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodeRelayParams(params.relayParams),
@@ -594,6 +761,18 @@ abstract contract SwapLayerIntegrationBase {
         params.outputParams
       )
     );
+  }
+
+  function _swapLayerInitiate(
+    InitiateTokenRelayFast memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence,
+    uint256 relayingFeeUsdc
+  ) {
+    return _swapLayerInitiateRelayFast(_swapLayerComposeInitiate(params));
   }
 
   // ------------------------ Initiate Fast Payload ------------------------
@@ -608,18 +787,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes              outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateNativePayloadFast memory params
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint64 fastSequence
-  ) {
-    return _initiateFast(
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
       params.amount,
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+      params.targetParams,
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodePayloadParams(params.payload),
@@ -631,6 +804,17 @@ abstract contract SwapLayerIntegrationBase {
     );
   }
 
+  function _swapLayerInitiate(
+    InitiateNativePayloadFast memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence
+  ) {
+    return _swapLayerInitiateFast(_swapLayerComposeInitiate(params));
+  }
+
   struct InitiateUsdcPayloadFast {
     TargetParams       targetParams;
     FastTransferParams fastTransferParams;
@@ -638,6 +822,22 @@ abstract contract SwapLayerIntegrationBase {
     uint256            amount;
     bool               isExactIn;
     bytes              outputParams;
+  }
+
+  function _swapLayerComposeInitiate(
+    InitiateUsdcPayloadFast memory params
+  ) internal pure returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      DOUBLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
+      abi.encodePacked(
+        _encodeFastTransferParams(params.fastTransferParams),
+        _encodePayloadParams(params.payload),
+        _encodeBool(params.isExactIn),
+        _encodeUsdcIn(params.amount),
+        params.outputParams
+      )
+    );
   }
 
   function _swapLayerInitiate(
@@ -648,18 +848,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256 protocolSequence,
     uint64 fastSequence
   ) {
-    return _initiateFast(
-      2 * _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
-      abi.encodePacked(
-        _encodeFastTransferParams(params.fastTransferParams),
-        _encodePayloadParams(params.payload),
-        _encodeBool(params.isExactIn),
-        _encodeUsdcIn(params.amount),
-        params.outputParams
-      )
-    );
+    return _swapLayerInitiateFast(_swapLayerComposeInitiate(params));
   }
 
   struct InitiateTokenPayloadFast {
@@ -673,18 +862,12 @@ abstract contract SwapLayerIntegrationBase {
     bytes              outputParams;
   }
 
-  function _swapLayerInitiate(
+  function _swapLayerComposeInitiate(
     InitiateTokenPayloadFast memory params
-  ) internal returns (
-    uint64 sentAmountUsdc,
-    uint64 sequence,
-    uint256 protocolSequence,
-    uint64 fastSequence
-  ) {
-    return _initiateFast(
-      2 * _wormholeMsgFee(),
-      params.targetParams.chainId,
-      params.targetParams.recipient,
+  ) internal view returns (ComposedInitiateParams memory) {
+    return ComposedInitiateParams(
+      DOUBLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
+      params.targetParams,
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodePayloadParams(params.payload),
@@ -697,46 +880,112 @@ abstract contract SwapLayerIntegrationBase {
     );
   }
 
+  function _swapLayerInitiate(
+    InitiateTokenPayloadFast memory params
+  ) internal returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence
+  ) {
+    return _swapLayerInitiateFast(_swapLayerComposeInitiate(params));
+  }
+
   // -----------------------------------------------------------------------------------------------
   // ------------------------------------------- Redeem --------------------------------------------
   // -----------------------------------------------------------------------------------------------
 
+  function _swapLayerDecodeRedeem(
+    bytes memory successData
+  ) internal pure returns (address outputToken, uint256 outputAmount) {
+    return abi.decode(successData, (address, uint256));
+  }
+
+  function _swapLayerDecodeRedeemWithPayload(
+    bytes memory successData
+  ) internal pure returns (address outputToken, uint256 outputAmount, bytes memory payload) {
+    return abi.decode(successData, (address, uint256, bytes));
+  }
+
+  struct ComposedRedeemParams {
+    AttestationType attestationType;
+    bytes attestation;
+    bytes params;
+  }
+
+  function _swapLayerRedeemRaw(
+    ComposedRedeemParams memory params
+  ) internal returns (bool success, bytes memory returnData) {
+    try _swapLayer().redeem(
+        uint8(params.attestationType),
+        params.attestation,
+        params.params
+      )
+    returns (bytes memory successData) { return (true,  successData); }
+    catch   (bytes memory errorData)   { return (false, errorData  ); }
+  }
+
   function _swapLayerRedeem(
-    bytes memory attestation //TODO figure out how to generate as calldata in tests
-  ) internal returns (address outputToken, uint256 outputAmount) {
-    return abi.decode(
-      _swapLayer().redeem(uint8(AttestationType.LiquidityLayer), attestation, new bytes(0)),
-      (address, uint256)
+    ComposedRedeemParams memory params
+  ) internal returns (bytes memory) {
+    (bool success, bytes memory returnData) = _swapLayerRedeemRaw(params);
+    if (!success)
+      revert ExecutionFailed(returnData);
+
+    return returnData;
+  }
+
+  struct Redeem {
+    bytes attestation;
+  }
+
+  function _swapLayerComposeRedeem(
+    Redeem memory params
+  ) internal pure returns (ComposedRedeemParams memory) {
+    return ComposedRedeemParams(
+      AttestationType.LiquidityLayer,
+      params.attestation,
+      new bytes(0)
     );
+  }
+
+  function _swapLayerRedeem(
+    Redeem memory params
+  ) internal returns (address outputToken, uint256 outputAmount) {
+    return _swapLayerDecodeRedeem(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
   }
 
   function _swapLayerRedeemWithPayload(
-    bytes memory attestation //TODO figure out how to generate as calldata in tests
+    Redeem memory params
   ) internal returns (address outputToken, uint256 outputAmount, bytes memory payload) {
-    return abi.decode(
-      _swapLayer().redeem(uint8(AttestationType.LiquidityLayer), attestation, new bytes(0)),
-      (address, uint256, bytes)
+    return _swapLayerDecodeRedeemWithPayload(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
+  }
+
+  struct RedeemOverride {
+    bytes attestation;
+    bytes outputSwap;
+  }
+
+  function _swapLayerComposeRedeem(
+    RedeemOverride memory params
+  ) internal pure returns (ComposedRedeemParams memory) {
+    return ComposedRedeemParams(
+      AttestationType.LiquidityLayer,
+      params.attestation,
+      params.outputSwap
     );
   }
 
   function _swapLayerRedeem(
-    bytes memory attestation, //TODO figure out how to generate as calldata in tests
-    bytes memory outputSwap
+    RedeemOverride memory params
   ) internal returns (address outputToken, uint256 outputAmount) {
-    return abi.decode(
-      _swapLayer().redeem(uint8(AttestationType.LiquidityLayer), attestation, outputSwap),
-      (address, uint256)
-    );
+    return _swapLayerDecodeRedeem(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
   }
 
   function _swapLayerRedeemWithPayload(
-    bytes memory attestation, //TODO figure out how to generate as calldata in tests
-    bytes memory outputSwap
+    RedeemOverride memory params
   ) internal returns (address outputToken, uint256 outputAmount, bytes memory payload) {
-    return abi.decode(
-      _swapLayer().redeem(uint8(AttestationType.LiquidityLayer), attestation, outputSwap),
-      (address, uint256, bytes)
-    );
+    return _swapLayerDecodeRedeemWithPayload(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
   }
 
   // -----------------------------------------------------------------------------------------------
@@ -786,15 +1035,15 @@ abstract contract SwapLayerIntegrationBase {
 
   // ---- Immutable Getters ----
 
-  function _swapLayerWormhole() virtual internal view returns (address) {
+  function _swapLayerWormhole() internal virtual view returns (address) {
     return _getImmutable(ImmutableType.Wormhole);
   }
 
-  function _swapLayerUsdc() virtual internal view returns (address) {
+  function _swapLayerUsdc() internal virtual view returns (address) {
     return _getImmutable(ImmutableType.Usdc);
   }
 
-  function _swapLayerWrappedNative() virtual internal view returns (address) {
+  function _swapLayerWrappedNative() internal virtual view returns (address) {
     return _getImmutable(ImmutableType.WrappedNative);
   }
 
@@ -816,7 +1065,7 @@ abstract contract SwapLayerIntegrationBase {
 
   // ---- Utils ----
 
-  function _wormholeMsgFee() virtual internal view returns (uint256) {
+  function _wormholeMsgFee() internal virtual view returns (uint256) {
     return IWormhole(_swapLayerWormhole()).messageFee();
   }
 
@@ -961,51 +1210,12 @@ abstract contract SwapLayerIntegrationBase {
     (addr, ) = _swapLayer().batchQueries(query).asAddressUnchecked(0);
   }
 
-  function _initiateSlow(
-    uint256 msgValue,
-    uint16 targetChain,
-    bytes32 recipient,
-    bytes memory params
-  ) private returns (uint64, uint64, uint256) {
-    return abi.decode(
-      _swapLayer().initiate{value: msgValue}(targetChain, recipient, params),
-      (uint64, uint64, uint256)
-    );
-  }
-
-  function _initiateRelaySlow(
-    uint256 msgValue,
-    uint16 targetChain,
-    bytes32 recipient,
-    bytes memory params
-  ) private returns (uint64, uint64, uint256, uint64) {
-    return abi.decode(
-      _swapLayer().initiate{value: msgValue}(targetChain, recipient, params),
-      (uint64, uint64, uint256, uint64)
-    );
-  }
-
-  function _initiateFast(
-    uint256 msgValue,
-    uint16 targetChain,
-    bytes32 recipient,
-    bytes memory params
-  ) private returns (uint64, uint64, uint256, uint64) {
-    return abi.decode(
-      _swapLayer().initiate{value: msgValue}(targetChain, recipient, params),
-      (uint64, uint64, uint256, uint64)
-    );
-  }
-
-  function _initiateRelayFast(
-    uint256 msgValue,
-    uint16 targetChain,
-    bytes32 recipient,
-    bytes memory params
-  ) private returns (uint64, uint64, uint256, uint64, uint64) {
-    return abi.decode(
-      _swapLayer().initiate{value: msgValue}(targetChain, recipient, params),
-      (uint64, uint64, uint256, uint64, uint64)
-    );
+  function _swapLayerReplaceFeePlaceholderChecked(
+    uint256 placeholderOrMsgValue
+  ) private view returns (uint256) {
+    if (placeholderOrMsgValue < SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER)
+      return placeholderOrMsgValue;
+    else
+      return _swapLayerReplaceFeePlaceholderUnchecked(placeholderOrMsgValue, _wormholeMsgFee());
   }
 }

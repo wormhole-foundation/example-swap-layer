@@ -14,10 +14,6 @@ import "swap-layer/assets/SwapLayerQuery.sol";
 contract GovernanceTest is SLTBase {
   using BytesParsing for bytes;
 
-  function setUp() public {
-    deployBase();
-  }
-
   function testOwnerContractUpgrade() public {
     UpgradeTester upgradeTester = new UpgradeTester();
     (address implementation, ) =

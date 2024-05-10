@@ -36,6 +36,7 @@ contract SLTSwapBase is SLTBase {
   INonfungiblePositionManager immutable uniswapPosMan;
   address immutable user;
   uint256 immutable userSecret;
+  address immutable recipient;
 
   MockERC20 mockToken;
 
@@ -44,15 +45,16 @@ contract SLTSwapBase is SLTBase {
       vm.envAddress("TEST_UNISWAP_V3_POSITION_MANAGER_ADDRESS")
     );
     (user, userSecret) = makeAddrAndKey("user");
+    recipient = makeAddr("recipient");
   }
 
   function _deadline() internal view returns (uint) {
     return block.timestamp + 1800;
   }
 
-  function setUp() public {
-    deployBase();
+  function _setUp2() internal virtual { }
 
+  function _setUp1() internal override {
     mockToken = StdUtils.deployMockERC20("MockToken", "MOCK", 18);
 
     PoolParams[] memory pools = new PoolParams[](2);
@@ -77,6 +79,8 @@ contract SLTSwapBase is SLTBase {
       _deployUniswapPool(pools[i].token0, pools[i].amount0, pools[i].token1, pools[i].amount1);
       _deployTJLBPool(pools[i].token0, pools[i].amount0, pools[i].token1, pools[i].amount1);
     }
+
+    _setUp2();
   }
 
   struct PoolParams {

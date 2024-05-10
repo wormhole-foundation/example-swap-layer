@@ -81,7 +81,9 @@ contract SLTBase is Test {
     );
   }
 
-  function deployBase() internal {
+  function _setUp1() internal virtual { }
+
+  function setUp() public {
     vm.startPrank(llOwner);
     {
       liquidityLayer = ITokenRouter(address(new ERC1967Proxy(
@@ -145,6 +147,8 @@ contract SLTBase is Test {
         feeParams
       )
     ))));
+
+    _setUp1();
   }
 
   function _dealOverride(address token, address to, uint amount) internal {

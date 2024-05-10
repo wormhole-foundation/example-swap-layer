@@ -10,6 +10,7 @@ import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 import { WormholeOverride, PublishedMessage } from "wormhole-sdk/testing/WormholeOverride.sol";
 import { Messages as LiquidityLayerMessages } from "liquidity-layer/shared/Messages.sol";
 import { SwapMessageStructure, parseSwapMessageStructure } from "swap-layer/assets/Message.sol";
+import { FeeUpdate, RelayingDisabledForChain } from "swap-layer/assets/SwapLayerRelayingFees.sol";
 
 import "swap-layer/SwapLayerIntegrationBase.sol";
 
@@ -20,13 +21,35 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
   using WormholeOverride for IWormhole;
   using { toUniversalAddress } for address;
 
-  function _swapLayer() override internal view returns (ISwapLayer) {
+  uint256 private _wormholeMsgFee_;
+
+  function _swapLayer() internal override view returns (ISwapLayer) {
     return ISwapLayer(payable(address(swapLayer)));
+  }
+
+  //override here to avoid external calls
+  function _swapLayerWormhole() internal override view returns (address) {
+    return address(wormhole);
+  }
+
+  function _swapLayerUsdc() internal override view returns (address) {
+    return address(usdc);
+  }
+
+  function _swapLayerWrappedNative() internal override view returns (address) {
+    return address(wnative);
+  }
+
+  function _wormholeMsgFee() internal override view returns (uint256) {
+    return _wormholeMsgFee_;
+  }
+
+  function _setUp2() internal override {
+    _wormholeMsgFee_ = IWormhole(_swapLayerWormhole()).messageFee();
   }
 
   function testInitiateDirectUsdc() public {
     uint amount = USER_AMOUNT * 1e6;
-    bytes32 recipient = user.toUniversalAddress();
     _dealOverride(address(usdc), user, amount);
     vm.startPrank(user);
     usdc.approve(address(swapLayer), amount);
@@ -34,7 +57,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     vm.recordLogs();
 
     (uint amountOut, , ) = _swapLayerInitiate(InitiateUsdc({
-      targetParams: TargetParams(FOREIGN_CHAIN_ID, recipient),
+      targetParams: TargetParams(FOREIGN_CHAIN_ID, recipient.toUniversalAddress()),
       amount: amount,
       outputParams: _swapLayerEncodeOutputParamsUsdc()
     }));
@@ -43,36 +66,42 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     PublishedMessage[] memory pubMsgs = wormhole.fetchPublishedMessages(vm.getRecordedLogs());
     assertEq(pubMsgs.length, 1);
-    (
-      bytes32 token,
-      uint256 cctpAmount,
-      , //uint32 sourceCctpDomain,
-      , //uint32 targetCctpDomain,
-      , //uint64 cctpNonce,
-      , //bytes32 burnSource,
-      bytes32 mintRecipient,
-      bytes memory payload
-    ) = WormholeCctpMessages.decodeDeposit(pubMsgs[0].payload);
-
-    assertEq(token, address(usdc).toUniversalAddress());
-    assertEq(cctpAmount, amount);
-    assertEq(mintRecipient, FOREIGN_LIQUIDITY_LAYER);
-
-    LiquidityLayerMessages.Fill memory fill = LiquidityLayerMessages.decodeFill(payload);
-    assertEq(fill.orderSender, address(swapLayer).toUniversalAddress());
-    assertEq(fill.redeemer, FOREIGN_SWAP_LAYER);
-    SwapMessageStructure memory swapMessageStructure =
-      parseSwapMessageStructure(fill.redeemerMessage);
-
-    assertEq(swapMessageStructure.recipient, user);
-    assertEq(uint8(swapMessageStructure.redeemMode), uint8(RedeemMode.Direct));
-    assertEq(swapMessageStructure.payload.length, 0);
-    (IoToken outputToken, ) = parseIoToken(fill.redeemerMessage, swapMessageStructure.swapOffset);
+    (SwapMessageStructure memory sms, bytes memory swapMessage) =
+      _decodeAndCheckDepositMessage(pubMsgs[0], amount);
+    
+    assertEq(uint8(sms.redeemMode), uint8(RedeemMode.Direct));
+    assertEq(sms.payload.length, 0);
+    (IoToken outputToken, uint offset) = parseIoToken(swapMessage, sms.swapOffset);
     assertEq(uint8(outputToken), uint8(IoToken.Usdc));
+    assertEq(offset, swapMessage.length);
   }
 
   function testPausedRelay() public {
+    vm.prank(assistant);
+    swapLayer.batchFeeUpdates(abi.encodePacked(
+      FOREIGN_CHAIN_ID,
+      FeeUpdate.BaseFee,
+      uint32(type(uint32).max)
+    ));
 
+    uint amount = USER_AMOUNT * 1e6;
+    _dealOverride(address(usdc), user, amount);
+    vm.startPrank(user);
+    usdc.approve(address(swapLayer), amount);
+
+    (bool success, bytes memory errorData) = _swapLayerInitiateRaw(_swapLayerComposeInitiate(
+      InitiateRelayUsdc({
+        targetParams: TargetParams(FOREIGN_CHAIN_ID, recipient.toUniversalAddress()),
+        relayParams: RelayParams({gasDropoffWei: 0, maxRelayerFeeUsdc: amount/10 }),
+        amount: amount,
+        isExactIn: true,
+        outputParams: _swapLayerEncodeOutputParamsUsdc()
+      })
+    ));
+    assertEq(success, false);
+    assertEq(errorData.length, 4);
+    (bytes4 errorSelector, ) = errorData.asBytes4Unchecked(0);
+    assertEq(errorSelector, RelayingDisabledForChain.selector);
   }
 
   function testInitiateTraderJoeEthSwap() public {
@@ -130,5 +159,34 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     assertTrue(amountOut > 0);
     assertTrue(relayerFee > 0);
+  }
+
+  function _decodeAndCheckDepositMessage(
+    PublishedMessage memory pubMsg,
+    uint amount
+  ) internal view returns (SwapMessageStructure memory sms, bytes memory swapMessage) {
+    (
+      bytes32 token,
+      uint256 cctpAmount,
+      , //uint32 sourceCctpDomain,
+      , //uint32 targetCctpDomain,
+      , //uint64 cctpNonce,
+      , //bytes32 burnSource,
+      bytes32 mintRecipient,
+      bytes memory payload
+    ) = WormholeCctpMessages.decodeDeposit(pubMsg.payload);
+
+    assertEq(token, address(usdc).toUniversalAddress());
+    assertEq(cctpAmount, amount);
+    assertEq(mintRecipient, FOREIGN_LIQUIDITY_LAYER);
+
+    LiquidityLayerMessages.Fill memory fill = LiquidityLayerMessages.decodeFill(payload);
+    assertEq(fill.orderSender, address(swapLayer).toUniversalAddress());
+    assertEq(fill.redeemer, FOREIGN_SWAP_LAYER);
+
+    swapMessage = fill.redeemerMessage;
+    sms = parseSwapMessageStructure(swapMessage);
+
+    assertEq(sms.recipient, recipient);
   }
 }

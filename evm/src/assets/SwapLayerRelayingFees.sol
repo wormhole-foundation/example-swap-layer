@@ -77,6 +77,7 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
         if (curChain != 0)
           _setFeeParams(curChain, curParams);
 
+        curChain = updateChain;
         curParams = _getFeeParams(updateChain);
       }
 

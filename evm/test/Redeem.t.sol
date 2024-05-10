@@ -30,7 +30,7 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     );
 
     (address outputToken, uint outputAmount) =
-      _swapLayerRedeem(_attestation(usdcAmount, swapMessage));
+      _swapLayerRedeem(Redeem(_attestation(usdcAmount, swapMessage)));
 
     assertEq(outputToken, address(usdc));
     assertEq(outputAmount, usdcAmount);
@@ -56,7 +56,7 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     uint balanceBefore = user.balance;
     (address outputToken, uint outputAmount) =
-      _swapLayerRedeem(_attestation(usdcAmount, swapMessage));
+      _swapLayerRedeem(Redeem(_attestation(usdcAmount, swapMessage)));
     uint ethReceived = user.balance - balanceBefore;
 
     assertEq(outputToken, address(0));
