@@ -22,7 +22,7 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
   }
 
   function testRedeemDirect() public {
-    uint usdcAmount = USER_AMOUNT * 1e6;
+    uint usdcAmount = USER_AMOUNT * USDC;
     bytes memory swapMessage = encodeSwapMessage(
       user.toUniversalAddress(),
       abi.encodePacked(RedeemMode.Direct),
@@ -38,7 +38,7 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
   }
 
   function testRedeemUniswapEthSwap() public {
-    uint usdcAmount = USER_AMOUNT * 1e6;
+    uint usdcAmount = USER_AMOUNT * USDC;
     bytes memory swapMessage = encodeSwapMessage(
       user.toUniversalAddress(),
       abi.encodePacked(RedeemMode.Direct),

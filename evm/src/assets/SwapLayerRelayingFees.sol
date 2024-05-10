@@ -39,7 +39,7 @@ error RelayingDisabledForChain();
 error InvalidSwapTypeForChain(uint16 chain, uint swapType);
 
 //the additional gas cost is likely worth the cost of being able to reconstruct old fees
-event FeeParamsUpdated(uint16 indexed chainId, FeeParams params);
+event FeeParamsUpdated(uint16 indexed chainId, bytes32 feeParams);
 
 enum FeeUpdate {
   GasPrice,
@@ -50,18 +50,18 @@ enum FeeUpdate {
   MaxGasDropoff
 }
 
+uint constant SOLANA_ATA_RENT_LAMPORTS = 2039280;
+uint constant LAMPORTS_PER_SOL = 1e9;
+//uint constant BIT128 = 1 << 128;
+uint constant GAS_OVERHEAD = 1e5; //TODO
+uint constant DROPOFF_GAS_OVERHEAD = 1e4; //TODO
+uint constant UNISWAP_GAS_OVERHEAD = 1e5; //TODO
+uint constant UNISWAP_GAS_PER_SWAP = 1e5; //TODO
+uint constant TRADERJOE_GAS_OVERHEAD = 1e5; //TODO
+uint constant TRADERJOE_GAS_PER_SWAP = 1e5; //TODO
+
 abstract contract SwapLayerRelayingFees is SwapLayerBase {
   using BytesParsing for bytes;
-
-  uint private constant SOLANA_ATA_RENT_LAMPORTS = 2039280;
-  uint private constant LAMPORTS_PER_SOL = 1e9;
-  //uint private constant BIT128 = 1 << 128;
-  uint private constant GAS_OVERHEAD = 1e5; //TODO
-  uint private constant DROPOFF_GAS_OVERHEAD = 1e4; //TODO
-  uint private constant UNISWAP_GAS_OVERHEAD = 1e5; //TODO
-  uint private constant UNISWAP_GAS_PER_SWAP = 1e5; //TODO
-  uint private constant TRADERJOE_GAS_OVERHEAD = 1e5; //TODO
-  uint private constant TRADERJOE_GAS_PER_SWAP = 1e5; //TODO
 
   function _batchFeeUpdates(bytes memory updates) internal {
     uint16 curChain = 0;
@@ -190,6 +190,6 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
 
   function _setFeeParams(uint16 chainId, FeeParams params) internal {
     feeParamsState().chainMapping[chainId] = params;
-    emit FeeParamsUpdated(chainId, params);
+    emit FeeParamsUpdated(chainId, bytes32(FeeParams.unwrap(params)));
   }
 }

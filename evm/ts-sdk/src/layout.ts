@@ -214,10 +214,18 @@ const sharedUniswapTraderJoeLayout = [
   ]}
 ] as const satisfies Layout;
 
+const swapTypesEvm = [
+  [1, "UniswapV3"],
+  [2, "TraderJoe"],
+] as const;
+
+const swapTypesSolana = [
+  [16, "GenericSolana"]
+] as const;
+
 const [swapTypes, swapItemLayouts] = [[
-    [1, "UniswapV3"],
-    [2, "TraderJoe"],
-    [16, "GenericSolana"],
+    ...swapTypesEvm,
+    ...swapTypesSolana,
   ], [
     sharedUniswapTraderJoeLayout,
     sharedUniswapTraderJoeLayout,
@@ -317,12 +325,20 @@ const immutableTypeItem = {
   }
 } as const satisfies UintLayoutItem;
 
+const querySwapParamLayout = [
+  { name: "swapCount", binary: "uint", size: 1 },
+  { name: "swapType",  ...enumItem(swapTypes)  }
+] as const;
+
 const relayingFeeQueryLayout = [
   { name: "chain",       ...layoutItems.chainItem() },
   { name: "gasDropoff",  ...gasDropoffItem          },
-  { name: "outputToken", ...enumItem(ioTokenTypes)  },
-  { name: "swapCount",    binary: "uint", size: 1   },
-  { name: "swapType",    ...enumItem(swapTypes)     },
+  { name: "outputToken",
+    binary: "switch",
+    idSize: 1,
+    idTag: "type",
+    layouts: zip([ioTokenTypes, [[], querySwapParamLayout, querySwapParamLayout]])
+  }
 ] as const satisfies Layout;
 
 export const queryLayout = {

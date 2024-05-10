@@ -49,13 +49,14 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
   }
 
   function testInitiateDirectUsdc() public {
-    uint amount = USER_AMOUNT * 1e6;
+    uint amount = USER_AMOUNT * USDC;
     _dealOverride(address(usdc), user, amount);
     vm.startPrank(user);
     usdc.approve(address(swapLayer), amount);
 
     vm.recordLogs();
 
+    assertEq(usdc.balanceOf(address(swapLayer)), 0);
     (uint amountOut, , ) = _swapLayerInitiate(InitiateUsdc({
       targetParams: TargetParams(FOREIGN_CHAIN_ID, recipient.toUniversalAddress()),
       amount: amount,
@@ -63,12 +64,13 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     }));
     assertEq(amountOut, amount);
     assertEq(usdc.balanceOf(user), 0);
+    assertEq(usdc.balanceOf(address(swapLayer)), 0);
 
     PublishedMessage[] memory pubMsgs = wormhole.fetchPublishedMessages(vm.getRecordedLogs());
     assertEq(pubMsgs.length, 1);
     (SwapMessageStructure memory sms, bytes memory swapMessage) =
       _decodeAndCheckDepositMessage(pubMsgs[0], amount);
-    
+
     assertEq(uint8(sms.redeemMode), uint8(RedeemMode.Direct));
     assertEq(sms.payload.length, 0);
     (IoToken outputToken, uint offset) = parseIoToken(swapMessage, sms.swapOffset);
@@ -84,7 +86,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       uint32(type(uint32).max)
     ));
 
-    uint amount = USER_AMOUNT * 1e6;
+    uint amount = USER_AMOUNT * USDC;
     _dealOverride(address(usdc), user, amount);
     vm.startPrank(user);
     usdc.approve(address(swapLayer), amount);
@@ -140,9 +142,9 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       ),
       relayParams: RelayParams({
         gasDropoffWei: 0,
-        maxRelayerFeeUsdc: 1e9
+        maxRelayerFeeUsdc: 10 * USDC
       }),
-      amount: USER_AMOUNT * 1e18,
+      amount: USER_AMOUNT * 1 ether,
       isExactIn: true,
       evmSwapParams: EvmSwapParams({
         swapDeadline: _deadline(),

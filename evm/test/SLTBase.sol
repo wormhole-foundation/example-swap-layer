@@ -38,6 +38,7 @@ contract SLTBase is Test {
   uint64  constant FAST_TRANSFER_MAX_AMOUNT       = 1e9;
   uint64  constant FAST_TRANSFER_BASE_FEE         = 1e6;
   uint64  constant FAST_TRANSFER_INIT_AUCTION_FEE = 1e6;
+  uint64  constant USDC                           = 1e6;
 
   IWormhole immutable wormhole;
   IWETH     immutable wnative;

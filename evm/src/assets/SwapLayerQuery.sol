@@ -59,13 +59,15 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
         uint16 chainId;
         uint32 gasDropoff;
         IoToken outputTokenType;
-        uint swapCount;
-        uint swapType;
+        uint swapCount = 0;
+        uint swapType = 0;
         (chainId,         offset) = queries.asUint16Unchecked(offset);
         (gasDropoff,      offset) = queries.asUint32Unchecked(offset);
         (outputTokenType, offset) = parseIoToken(queries, offset);
-        (swapCount,       offset) = queries.asUint8Unchecked(offset);
-        (swapType,        offset) = queries.asUint8Unchecked(offset);
+        if (outputTokenType != IoToken.Usdc) {
+          (swapCount,       offset) = queries.asUint8Unchecked(offset);
+          (swapType,        offset) = queries.asUint8Unchecked(offset);
+        }
         ret = abi.encodePacked(ret,
           //unchecked cast, but if fee params are configured to allow a relaying fee of
           //  log(2^48) - 6 ~= 8 i.e. 100M usdc then...
