@@ -56,7 +56,7 @@ async function run() {
       encodedCommands,
       {
         value: config.sendGas ? BigInt(config.sendAmount) : 0n,
-        //gasLimit: 500000,
+        gasLimit: 500000,
       }
     );
     console.log("Successfully initiated transfer!");
@@ -72,10 +72,10 @@ async function run() {
 
 function createInitiateArgs(config: TestSendConfig): InitiateArgs {
   const output: InitiateArgs = {
-    fastTransferMode: {
-      mode: "Enabled",
-      maxFee: BigInt(100000), //TODO configurable
-      deadline: parseInt(config.deadline),
+    transferMode: {
+      mode: "LiquidityLayerFast",
+      maxFee: BigInt(1000001), //TODO configurable
+      deadline: parseInt("1716290122"),
     },
     redeemMode: {
       mode: "Relay",

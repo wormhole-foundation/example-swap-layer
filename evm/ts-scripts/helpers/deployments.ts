@@ -74,7 +74,6 @@ export async function deploySwapLayerProxy(
     assistant: signerAddress,
     feeUpdater: signerAddress,
     feeRecipient: signerAddress,
-    assistantIsEmpowered: true,
   });
 
   //TODO if using create2 factory that uses OpenZeppelin's proxy, be sure to include the call
@@ -84,7 +83,10 @@ export async function deploySwapLayerProxy(
 
   const contract = await factory.deploy(
     SwapLayerImplementationAddress,
-    swapLayerProxyConstructorParams
+    swapLayerProxyConstructorParams,
+    {
+      gasLimit: 10000000,
+    }
   );
   return await contract.deployed().then((result) => {
     console.log("Successfully deployed contract at " + result.address);
