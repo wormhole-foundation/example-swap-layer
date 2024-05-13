@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "types":["chai", "mocha", "node"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true, 
+    "outDir": "dist",
+  }
+}
