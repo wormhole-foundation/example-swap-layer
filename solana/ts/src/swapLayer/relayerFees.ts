@@ -19,7 +19,7 @@ const MAX_BPS = 1_000_000n;
 
 // TODO: Need to implement serde for the following types. For now, we will use a dummy
 // type to represent the swap type.
-export type SwapType = {
+export type DestinationSwapType = {
     none?: {};
     uniswapV3?: {};
     traderJoe?: {};
@@ -42,7 +42,7 @@ function compound(percentage: number, base: bigint): bigint {
     }
 }
 
-function calculateEvmSwapOverhead(swapType: SwapType, swapCount: number): bigint {
+function calculateEvmSwapOverhead(swapType: DestinationSwapType, swapCount: number): bigint {
     switch (swapType) {
         case { none: {} }:
             return 0n;
@@ -78,7 +78,7 @@ function calculateGasDropoffCost(
 export function calculateRelayerFee(
     relayParams: RelayParams,
     denormGasDropOff: bigint,
-    swapType: SwapType,
+    swapType: DestinationSwapType,
     swapCount: number,
 ) {
     if (relayParams.baseFee === U32_MAX) {

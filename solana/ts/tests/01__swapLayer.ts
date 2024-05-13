@@ -8,14 +8,11 @@ import {
     SystemProgram,
     TransactionInstruction,
 } from "@solana/web3.js";
-import { use as chaiUse, expect } from "chai";
 import { CctpTokenBurnMessage } from "@wormhole-foundation/example-liquidity-layer-solana/cctp";
 import {
     LiquidityLayerDeposit,
     LiquidityLayerMessage,
 } from "@wormhole-foundation/example-liquidity-layer-solana/common";
-import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
-import { PreparedOrder } from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter/state";
 import {
     CircleAttester,
     ETHEREUM_USDC_ADDRESS,
@@ -24,31 +21,38 @@ import {
     OWNER_ASSISTANT_KEYPAIR,
     OWNER_KEYPAIR,
     PAYER_KEYPAIR,
+    REGISTERED_TOKEN_ROUTERS,
     USDC_MINT_ADDRESS,
     expectIxErr,
     expectIxOk,
     getUsdcAtaBalance,
     postLiquidityLayerVaa,
 } from "@wormhole-foundation/example-liquidity-layer-solana/testing";
+import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
+import { PreparedOrder } from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter/state";
+import { ChainId, toChainId } from "@wormhole-foundation/sdk-base";
+import { UniversalAddress } from "@wormhole-foundation/sdk-definitions";
+import { use as chaiUse, expect } from "chai";
 import {
     AddPeerArgs,
     Custodian,
     Peer,
     RelayParams,
     SwapLayerProgram,
+    U32_MAX,
     UpdateRelayParametersArgs,
     calculateRelayerFee,
     denormalizeGasDropOff,
+    encodeSwapLayerMessage,
     localnet,
-    U32_MAX,
 } from "../src/swapLayer";
 import {
     FEE_UPDATER_KEYPAIR,
+    REGISTERED_PEERS,
     createLut,
     hackedExpectDeepEqual,
     tryNativeToUint8Array,
 } from "./helpers";
-import { ChainId, toChain, toChainId } from "@wormhole-foundation/sdk-base";
 
 chaiUse(require("chai-as-promised"));
 
@@ -70,12 +74,10 @@ describe("Swap Layer", () => {
 
     // Sending chain information.
     const foreignChain = toChainId("Ethereum");
-    const foreignTokenRouterAddress = Array.from(Buffer.alloc(32, "f0", "hex"));
-    const foreignSwapLayerAddress = Array.from(
-        Buffer.alloc(32, "000000000000000000000000deadbeefCf7178C407aA7369b67CB7e0274952e2", "hex"),
-    );
+    const foreignTokenRouterAddress = REGISTERED_TOKEN_ROUTERS["Ethereum"]!;
+    const foreignSwapLayerAddress = REGISTERED_PEERS["Ethereum"]!;
     const foreignRecipientAddress = Array.from(
-        Buffer.alloc(32, "000000000000000000000000beefdeadCf7178C407aA7369b67CB7edeadbeef", "hex"),
+        Buffer.alloc(32, "0000000000000000000000beefdeadCf7178C407aA7369b67CB7edeadbeef", "hex"),
     );
 
     // Program SDKs
@@ -1378,10 +1380,18 @@ describe("Swap Layer", () => {
                                 redeemer: foreignSwapLayerAddress,
                                 preparedCustodyTokenBump,
                             },
-                            encodeRelayUsdcTransfer(
-                                foreignRecipientAddress,
-                                gasDropoff,
-                                expectedRelayerFee,
+                            Buffer.from(
+                                encodeSwapLayerMessage({
+                                    recipient: new UniversalAddress(
+                                        Uint8Array.from(foreignRecipientAddress),
+                                    ),
+                                    redeemMode: {
+                                        mode: "Relay",
+                                        gasDropoff,
+                                        relayingFee: expectedRelayerFee,
+                                    },
+                                    outputToken: { type: "Usdc" },
+                                }),
                             ),
                         ),
                     );
@@ -1468,10 +1478,18 @@ describe("Swap Layer", () => {
                                 redeemer: foreignSwapLayerAddress,
                                 preparedCustodyTokenBump,
                             },
-                            encodeRelayUsdcTransfer(
-                                foreignRecipientAddress,
-                                gasDropoff,
-                                expectedRelayerFee,
+                            Buffer.from(
+                                encodeSwapLayerMessage({
+                                    recipient: new UniversalAddress(
+                                        Uint8Array.from(foreignRecipientAddress),
+                                    ),
+                                    redeemMode: {
+                                        mode: "Relay",
+                                        gasDropoff,
+                                        relayingFee: expectedRelayerFee,
+                                    },
+                                    outputToken: { type: "Usdc" },
+                                }),
                             ),
                         ),
                     );
@@ -1498,7 +1516,15 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(payer.publicKey.toString(), "base58"),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: 0,
+                                relayingFee: 6900n,
+                            },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa } = result!;
                     const preparedFill = tokenRouter.preparedFillAddress(vaa);
@@ -1543,7 +1569,15 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(payer.publicKey.toString(), "base58"),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: 0,
+                                relayingFee: 6900n,
+                            },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa } = result!;
                     const preparedFill = tokenRouter.preparedFillAddress(vaa);
@@ -1608,7 +1642,15 @@ describe("Swap Layer", () => {
                             ),
                         ), // Invalid Address.
                         wormholeSequence,
-                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(payer.publicKey.toString(), "base58"),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: 0,
+                                relayingFee: 6900n,
+                            },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa } = result!;
                     const preparedFill = tokenRouter.preparedFillAddress(vaa);
@@ -1641,7 +1683,15 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(payer.publicKey.toString(), "base58"),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: 0,
+                                relayingFee: 6900n,
+                            },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa } = result!;
                     const preparedFill = tokenRouter.preparedFillAddress(vaa);
@@ -1670,7 +1720,11 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeDirectUsdcTransfer(payer.publicKey), // Encode Direct instead of Relay.
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(payer.publicKey.toString(), "base58"),
+                            redeemMode: { mode: "Direct" },
+                            outputToken: { type: "Usdc" },
+                        }), // Encode Direct instead of Relay.
                     );
                     const { vaa } = result!;
                     const preparedFill = tokenRouter.preparedFillAddress(vaa);
@@ -1699,7 +1753,15 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeRelayUsdcTransfer(payer.publicKey, 0, 6900n),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(payer.publicKey.toString(), "base58"),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: 0,
+                                relayingFee: 6900n,
+                            },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa, message } = result!;
 
@@ -1750,11 +1812,18 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeRelayUsdcTransfer(
-                            recipient.publicKey,
-                            gasAmountDenorm / 1000,
-                            relayerFee,
-                        ),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: gasAmountDenorm / 1000,
+                                relayingFee: relayerFee,
+                            },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa, message } = result!;
 
@@ -1815,7 +1884,18 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeRelayUsdcTransfer(recipient.publicKey, gasAmount, relayerFee),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: gasAmount,
+                                relayingFee: relayerFee,
+                            },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa, message } = result!;
 
@@ -1924,7 +2004,15 @@ describe("Swap Layer", () => {
                                 redeemer: foreignSwapLayerAddress,
                                 preparedCustodyTokenBump,
                             },
-                            encodeDirectUsdcTransfer(foreignRecipientAddress),
+                            Buffer.from(
+                                encodeSwapLayerMessage({
+                                    recipient: new UniversalAddress(
+                                        Uint8Array.from(foreignRecipientAddress),
+                                    ),
+                                    redeemMode: { mode: "Direct" },
+                                    outputToken: { type: "Usdc" },
+                                }),
+                            ),
                         ),
                     );
 
@@ -1986,7 +2074,14 @@ describe("Swap Layer", () => {
                             ),
                         ), // Invalid Address.,
                         wormholeSequence,
-                        encodeDirectUsdcTransfer(recipient.publicKey),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: { mode: "Direct" },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa } = result!;
                     const preparedFill = tokenRouter.preparedFillAddress(vaa);
@@ -2015,7 +2110,14 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeDirectUsdcTransfer(recipient.publicKey),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: { mode: "Direct" },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa } = result!;
                     const preparedFill = tokenRouter.preparedFillAddress(vaa);
@@ -2044,7 +2146,14 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeDirectUsdcTransfer(recipient.publicKey),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: { mode: "Direct" },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa } = result!;
                     const preparedFill = tokenRouter.preparedFillAddress(vaa);
@@ -2077,7 +2186,14 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeDirectUsdcTransfer(recipient.publicKey),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: { mode: "Direct" },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa, message } = result!;
 
@@ -2125,7 +2241,11 @@ describe("Swap Layer", () => {
                         foreignTokenRouterAddress,
                         foreignSwapLayerAddress,
                         wormholeSequence,
-                        encodeDirectUsdcTransfer(payer.publicKey),
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(payer.publicKey.toString(), "base58"),
+                            redeemMode: { mode: "Direct" },
+                            outputToken: { type: "Usdc" },
+                        }),
                     );
                     const { vaa, message } = result!;
 
@@ -2181,7 +2301,7 @@ async function createAndRedeemCctpFillForTest(
     foreignEndpointAddress: number[],
     orderSender: number[],
     wormholeSequence: bigint,
-    redeemerMessage: Buffer,
+    redeemerMessage: Buffer | Uint8Array,
 ): Promise<null | { vaa: PublicKey; message: LiquidityLayerMessage }> {
     const encodedMintRecipient = Array.from(tokenRouter.cctpMintRecipientAddress().toBuffer());
     const sourceCctpDomain = 0;
@@ -2216,7 +2336,7 @@ async function createAndRedeemCctpFillForTest(
                     sourceChain: foreignChain as ChainId,
                     orderSender,
                     redeemer: Array.from(redeemer.toBuffer()),
-                    redeemerMessage: redeemerMessage,
+                    redeemerMessage: Buffer.from(redeemerMessage),
                 },
             },
         ),
@@ -2247,9 +2367,8 @@ async function createAndRedeemCctpFillForTest(
         units: 300_000,
     });
 
-    const { value: lookupTableAccount } = await connection.getAddressLookupTable(
-        tokenRouterLkupTable,
-    );
+    const { value: lookupTableAccount } =
+        await connection.getAddressLookupTable(tokenRouterLkupTable);
 
     await expectIxOk(connection, [computeIx, ix], [payer], {
         addressLookupTableAccounts: [lookupTableAccount!],
@@ -2307,64 +2426,6 @@ async function craftCctpTokenBurnMessage(
         encodedCctpMessage,
         cctpAttestation,
     };
-}
-
-function encodeDirectUsdcTransfer(recipient: PublicKey | number[]): Buffer {
-    let buf = Buffer.alloc(35);
-
-    // Version
-    buf.writeUInt8(1, 0);
-
-    // 32 byte address.
-    if (Array.isArray(recipient)) {
-        Buffer.from(recipient).copy(buf, 1);
-    } else {
-        Buffer.from(recipient.toBuffer().toString("hex"), "hex").copy(buf, 1);
-    }
-
-    // Redeem mode.
-    buf.writeUInt8(0, 33);
-
-    // USDC Token Type
-    buf.writeUInt8(0, 34);
-
-    return buf;
-}
-
-function encodeRelayUsdcTransfer(
-    recipient: PublicKey | number[],
-    gasDropoff: number,
-    relayerFee: bigint,
-): Buffer {
-    let buf = Buffer.alloc(45);
-
-    // Version
-    buf.writeUInt8(1, 0);
-
-    // 32 byte address.
-    if (Array.isArray(recipient)) {
-        Buffer.from(recipient).copy(buf, 1);
-    } else {
-        Buffer.from(recipient.toBuffer().toString("hex"), "hex").copy(buf, 1);
-    }
-
-    // Redeem mode.
-    buf.writeUInt8(2, 33);
-    buf.writeUint32BE(gasDropoff, 34);
-
-    // Make sure relayer fee will fit in u48.
-    if (relayerFee > 281474976710655) {
-        throw new Error("Relayer fee too large");
-    }
-
-    const encodedNum = Buffer.alloc(8);
-    encodedNum.writeBigUInt64BE(relayerFee);
-    encodedNum.subarray(2).copy(buf, 38);
-
-    // USDC Token Type
-    buf.writeUInt8(0, 44);
-
-    return buf;
 }
 
 async function updateRelayParamsForTest(

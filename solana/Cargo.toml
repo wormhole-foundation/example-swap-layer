@@ -26,7 +26,6 @@ features = ["no-entrypoint"]
 
 [workspace.dependencies.swap-layer-messages]
 path = "../universal/rs/messages"
-features = ["anchor"]
 
 [workspace.dependencies]
 anchor-lang = "=0.30.0"

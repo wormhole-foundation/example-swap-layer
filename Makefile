@@ -3,11 +3,6 @@ clean:
 	$(MAKE) fast-transfer-clean
 	rm -rf node_modules
 
-.PHONY: clean
-clean:
-	$(MAKE) fast-transfer-clean
-	rm -rf node_modules
-
 .PHONY: fast-transfer-sync
 fast-transfer-sync:
 	git submodule update --init

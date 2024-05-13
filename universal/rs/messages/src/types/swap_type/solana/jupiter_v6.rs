@@ -8,15 +8,14 @@ use anchor_lang::prelude::{borsh, AnchorDeserialize, AnchorSerialize};
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub struct JupiterV6SwapParameters {
-    pub mint: [u8; 32],
     pub dex_program_id: Option<[u8; 32]>,
 }
 
 impl JupiterV6SwapParameters {
     pub fn written_size(&self) -> usize {
         match self.dex_program_id {
-            Some(_) => 65,
-            None => 33,
+            Some(_) => 33,
+            None => 1,
         }
     }
 }
@@ -28,7 +27,6 @@ impl Readable for JupiterV6SwapParameters {
         R: io::Read,
     {
         Ok(Self {
-            mint: Readable::read(reader)?,
             dex_program_id: Readable::read(reader)?,
         })
     }
@@ -39,7 +37,6 @@ impl Writeable for JupiterV6SwapParameters {
     where
         W: io::Write,
     {
-        self.mint.write(writer)?;
         self.dex_program_id.write(writer)
     }
 }
@@ -54,18 +51,18 @@ mod test {
 
     #[test]
     fn dex_program_id_some() {
-        let mint = Pubkey::from([69; 32]);
         let dex_program_id = Pubkey::from([88; 32]);
         let params = JupiterV6SwapParameters {
-            mint: mint.to_bytes(),
             dex_program_id: Some(dex_program_id.to_bytes()),
         };
 
-        let mut encoded = [0; 65];
+        let mut encoded = [0; 33];
+        assert_eq!(params.written_size(), encoded.len());
+
         params.write(&mut encoded.as_mut_slice()).unwrap();
         assert_eq!(
             encoded,
-            hex!("4545454545454545454545454545454545454545454545454545454545454545015858585858585858585858585858585858585858585858585858585858585858")
+            hex!("015858585858585858585858585858585858585858585858585858585858585858")
         );
 
         let decoded = JupiterV6SwapParameters::read(&mut &encoded[..]).unwrap();
@@ -74,18 +71,15 @@ mod test {
 
     #[test]
     fn dex_program_id_none() {
-        let mint = Pubkey::from([69; 32]);
         let params = JupiterV6SwapParameters {
-            mint: mint.to_bytes(),
             dex_program_id: Default::default(),
         };
 
-        let mut encoded = [0; 33];
+        let mut encoded = [0; 1];
+        assert_eq!(params.written_size(), encoded.len());
+
         params.write(&mut encoded.as_mut_slice()).unwrap();
-        assert_eq!(
-            encoded,
-            hex!("454545454545454545454545454545454545454545454545454545454545454500")
-        );
+        assert_eq!(encoded, hex!("00"));
 
         let decoded = JupiterV6SwapParameters::read(&mut &encoded[..]).unwrap();
         assert_eq!(decoded, params);

@@ -1,5 +1,4 @@
 import { PublicKey } from "@solana/web3.js";
-import { emitterAddress } from "../../common";
 
 export class Custodian {
     owner: PublicKey;

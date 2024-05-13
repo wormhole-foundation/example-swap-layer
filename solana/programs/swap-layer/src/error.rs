@@ -45,7 +45,10 @@ pub enum SwapLayerError {
     InvalidDestinationSwapToken = 0x333,
     InvalidSourceMint = 0x334,
     InvalidDestinationMint = 0x335,
-    JupiterV6DexProgramMismatch = 0x340,
+    NotJupiterV6DirectRoute = 0x340,
+    JupiterV6DexProgramMismatch = 0x342,
+    InvalidJupiterV6QuotedOutAmount = 0x344,
+    SwapFailed = 0x346,
 
     // Ownership
     NoTransferOwnershipRequest = 0x400,

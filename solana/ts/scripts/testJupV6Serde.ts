@@ -1,4 +1,4 @@
-import { decodeSharedAccountsRouteIxData } from "../src/jupiter/layouts";
+import { decodeSharedAccountsRouteArgs } from "../src/jupiterV6";
 
 main();
 
@@ -14,7 +14,7 @@ function main() {
         const data = Buffer.from(sample, "base64");
         console.log({ data });
 
-        const wtf = decodeSharedAccountsRouteIxData(data);
+        const wtf = decodeSharedAccountsRouteArgs(data);
 
         console.log({ wtf });
         console.log(wtf.routePlan);

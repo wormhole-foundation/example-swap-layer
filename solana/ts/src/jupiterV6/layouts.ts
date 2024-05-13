@@ -1,10 +1,20 @@
 import {
     CustomConversion,
     Layout,
+    LayoutToType,
     SwitchLayoutItem,
     UintLayoutItem,
     deserializeLayout,
+    serializeLayout,
 } from "@wormhole-foundation/sdk-base";
+
+export type SharedAccountsRouteArgs = LayoutToType<typeof sharedAccountsRouteArgsLayout>;
+
+export const decodeSharedAccountsRouteArgs = (data: Buffer | Uint8Array): SharedAccountsRouteArgs =>
+    deserializeLayout(sharedAccountsRouteArgsLayout, Uint8Array.from(data));
+
+export const encodeSharedAccountsRouteArgs = (decoded: SharedAccountsRouteArgs): Buffer =>
+    Buffer.from(serializeLayout(sharedAccountsRouteArgsLayout, decoded));
 
 const boolItem = {
     binary: "uint",
@@ -75,9 +85,9 @@ export const selectorItem = (selector: AnchorSelector) =>
         name: "prefix",
         binary: "bytes",
         custom: Uint8Array.from(selector),
-    } as const);
+    }) as const;
 
-const sharedAccountsRouteInstructionData = [
+const sharedAccountsRouteArgsLayout = [
     selectorItem([193, 32, 155, 51, 65, 214, 156, 129]),
     { name: "id", binary: "uint", size: 1 },
     {
@@ -92,7 +102,3 @@ const sharedAccountsRouteInstructionData = [
     { name: "slippageBps", binary: "uint", size: 2, endianness: "little" },
     { name: "platformFeeBps", binary: "uint", size: 1 },
 ] as const satisfies Layout;
-
-export function decodeSharedAccountsRouteIxData(data: Buffer) {
-    return deserializeLayout(sharedAccountsRouteInstructionData, data);
-}

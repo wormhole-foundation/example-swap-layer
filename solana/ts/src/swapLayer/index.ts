@@ -1,3 +1,4 @@
+export * from "./messages";
 export * from "./relayerFees";
 export * from "./state";
 
@@ -10,7 +11,7 @@ import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
 import { Custodian, Peer, RelayParams } from "./state";
 
-export const PROGRAM_IDS = ["AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m"] as const;
+export const PROGRAM_IDS = ["SwapLayer1111111111111111111111111111111111"] as const;
 
 export type ProgramId = (typeof PROGRAM_IDS)[number];
 
@@ -168,6 +169,28 @@ export class SwapLayerProgram {
             associatedPeer: { peer },
             beneficiary,
             tokenRouterProgram: tokenRouter.ID,
+        };
+    }
+
+    swapAuthorityAddress(preparedFill: PublicKey): PublicKey {
+        return PublicKey.findProgramAddressSync(
+            [Buffer.from("swap-authority"), preparedFill.toBuffer()],
+            this.ID,
+        )[0];
+    }
+
+    swapComposite(accounts: {
+        preparedFill: PublicKey;
+        sourceMint: PublicKey;
+        destinationMint: PublicKey;
+    }) {
+        const { preparedFill, sourceMint, destinationMint } = accounts;
+
+        const authority = this.swapAuthorityAddress(preparedFill);
+        return {
+            authority,
+            srcSwapToken: splToken.getAssociatedTokenAddressSync(sourceMint, authority, true),
+            dstSwapToken: splToken.getAssociatedTokenAddressSync(destinationMint, authority, true),
         };
     }
 
@@ -494,6 +517,54 @@ export class SwapLayerProgram {
             .instruction();
     }
 
+    // async completeSwapDirectIx(
+    //     accounts: { payer: PublicKey; preparedFill: PublicKey; beneficiary?: PublicKey },
+    //     args: {
+    //         innerIx: TransactionInstruction;
+    //     },
+    // ): Promise<TransactionInstruction> {
+    //     const { payer, preparedFill } = accounts;
+    //     const { innerIx } = args;
+
+    //     let { beneficiary } = accounts;
+    //     beneficiary ??= payer;
+
+    //     const swapAuthority =
+
+    //     return this.program.methods
+    //         .completeSwap(innerIx.data)
+    //         .accounts({
+    //             payer: payer,
+    //             consumeSwapLayerFill: await this.consumeSwapLayerFillComposite({
+    //                 preparedFill,
+    //                 beneficiary,
+    //             }),
+    //             swapAuthority,
+    //             srcSwapToken: splToken.getAssociatedTokenAddressSync(
+    //                 swapLayer.mint,
+    //                 swapAuthority,
+    //                 true, // allowOwnerOffCurve
+    //             ),
+    //             dstSwapToken: splToken.getAssociatedTokenAddressSync(
+    //                 USDT_MINT_ADDRESS,
+    //                 swapAuthority,
+    //                 true, // allowOwnerOffCurve
+    //             ),
+    //             usdc: swapLayer.usdcComposite(),
+    //             dstMint: USDT_MINT_ADDRESS,
+    //             recipientToken: splToken.getAssociatedTokenAddressSync(
+    //                 USDT_MINT_ADDRESS,
+    //                 recipient.publicKey,
+    //             ),
+    //             recipient: recipient.publicKey,
+    //             associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+    //             tokenProgram: splToken.TOKEN_PROGRAM_ID,
+    //             systemProgram: SystemProgram.programId,
+    //         })
+    //         .remainingAccounts(innerIx.keys)
+    //         .instruction();
+    // }
+
     tokenRouterProgram(): tokenRouterSdk.TokenRouterProgram {
         switch (this._programId) {
             case localnet(): {
@@ -511,5 +582,5 @@ export class SwapLayerProgram {
 }
 
 export function localnet(): ProgramId {
-    return "AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m";
+    return "SwapLayer1111111111111111111111111111111111";
 }

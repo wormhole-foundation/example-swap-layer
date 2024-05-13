@@ -1,16 +1,13 @@
-import * as anchor from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import {
-    AccountMeta,
     ComputeBudgetProgram,
     Connection,
     Keypair,
     PublicKey,
     Signer,
+    SystemProgram,
     TransactionInstruction,
 } from "@solana/web3.js";
-import * as legacyAnchor from "anchor-0.29.0";
-import { use as chaiUse, expect } from "chai";
 import { CctpTokenBurnMessage } from "@wormhole-foundation/example-liquidity-layer-solana/cctp";
 import {
     FastMarketOrder,
@@ -19,7 +16,6 @@ import {
     SlowOrderResponse,
 } from "@wormhole-foundation/example-liquidity-layer-solana/common";
 import * as matchingEngineSdk from "@wormhole-foundation/example-liquidity-layer-solana/matchingEngine";
-import { VaaAccount } from "@wormhole-foundation/example-liquidity-layer-solana/wormhole";
 import {
     CHAIN_TO_DOMAIN,
     CircleAttester,
@@ -30,28 +26,36 @@ import {
     OWNER_KEYPAIR,
     PAYER_KEYPAIR,
     REGISTERED_TOKEN_ROUTERS,
+    USDC_MINT_ADDRESS,
     expectIxOk,
     getBlockTime,
     postLiquidityLayerVaa,
 } from "@wormhole-foundation/example-liquidity-layer-solana/testing";
-import SWAP_LAYER_IDL from "../../target/idl/swap_layer.json";
-import * as jupiter from "../src/jupiter";
-import { SwapLayerProgram, localnet } from "../src/swapLayer";
-import { IDL as WHIRLPOOL_IDL, Whirlpool } from "../src/types/whirlpool";
-import { FEE_UPDATER_KEYPAIR, createLut, tryNativeToUint8Array } from "./helpers";
+import { VaaAccount } from "@wormhole-foundation/example-liquidity-layer-solana/wormhole";
 import { Chain, toChainId } from "@wormhole-foundation/sdk-base";
+import { toUniversal } from "@wormhole-foundation/sdk-definitions";
+import * as legacyAnchor from "anchor-0.29.0";
+import { use as chaiUse, expect } from "chai";
+import * as fs from "fs";
+import * as jupiterV6 from "../src/jupiterV6";
+import {
+    SwapLayerMessage,
+    SwapLayerProgram,
+    decodeSwapLayerMessage,
+    encodeSwapLayerMessage,
+    localnet,
+} from "../src/swapLayer";
+import { IDL as WHIRLPOOL_IDL } from "../src/types/whirlpool";
+import {
+    FEE_UPDATER_KEYPAIR,
+    REGISTERED_PEERS,
+    USDT_MINT_ADDRESS,
+    WHIRLPOOL_PROGRAM_ID,
+    createLut,
+    tryNativeToUint8Array,
+} from "./helpers";
 
 chaiUse(require("chai-as-promised"));
-
-const SWAP_LAYER_PROGRAM_ID = new PublicKey("AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m");
-
-const USDT_MINT_ADDRESS = new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB");
-const USDC_MINT_ADDRESS = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-
-const JUPITER_V6_PROGRAM_ID = new PublicKey("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
-
-const WHIRLPOOL_PROGRAM_ID = new PublicKey("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc");
-const WHIRLPOOL_USDC_USDT = new PublicKey("4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4");
 
 describe("Jupiter V6 Testing", () => {
     const connection = new Connection(LOCALHOST, "processed");
@@ -83,13 +87,6 @@ describe("Jupiter V6 Testing", () => {
         connection,
     });
 
-    const swapLayerProgram = new anchor.Program(
-        { ...(SWAP_LAYER_IDL as any), address: SWAP_LAYER_PROGRAM_ID.toString() },
-        {
-            connection,
-        },
-    );
-
     const luts: [PublicKey, PublicKey] = [PublicKey.default, PublicKey.default];
 
     let testCctpNonce = 2n ** 64n - 1n;
@@ -99,7 +96,30 @@ describe("Jupiter V6 Testing", () => {
 
     let wormholeSequence = 10000n;
 
-    describe("Setup", function () {
+    describe("Jupiter V6 Setup", function () {
+        before("Generate ATAs", async function () {
+            for (const mint of [swapLayer.mint, USDT_MINT_ADDRESS]) {
+                await splToken.getOrCreateAssociatedTokenAccount(
+                    connection,
+                    payer,
+                    mint,
+                    recipient.publicKey,
+                );
+
+                for (let i = 0; i < 8; ++i) {
+                    const authority = jupiterV6.programAuthorityAddress(i);
+
+                    await splToken.getOrCreateAssociatedTokenAccount(
+                        connection,
+                        payer,
+                        mint,
+                        authority,
+                        true, // allowOwnerOffCurve
+                    );
+                }
+            }
+        });
+
         after("Setup Lookup Tables", async function () {
             luts[0] = await createLut(
                 connection,
@@ -118,55 +138,53 @@ describe("Jupiter V6 Testing", () => {
             );
         });
 
-        it("Placeholder", async function () {
-            // TODO
-        });
-    });
-
-    describe("Whirlpool", function () {
-        it.skip("Swap USDT to USDC", async function () {
-            const swapIx = jupiter.toTransactionInstruction(
-                jupiterV6SwapIxResponseWhirlpool.swapInstruction,
+        it("Swap USDC to USDT From Simulated Quote", async function () {
+            await invokeSharedAccountsRouteAsUser(
+                modifyUsdcToUsdtSwapResponseForTest(payer.publicKey, {
+                    inAmount: 100_000_000n,
+                    slippageBps: 50,
+                }),
             );
+        });
 
-            const usdtToken = splToken.getAssociatedTokenAddressSync(
-                USDT_MINT_ADDRESS,
+        it("Swap USDT to USDC From Simulated Quote", async function () {
+            await invokeSharedAccountsRouteAsUser(
+                modifyUsdtToUsdcSwapResponseForTest(payer.publicKey, {
+                    inAmount: 50_000_000n,
+                    slippageBps: 50,
+                }),
+            );
+        });
+
+        async function invokeSharedAccountsRouteAsUser(modifyArgs: {
+            instruction: TransactionInstruction;
+            sourceMint: PublicKey;
+            destinationMint: PublicKey;
+            minAmountOut: bigint;
+        }) {
+            const { instruction: ix, sourceMint, destinationMint, minAmountOut } = modifyArgs;
+
+            const srcToken = splToken.getAssociatedTokenAddressSync(sourceMint, payer.publicKey);
+            const dstToken = splToken.getAssociatedTokenAddressSync(
+                destinationMint,
                 payer.publicKey,
             );
-            const usdtTokenData = await splToken.getAccount(connection, usdtToken);
-            console.log({ usdtTokenData });
+            const { amount: srcBalanceBefore } = await splToken.getAccount(connection, srcToken);
+            const { amount: dstBalanceBefore } = await splToken.getAccount(connection, dstToken);
 
-            const usdcToken = splToken.getAssociatedTokenAddressSync(
-                USDC_MINT_ADDRESS,
-                payer.publicKey,
-            );
-            const usdcTokenData = await splToken.getAccount(connection, usdcToken);
-            console.log({ usdcTokenData });
+            await expectIxOk(connection, [ix], [payer]);
 
-            const transferAuthority = jupiterTransferAuthorityAddress(2);
-            const ix = jupiterV6SwapIx(
-                {
-                    user: payer.publicKey,
-                    transferAuthority,
-                    inputMint: USDT_MINT_ADDRESS,
-                    outputMint: USDC_MINT_ADDRESS,
-                },
-                //swapIx.keys.slice(13),
-                await whirlpoolIxSetup(
-                    whirlpoolProgram,
-                    { tokenAuthority: transferAuthority, whirlpool: WHIRLPOOL_USDC_USDT },
-                    true,
-                ),
-                swapIx.data,
-            );
+            const decodedIxData = jupiterV6.decodeSharedAccountsRouteArgs(ix.data);
 
-            expect(swapIx.keys).has.length(ix.keys.length);
+            const { amount: srcBalanceAfter } = await splToken.getAccount(connection, srcToken);
+            expect(srcBalanceBefore - srcBalanceAfter).equals(decodedIxData.inAmount);
 
-            const txSig = await expectIxOk(connection, [ix], [payer]);
-        });
+            const { amount: dstBalanceAfter } = await splToken.getAccount(connection, dstToken);
+            expect(dstBalanceAfter - dstBalanceBefore >= minAmountOut).is.true;
+        }
     });
 
-    describe("Complete Swap Passthrough (WIP)", function () {
+    describe("Complete Swap -- Direct", function () {
         const emittedEvents: EmittedFilledLocalFastOrder[] = [];
         let listenerId: number | null;
 
@@ -182,55 +200,142 @@ describe("Jupiter V6 Testing", () => {
             }
         });
 
-        // afterEach("Clear Emitted Events", function () {
-        //     while (emittedEvents.length > 0) {
-        //         emittedEvents.pop();
-        //     }
-        // });
-
         it("Generate Fast Fill", async function () {
-            const { fastFill, preparedFill } = await redeemFastFillForTest(
+            const amountIn = 200_000_000n;
+            const quotedAmountOut = 198_800_000n;
+            const slippage = 15; // 1.5bps
+
+            // Computed after quote.
+            const limitAmount = (quotedAmountOut * (10000n - BigInt(slippage))) / 10000n;
+            const deadline = 0;
+
+            const msg = {
+                recipient: toUniversal("Solana", recipient.publicKey.toString()),
+                redeemMode: { mode: "Direct" },
+                outputToken: {
+                    type: "Other",
+                    address: toUniversal("Solana", USDT_MINT_ADDRESS.toString()),
+                    swap: {
+                        deadline,
+                        limitAmount,
+                        type: {
+                            id: "JupiterV6",
+                            dexProgramId: { isSome: false },
+                        },
+                    },
+                },
+            } as SwapLayerMessage;
+
+            const { preparedFill } = await redeemFastFillForTest(
                 { payer: payer.publicKey },
                 emittedEvents,
-            );
-        });
-
-        it.skip("Swap USDT to USDC", async function () {
-            const ixData = Buffer.from(
-                "wSCbM0HWnIECAQAAABEAZAABAHQ7pAsAAAAoYEulCwAAADIAAA==",
-                "base64",
-            );
-            const transferAuthority = jupiterTransferAuthorityAddress(2);
-            const innerIx = jupiterV6SwapIx(
                 {
-                    user: payer.publicKey,
-                    transferAuthority,
-                    inputMint: USDT_MINT_ADDRESS,
-                    outputMint: USDC_MINT_ADDRESS,
+                    amountIn,
+                    redeemerMessage: encodeSwapLayerMessage(msg),
                 },
-                //swapIx.keys.slice(13),
-                await whirlpoolIxSetup(
-                    whirlpoolProgram,
-                    { tokenAuthority: transferAuthority, whirlpool: WHIRLPOOL_USDC_USDT },
-                    true,
-                ),
-                ixData,
             );
 
-            // const ix = await swapLayerProgram.methods
-            //     .completeSwap(ixData)
-            //     .accounts({
-            //         srcToken: splToken.getAssociatedTokenAddressSync(
-            //             USDT_MINT_ADDRESS,
-            //             payer.publicKey,
-            //         ),
-            //     })
-            //     .remainingAccounts(innerIx.keys)
-            //     .instruction();
+            const preparedFillData = await tokenRouter.fetchPreparedFill(preparedFill);
+            expect(decodeSwapLayerMessage(preparedFillData.redeemerMessage)).to.eql(msg);
 
-            // const txSig = await expectIxOk(connection, [ix], [payer]);
+            const beneficiary = Keypair.generate().publicKey;
+            const [swapAuthority] = PublicKey.findProgramAddressSync(
+                [Buffer.from("swap-authority"), preparedFill.toBuffer()],
+                swapLayer.ID,
+            );
+
+            const { instruction: innerIx } = modifyUsdcToUsdtSwapResponseForTest(swapAuthority, {
+                inAmount: 0n,
+                cpi: true,
+            });
+
+            const ix = await swapLayer.program.methods
+                .completeSwapDirect(innerIx.data)
+                .accounts({
+                    completeSwap: {
+                        payer: payer.publicKey,
+                        consumeSwapLayerFill: await swapLayer.consumeSwapLayerFillComposite({
+                            preparedFill,
+                            beneficiary,
+                        }),
+                        authority: swapAuthority,
+                        srcSwapToken: splToken.getAssociatedTokenAddressSync(
+                            swapLayer.mint,
+                            swapAuthority,
+                            true, // allowOwnerOffCurve
+                        ),
+                        dstSwapToken: splToken.getAssociatedTokenAddressSync(
+                            USDT_MINT_ADDRESS,
+                            swapAuthority,
+                            true, // allowOwnerOffCurve
+                        ),
+                        srcMint: swapLayer.mint,
+                        dstMint: USDT_MINT_ADDRESS,
+                        associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+                        tokenProgram: splToken.TOKEN_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                    },
+                    recipientToken: splToken.getAssociatedTokenAddressSync(
+                        USDT_MINT_ADDRESS,
+                        recipient.publicKey,
+                    ),
+                    recipient: recipient.publicKey,
+                })
+                .remainingAccounts(innerIx.keys)
+                .instruction();
+
+            const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
+                units: 420_000,
+            });
+
+            const addressLookupTableAccounts = await Promise.all(
+                luts.map(async (lookupTableAddress) => {
+                    const resp = await connection.getAddressLookupTable(lookupTableAddress);
+                    return resp.value;
+                }),
+            );
+
+            const dstToken = splToken.getAssociatedTokenAddressSync(
+                USDT_MINT_ADDRESS,
+                recipient.publicKey,
+            );
+
+            const { amount: dstBalanceBefore } = await splToken.getAccount(connection, dstToken);
+
+            await expectIxOk(connection, [computeIx, ix], [payer], {
+                addressLookupTableAccounts,
+            });
+
+            const { amount: dstBalanceAfter } = await splToken.getAccount(connection, dstToken);
+            expect(dstBalanceAfter - dstBalanceBefore >= limitAmount).is.true;
         });
     });
+
+    function modifyUsdcToUsdtSwapResponseForTest(
+        tokenOwner: PublicKey,
+        opts: jupiterV6.ModifySharedAccountsRouteOpts,
+    ): jupiterV6.ModifiedSharedAccountsRoute {
+        const response = JSON.parse(
+            fs.readFileSync(`${__dirname}/jupiterV6SwapResponses/whirlpool_usdc_to_usdt.json`, {
+                encoding: "utf-8",
+            }),
+        );
+
+        return jupiterV6.modifySharedAccountsRouteInstruction(response, tokenOwner, opts);
+    }
+
+    function modifyUsdtToUsdcSwapResponseForTest(
+        tokenOwner: PublicKey,
+        opts: jupiterV6.ModifySharedAccountsRouteOpts,
+    ): jupiterV6.ModifiedSharedAccountsRoute {
+        const response = JSON.parse(
+            fs.readFileSync(`${__dirname}/jupiterV6SwapResponses/whirlpool_usdt_to_usdc.json`, {
+                encoding: "utf-8",
+            }),
+        );
+
+        return jupiterV6.modifySharedAccountsRouteInstruction(response, tokenOwner, opts);
+    }
 
     type PrepareOrderResponseForTestOptionalOpts = {
         args?: matchingEngineSdk.CctpMessageArgs;
@@ -240,7 +345,7 @@ describe("Jupiter V6 Testing", () => {
         accounts: {
             payer: PublicKey;
         },
-        opts: ObserveCctpOrderVaasOpts & PrepareOrderResponseForTestOptionalOpts = {},
+        opts: ObserveCctpOrderVaasOpts & PrepareOrderResponseForTestOptionalOpts,
     ): Promise<
         | undefined
         | {
@@ -298,12 +403,15 @@ describe("Jupiter V6 Testing", () => {
         };
     }
 
-    async function reserveFastFillSequenceNoAuctionForTest(accounts: {
-        payer: PublicKey;
-        fastVaa?: PublicKey;
-        auction?: PublicKey;
-        preparedOrderResponse?: PublicKey;
-    }): Promise<
+    async function reserveFastFillSequenceNoAuctionForTest(
+        accounts: {
+            payer: PublicKey;
+            fastVaa?: PublicKey;
+            auction?: PublicKey;
+            preparedOrderResponse?: PublicKey;
+        },
+        opts: ObserveCctpOrderVaasOpts,
+    ): Promise<
         | undefined
         | {
               fastVaa: PublicKey;
@@ -316,9 +424,12 @@ describe("Jupiter V6 Testing", () => {
         let preparedOrderResponse: PublicKey | undefined;
         const { fastVaa, fastVaaAccount, finalizedVaa, finalizedVaaAccount } = await (async () => {
             if (accounts.preparedOrderResponse === undefined) {
-                const result = await prepareOrderResponseCctpForTest({
-                    payer: accounts.payer,
-                });
+                const result = await prepareOrderResponseCctpForTest(
+                    {
+                        payer: accounts.payer,
+                    },
+                    opts,
+                );
                 const { fastVaa, finalizedVaa } = result!;
                 preparedOrderResponse = result!.preparedOrderResponse;
 
@@ -370,10 +481,14 @@ describe("Jupiter V6 Testing", () => {
             reservedSequence?: PublicKey;
         },
         emittedEvents: EmittedFilledLocalFastOrder[],
+        opts: ObserveCctpOrderVaasOpts,
     ): Promise<undefined | { event: matchingEngineSdk.LocalFastOrderFilled }> {
-        const reserveResult = await reserveFastFillSequenceNoAuctionForTest({
-            payer: accounts.payer,
-        });
+        const reserveResult = await reserveFastFillSequenceNoAuctionForTest(
+            {
+                payer: accounts.payer,
+            },
+            opts,
+        );
 
         const ix = await matchingEngine.settleAuctionNoneLocalIx({
             ...accounts,
@@ -394,10 +509,12 @@ describe("Jupiter V6 Testing", () => {
     async function redeemFastFillForTest(
         accounts: { payer: PublicKey },
         emittedEvents: EmittedFilledLocalFastOrder[],
+        opts: ObserveCctpOrderVaasOpts,
     ) {
         const settleResult = await settleAuctionNoneLocalForTest(
             { payer: payer.publicKey },
             emittedEvents,
+            opts,
         );
         const {
             event: {
@@ -442,17 +559,16 @@ describe("Jupiter V6 Testing", () => {
         return [{ signers, errorMsg }, { ...opts }];
     }
 
-    function newFastMarketOrder(
-        args: {
-            amountIn?: bigint;
-            minAmountOut?: bigint;
-            initAuctionFee?: bigint;
-            targetChain?: Chain;
-            maxFee?: bigint;
-            deadline?: number;
-            redeemerMessage?: Buffer;
-        } = {},
-    ): FastMarketOrder {
+    function newFastMarketOrder(args: {
+        redeemerMessage: Uint8Array;
+        sender?: Array<number>;
+        amountIn?: bigint;
+        minAmountOut?: bigint;
+        initAuctionFee?: bigint;
+        targetChain?: Chain;
+        maxFee?: bigint;
+        deadline?: number;
+    }): FastMarketOrder {
         const {
             amountIn,
             targetChain,
@@ -461,6 +577,7 @@ describe("Jupiter V6 Testing", () => {
             initAuctionFee,
             deadline,
             redeemerMessage,
+            sender,
         } = args;
 
         return {
@@ -468,12 +585,12 @@ describe("Jupiter V6 Testing", () => {
             minAmountOut: minAmountOut ?? 0n,
             targetChain: toChainId(targetChain ?? "Solana"),
             redeemer: Array.from(swapLayer.custodianAddress().toBuffer()),
-            sender: new Array(32).fill(2),
+            sender: sender ?? REGISTERED_PEERS["Ethereum"]!,
             refundAddress: new Array(32).fill(3),
             maxFee: maxFee ?? 42069n,
             initAuctionFee: initAuctionFee ?? 1_250_000n,
             deadline: deadline ?? 0,
-            redeemerMessage: redeemerMessage ?? Buffer.from("Somebody set up us the bomb"),
+            redeemerMessage: Buffer.from(redeemerMessage),
         };
     }
 
@@ -500,6 +617,8 @@ describe("Jupiter V6 Testing", () => {
     };
 
     type ObserveCctpOrderVaasOpts = {
+        redeemerMessage: Uint8Array;
+        amountIn: bigint;
         sourceChain?: Chain;
         emitter?: Array<number>;
         vaaTimestamp?: number;
@@ -512,7 +631,7 @@ describe("Jupiter V6 Testing", () => {
         finalizedVaaTimestamp?: number;
     };
 
-    async function observeCctpOrderVaas(opts: ObserveCctpOrderVaasOpts = {}): Promise<{
+    async function observeCctpOrderVaas(opts: ObserveCctpOrderVaasOpts): Promise<{
         fast: FastObservedResult;
         finalized?: FinalizedObservedResult;
     }> {
@@ -531,7 +650,7 @@ describe("Jupiter V6 Testing", () => {
         sourceChain ??= "Ethereum";
         emitter ??= REGISTERED_TOKEN_ROUTERS[sourceChain] ?? new Array(32).fill(0);
         vaaTimestamp ??= await getBlockTime(connection);
-        fastMarketOrder ??= newFastMarketOrder();
+        fastMarketOrder ??= newFastMarketOrder(opts);
         finalized ??= true;
         slowOrderResponse ??= newSlowOrderResponse();
         finalizedSourceChain ??= sourceChain;
@@ -661,376 +780,6 @@ describe("Jupiter V6 Testing", () => {
         };
     }
 });
-
-const jupiterV6SwapIxResponseWhirlpool = {
-    computeBudgetInstructions: [
-        {
-            programId: "ComputeBudget111111111111111111111111111111",
-            accounts: [],
-            data: "AsBcFQA=",
-        },
-        {
-            programId: "ComputeBudget111111111111111111111111111111",
-            accounts: [],
-            data: "AwQXAQAAAAAA",
-        },
-    ],
-    setupInstructions: [
-        {
-            programId: "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-            accounts: [
-                {
-                    pubkey: "21TrZtZnFU1rEvmiKTNSdZz7voe8kRZL7KX3pEGe7rS2",
-                    isSigner: true,
-                    isWritable: true,
-                },
-                {
-                    pubkey: "CyBqVej3Bq73UGdaYv2BMNLeRhfv2nkUSy2KA4Tc5WtE",
-                    isSigner: false,
-                    isWritable: true,
-                },
-                {
-                    pubkey: "21TrZtZnFU1rEvmiKTNSdZz7voe8kRZL7KX3pEGe7rS2",
-                    isSigner: false,
-                    isWritable: false,
-                },
-                {
-                    pubkey: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-                    isSigner: false,
-                    isWritable: false,
-                },
-                {
-                    pubkey: "11111111111111111111111111111111",
-                    isSigner: false,
-                    isWritable: false,
-                },
-                {
-                    pubkey: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-                    isSigner: false,
-                    isWritable: false,
-                },
-            ],
-            data: "AQ==",
-        },
-    ],
-    swapInstruction: {
-        programId: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
-        accounts: [
-            {
-                pubkey: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "BQ72nSv9f3PRyRKCBnHLVrerrv37CYTHm5h3s9VSGQDV",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                //pubkey: "21TrZtZnFU1rEvmiKTNSdZz7voe8kRZL7KX3pEGe7rS2",
-                pubkey: "pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ",
-                isSigner: true,
-                isWritable: false,
-            },
-            {
-                //pubkey: "BGNHoqiqB4oM7caZvDUKqC2JMfjXA8MnxeeaGrHdJ5xP",
-                pubkey: "4MXG73DEVVRN9xiJavCkFVFtZdYBrKmD1hjxmTtNoZnA",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "6pXVFSACE5BND2C3ibGRWMG1fNtV7hfynWrfNKtCXhN3",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "7u7cD7NxcZEuzRCBaYo8uVpotRdqZwez47vvuwzCov43",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                //pubkey: "CyBqVej3Bq73UGdaYv2BMNLeRhfv2nkUSy2KA4Tc5WtE",
-                pubkey: "4tKtuvtQ4TzkkrkESnRpbfSXCEZPkZe3eL5tCFUdpxtf",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "BQ72nSv9f3PRyRKCBnHLVrerrv37CYTHm5h3s9VSGQDV",
-                isSigner: false,
-                isWritable: false,
-            },
-            {
-                pubkey: "4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "7u7cD7NxcZEuzRCBaYo8uVpotRdqZwez47vvuwzCov43",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "4oY1eVHJrt7ywuFoQnAZwto4qcQip1QhYMAhD11PU4QL",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "6pXVFSACE5BND2C3ibGRWMG1fNtV7hfynWrfNKtCXhN3",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "4dSG9tKHZR4CAictyEnH9XuGZyKapodWXq5xyg7uFwE9",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "8kZSTVuV7C4GD9ZVR4wDtRSXv1SvsSQPfqUbthueRNGV",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "FqFkv2xNNCUyx1RYV61pGZ9AMzGfgcD8uXC9zCF5JKnR",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "A7sdy3NoAZp49cQNpreMGARAb9QJjYrrSyDALhThgk3D",
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: "3NxDBWt55DZnEwwQ2bhQ3xWG8Jd18TdUXAG4Zdr7jDai",
-                isSigner: false,
-                isWritable: false,
-            },
-        ],
-        data: "wSCbM0HWnIECAQAAABEAZAABAHQ7pAsAAAAoYEulCwAAADIAAA==",
-    },
-    addressLookupTableAddresses: ["GxS6FiQ3mNnAar9HGQ6mxP7t6FcwmHkU7peSeQDUHmpN"],
-};
-
-function eventAuthorityAddress(programId: PublicKey): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from("__event_authority")], programId)[0];
-}
-
-function jupiterTransferAuthorityAddress(authorityId: number) {
-    return PublicKey.findProgramAddressSync(
-        [Buffer.from("authority"), Buffer.from([authorityId])],
-        JUPITER_V6_PROGRAM_ID,
-    )[0];
-}
-
-async function whirlpoolIxSetup(
-    whirlpoolProgram: legacyAnchor.Program<Whirlpool>,
-    accounts: { tokenAuthority: PublicKey; whirlpool: PublicKey },
-    aToB: boolean,
-): Promise<AccountMeta[]> {
-    const { tokenAuthority, whirlpool } = accounts;
-
-    const { tokenMintA, tokenMintB, tokenVaultA, tokenVaultB } =
-        await whirlpoolProgram.account.whirlpool.fetch(whirlpool);
-
-    const { tickArray0, tickArray1, tickArray2 } = (() => {
-        if (whirlpool.equals(WHIRLPOOL_USDC_USDT)) {
-            const tickArray0 = new PublicKey("8kZSTVuV7C4GD9ZVR4wDtRSXv1SvsSQPfqUbthueRNGV");
-            if (aToB) {
-                return {
-                    tickArray0,
-                    tickArray1: new PublicKey("FqFkv2xNNCUyx1RYV61pGZ9AMzGfgcD8uXC9zCF5JKnR"),
-                    tickArray2: new PublicKey("A7sdy3NoAZp49cQNpreMGARAb9QJjYrrSyDALhThgk3D"),
-                };
-            } else {
-                return {
-                    tickArray0,
-                    tickArray1: new PublicKey("2B48L1ACPvVb67UKeSMkUGdzrnhvNMm6pFt2nspGKxs4"),
-                    tickArray2: new PublicKey("BMGfBaW69aUm6hRdmsfAcNEmAW59C2rWJ9EX7gWnrVN9"),
-                };
-            }
-        } else {
-            throw new Error("Unrecognized whirlpool");
-        }
-    })();
-    const swapAccounts = [
-        {
-            pubkey: splToken.TOKEN_PROGRAM_ID,
-            isWritable: false,
-            isSigner: false,
-        },
-        {
-            pubkey: tokenAuthority,
-            isWritable: false,
-            isSigner: false,
-        },
-        {
-            pubkey: whirlpool,
-            isWritable: true,
-            isSigner: false,
-        },
-        {
-            pubkey: splToken.getAssociatedTokenAddressSync(
-                tokenMintA,
-                tokenAuthority,
-                true, // allowOwnerOffCurve
-            ),
-            isWritable: true,
-            isSigner: false,
-        },
-        {
-            pubkey: tokenVaultA,
-            isWritable: true,
-            isSigner: false,
-        },
-        {
-            pubkey: splToken.getAssociatedTokenAddressSync(
-                tokenMintB,
-                tokenAuthority,
-                true, // allowOwnerOffCurve
-            ),
-            isWritable: true,
-            isSigner: false,
-        },
-        {
-            pubkey: tokenVaultB,
-            isWritable: true,
-            isSigner: false,
-        },
-        {
-            pubkey: tickArray0,
-            isWritable: true,
-            isSigner: false,
-        },
-        {
-            pubkey: tickArray1,
-            isWritable: true,
-            isSigner: false,
-        },
-        {
-            pubkey: tickArray2,
-            isWritable: true,
-            isSigner: false,
-        },
-        {
-            pubkey: PublicKey.findProgramAddressSync(
-                [Buffer.from("oracle"), whirlpool.toBuffer()],
-                whirlpoolProgram.programId,
-            )[0],
-            isWritable: false,
-            isSigner: false,
-        },
-    ];
-
-    return [{ pubkey: WHIRLPOOL_PROGRAM_ID, isWritable: false, isSigner: false }].concat(
-        swapAccounts,
-    );
-}
-
-function jupiterV6SwapIx(
-    accounts: {
-        user: PublicKey;
-        transferAuthority: PublicKey;
-        inputMint: PublicKey;
-        outputMint: PublicKey;
-        platformFee?: PublicKey;
-    },
-    composedDexAccountMetas: AccountMeta[],
-    ixData: Buffer,
-): TransactionInstruction {
-    const { user, transferAuthority, inputMint, outputMint } = accounts;
-
-    let { platformFee } = accounts;
-
-    platformFee ??= JUPITER_V6_PROGRAM_ID;
-    const platformFeeIsWritable = platformFee.equals(JUPITER_V6_PROGRAM_ID);
-
-    const token2022Program = JUPITER_V6_PROGRAM_ID; // disables this option
-
-    const sourceToken = splToken.getAssociatedTokenAddressSync(
-        inputMint,
-        user,
-        //true, // allowOwnerOffCurve
-    );
-    const destinationToken = splToken.getAssociatedTokenAddressSync(
-        outputMint,
-        user,
-        true, // allowOwnerOffCurve
-    );
-
-    const programSourceToken = splToken.getAssociatedTokenAddressSync(
-        inputMint,
-        transferAuthority,
-        true, // allowOwnerOffCurve
-    );
-    const programDestinationToken = splToken.getAssociatedTokenAddressSync(
-        outputMint,
-        transferAuthority,
-        true, // allowOwnerOffCurve
-    );
-
-    const eventAuthority = eventAuthorityAddress(JUPITER_V6_PROGRAM_ID);
-
-    const jupiterV6Keys = [
-        { pubkey: splToken.TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        { pubkey: transferAuthority, isSigner: false, isWritable: false },
-        { pubkey: user, isSigner: true, isWritable: false },
-        { pubkey: sourceToken, isSigner: false, isWritable: true },
-        { pubkey: programSourceToken, isSigner: false, isWritable: true },
-        { pubkey: programDestinationToken, isSigner: false, isWritable: true },
-        { pubkey: destinationToken, isSigner: false, isWritable: true },
-        { pubkey: inputMint, isSigner: false, isWritable: false },
-        { pubkey: outputMint, isSigner: false, isWritable: false },
-        { pubkey: platformFee, isSigner: false, isWritable: platformFeeIsWritable },
-        { pubkey: token2022Program, isSigner: false, isWritable: false },
-        { pubkey: eventAuthority, isSigner: false, isWritable: false },
-        { pubkey: JUPITER_V6_PROGRAM_ID, isSigner: false, isWritable: false },
-    ];
-
-    return {
-        programId: JUPITER_V6_PROGRAM_ID,
-        keys: jupiterV6Keys.concat(composedDexAccountMetas),
-        data: ixData,
-    };
-}
 
 // TODO: look into shared account swap w/ token ledger
 const JUPITER_V6_TOKEN_LEDGERS = [

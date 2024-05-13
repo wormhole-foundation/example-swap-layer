@@ -11,9 +11,9 @@ pub mod state;
 
 pub mod utils;
 
-declare_id!("AQFz751pSuxMX6PFWx9uruoVSZ3qay2Zi33MJ4NmUF2m");
+declare_id!("SwapLayer1111111111111111111111111111111111");
 
-const CUSTODIAN_BUMP: u8 = 255;
+const CUSTODIAN_BUMP: u8 = 254;
 const COMPLETE_TOKEN_SEED_PREFIX: &[u8] = b"complete";
 const SWAP_AUTHORITY_SEED_PREFIX: &[u8] = b"swap-authority";
 const MAX_BPS: u32 = 1_000_000; // 10,000.00 bps (100%)
@@ -113,13 +113,13 @@ pub mod swap_layer {
         processor::initiate_transfer(ctx, args)
     }
 
-    pub fn complete_swap<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, CompleteSwap<'info>>,
+    pub fn complete_swap_direct<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, CompleteSwapDirect<'info>>,
         ix_data: Vec<u8>,
     ) -> Result<()>
     where
         'c: 'info,
     {
-        processor::complete_swap(ctx, ix_data)
+        processor::complete_swap_direct(ctx, ix_data)
     }
 }

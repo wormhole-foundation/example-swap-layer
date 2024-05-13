@@ -1,4 +1,4 @@
-use crate::{composite::*, error::SwapLayerError, utils};
+use crate::{composite::*, error::SwapLayerError};
 use anchor_lang::prelude::*;
 use anchor_spl::token;
 use swap_layer_messages::types::{OutputToken, RedeemMode};
@@ -52,12 +52,14 @@ pub fn complete_transfer_direct(ctx: Context<CompleteTransferDirect>) -> Result<
         .read_message_unchecked()
         .redeem_mode
     {
-        RedeemMode::Direct => utils::token_router::consume_prepared_fill(
-            &ctx.accounts.consume_swap_layer_fill,
-            ctx.accounts.recipient_token_account.to_account_info(),
-            ctx.accounts.token_program.to_account_info(),
-        )
-        .map(|_| ()),
+        RedeemMode::Direct => ctx
+            .accounts
+            .consume_swap_layer_fill
+            .consume_prepared_fill(
+                ctx.accounts.recipient_token_account.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
+            )
+            .map(|_| ()),
         _ => err!(SwapLayerError::InvalidRedeemMode),
     }
 }

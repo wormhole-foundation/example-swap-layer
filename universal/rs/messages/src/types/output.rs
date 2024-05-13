@@ -12,19 +12,22 @@ use super::SwapType;
 pub enum OutputToken {
     Usdc,
     Gas(OutputSwap),
-    Token(OutputSwap),
+    Other { address: [u8; 32], swap: OutputSwap },
 }
 
 impl OutputToken {
     const USDC: u8 = 0;
     const GAS: u8 = 1;
-    const TOKEN: u8 = 2;
+    const OTHER: u8 = 2;
 
     pub fn written_size(&self) -> usize {
         match self {
             Self::Usdc => 1,
             Self::Gas(swap) => swap.written_size().saturating_add(1),
-            Self::Token(swap) => swap.written_size().saturating_add(1),
+            Self::Other { address: _, swap } => swap.written_size().saturating_add(
+                32 // address
+                + 1,
+            ),
         }
     }
 }
@@ -38,7 +41,10 @@ impl Readable for OutputToken {
         match u8::read(reader)? {
             Self::USDC => Ok(Self::Usdc),
             Self::GAS => Ok(Self::Gas(Readable::read(reader)?)),
-            Self::TOKEN => Ok(Self::Token(Readable::read(reader)?)),
+            Self::OTHER => Ok(Self::Other {
+                address: Readable::read(reader)?,
+                swap: Readable::read(reader)?,
+            }),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Invalid OutputToken",
@@ -58,8 +64,9 @@ impl Writeable for OutputToken {
                 Self::GAS.write(writer)?;
                 swap.write(writer)
             }
-            Self::Token(swap) => {
-                Self::TOKEN.write(writer)?;
+            Self::Other { address, swap } => {
+                Self::OTHER.write(writer)?;
+                address.write(writer)?;
                 swap.write(writer)
             }
         }

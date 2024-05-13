@@ -26,7 +26,6 @@ async function main(argv: string[]) {
     }
 
     const amount = Number(argv[2]);
-    const slippageBps = 200;
 
     const jupiter = createJupiterApiClient({
         basePath: "https://quote-api.jup.ag/v6",
@@ -48,7 +47,7 @@ async function main(argv: string[]) {
             inputMint: inputMint.toString(),
             outputMint: outputMint.toString(),
             amount,
-            slippageBps,
+            slippageBps: 200,
             onlyDirectRoutes: true,
             swapMode: "ExactIn",
             dexes: ALLOWED_DEXES,
@@ -73,7 +72,7 @@ async function main(argv: string[]) {
             inputMint: outputMint.toString(),
             outputMint: inputMint.toString(),
             amount,
-            slippageBps,
+            slippageBps: 50,
             onlyDirectRoutes: true,
             swapMode: "ExactIn",
             dexes: ALLOWED_DEXES,
