@@ -1,0 +1,14 @@
+{
+  "pubkey": "BCyuV2SuRRfVBcCG82mtK9svwH9kTFtqGHdhLrfGJbzS",
+  "account": {
+    "lamports": 1642560,
+    "data": [
+      "2ZS8y7dpms3/AgDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDwAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "base64"
+    ],
+    "owner": "MatchingEngine11111111111111111111111111111",
+    "executable": false,
+    "rentEpoch": 18446744073709551615,
+    "space": 108
+  }
+}
