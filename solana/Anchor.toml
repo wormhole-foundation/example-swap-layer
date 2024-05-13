@@ -1,0 +1,245 @@
+[toolchain]
+anchor_version = "0.30.0"   # CLI
+solana_version = "1.18.11"
+
+[features]
+resolution = false
+skip-lint = false
+
+[workspace]
+members = [
+    "programs/swap-layer"
+]
+
+[programs.localnet]
+swap_layer = "SwapLayer1111111111111111111111111111111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+wallet = "ts/tests/keys/pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ.json"
+
+[scripts]
+test = "npx ts-mocha -p ./tsconfig.anchor-test.json -t 1000000 --bail --exit ts/tests/[0-9]*.ts"
+
+[test]
+startup_wait = 20000
+
+[test.validator]
+url = "https://api.mainnet-beta.solana.com"
+
+### At 160 ticks/s, 64 ticks per slot implies that leader rotation and voting will happen
+### every 400 ms. A fast voting cadence ensures faster finality and convergence
+ticks_per_slot = 16
+
+### Wormhole Core Bridge Program
+[[test.genesis]]
+address = "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
+program = "ts/tests/artifacts/mainnet_core_bridge.so"
+
+### Circle Message Transmitter Program
+[[test.genesis]]
+address = "CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd"
+program = "ts/tests/artifacts/mainnet_cctp_message_transmitter.so"
+
+### Circle Token Messenger Minter Program
+[[test.genesis]]
+address = "CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3"
+program = "ts/tests/artifacts/mainnet_cctp_token_messenger_minter.so"
+
+### USDC Mint
+[[test.validator.account]]
+address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/usdc_mint.json"
+
+### Payer Token Account -- USDC
+[[test.validator.account]]
+address = "4tKtuvtQ4TzkkrkESnRpbfSXCEZPkZe3eL5tCFUdpxtf"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/usdc_payer_token.json"
+
+### Circle Token Messenger Minter PDA -- Token Messenger
+[[test.validator.account]]
+address = "Afgq3BHEfCE7d78D2XE9Bfyu2ieDqvE24xX8KDwreBms"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/token_messenger.json"
+
+### Circle Token Messenger Minter PDA -- Token Minter
+[[test.validator.account]]
+address = "DBD8hAwLDRQkTsu6EqviaYNGKPnsAMmQonxf7AH8ZcFY"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/token_minter.json"
+
+### Circle Token Messenger Minter PDA -- USDC Custody Token Account
+[[test.validator.account]]
+address = "FSxJ85FXVsXSr51SeWf9ciJWTcRnqKFSmBgRDeL3KyWw"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_custody_token.json"
+
+### Circle Token Messenger Minter PDA -- USDC Local Token
+[[test.validator.account]]
+address = "72bvEFk2Usi2uYc1SnaTNhBcQPc6tiJWXr9oKk7rkd4C"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_local_token.json"
+
+### Circle Token Messenger Minter PDA -- USDC Token Pair
+[[test.validator.account]]
+address = "8d1jdvvMFhJfxSzPXcDGtifcGMTvUxc2EpWFstbNzcTL"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_token_pair.json"
+
+### Circle Token Messenger Minter PDA -- Ethereum Remote Token Messenger
+[[test.validator.account]]
+address = "Hazwi3jFQtLKc2ughi7HFXPkpDeso7DQaMR9Ks4afh3j"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/ethereum_remote_token_messenger.json"
+
+### Circle Token Messenger Minter PDA -- Arbitrum Remote Token Messenger
+[[test.validator.account]]
+address = "REzxi9nX3Eqseha5fBiaJhTC6SFJx4qJhP83U4UCrtc"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/arbitrum_remote_token_messenger.json"
+
+### Circle Token Messenger Minter PDA -- Base Remote Token Messenger
+[[test.validator.account]]
+address = "BWyFzH6LsnmDAaDWbGsriQ9SiiKq1CF6pbH4Ye3kzSBV"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/misconfigured_remote_token_messenger.json"
+
+### Circle Message Transmitter PDA -- Message Transmitter Config
+[[test.validator.account]]
+address = "BWrwSWjbikT3H7qHAkUEbLmwDQoB4ZDJ4wcSEhSPTZCu"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/message_transmitter/message_transmitter_config.json"
+
+### Wormhole Core Bridge -- Config
+[[test.validator.account]]
+address = "2yVjuQwpsvdsrywzsJJVs9Ueh4zayyo5DYJbBNc3DDpn"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/config.json"
+
+### Wormhole Core Bridge -- Fee Collector
+[[test.validator.account]]
+address = "9bFNrXNb2WTx8fMHXCheaZqkLZ3YCCaiqTftHxeintHy"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/fee_collector.json"
+
+### Wormhole Core Bridge -- Guardian Set 0
+[[test.validator.account]]
+address = "DS7qfSAgYsonPpKoAjcGhX9VFjXdGkiHjEDkTidf8H2P"
+filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/core_bridge/guardian_set_0.json"
+
+### Localnet Matching Engine Program
+[[test.genesis]]
+address = "MatchingEngine11111111111111111111111111111"
+program = "../lib/example-liquidity-layer/solana/target/deploy/matching_engine.so"
+
+### Localnet Matching Engine -- Custodian
+[[test.validator.account]]
+address = "8h2y1vLbZGtjuiULKf7aXTE43xDVepegFCpdsvyGfjna"
+filename = "ts/tests/accounts/matching_engine/matching_engine_custodian.json"
+
+### Localnet Matching Engine - Ethereum Endpoint
+[[test.validator.account]]
+address = "BCyuV2SuRRfVBcCG82mtK9svwH9kTFtqGHdhLrfGJbzS"
+filename = "ts/tests/accounts/matching_engine/ethereum_token_router_endpoint.json"
+
+### Localnet Matching Engine -- Local Endpoint
+[[test.validator.account]]
+address = "DM2XBh6idYEGffbmpXpZ8imvvqr3wiGWQSPDPi7DUhK6"
+filename = "ts/tests/accounts/matching_engine/local_token_router_endpoint.json"
+
+### Localnet Matching Engine - Mint Recipient
+[[test.validator.account]]
+address = "35iwWKi7ebFyXNaqpswd1g9e9jrjvqWPV39nCQPaBbX1"
+filename = "ts/tests/accounts/matching_engine/matching_engine_mint_recipient.json"
+
+### Localnet Matching Engine - Local Custody Token (Ethereum)
+[[test.validator.account]]
+address = "Gv92Ev9RGL5gDrJe4QW7UuFqhDPtowcWsDEK5TFuxEXk"
+filename = "ts/tests/accounts/matching_engine/local_custody_token_ethereum.json"
+
+### Localnet Token Router Program
+[[test.genesis]]
+address = "TokenRouter11111111111111111111111111111111"
+program = "../lib/example-liquidity-layer/solana/target/deploy/token_router.so"
+
+### Localnet Token Router -- Custodian
+[[test.validator.account]]
+address = "EfVKoFHtCktpNTk3NbayPpRNo8rR7prvcV4M9Mvxd6ko"
+filename = "ts/tests/accounts/token_router/token_router_custodian.json"
+
+### Localnet Token Router - Mint Recipient
+[[test.validator.account]]
+address = "4TTRh2xhgbxnJC1y3EdcPC6MMYyLyasaQqkYDEgnaF8i"
+filename = "ts/tests/accounts/token_router/token_router_mint_recipient.json"
+
+### Payer USDT Token Account
+[[test.validator.account]]
+address = "4MXG73DEVVRN9xiJavCkFVFtZdYBrKmD1hjxmTtNoZnA"
+filename = "ts/tests/accounts/payer_usdt_token.json"
+
+### USDT Mint
+[[test.validator.account]]
+address = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+filename = "ts/tests/accounts/usdt_mint.json"
+
+### Jupiter V6 Program
+[[test.genesis]]
+address = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+program = "ts/tests/artifacts/mainnet_jupiter_v6.so"
+
+### Whirlpool Program
+[[test.genesis]]
+address = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+program = "ts/tests/artifacts/mainnet_whirlpool.so"
+
+### Jupiter V6 -- Custody Token Owner
+[[test.validator.account]]
+address = "BQ72nSv9f3PRyRKCBnHLVrerrv37CYTHm5h3s9VSGQDV"
+filename = "ts/tests/accounts/jupiter/jupiter_custody_owner.json"
+
+### Jupiter V6 -- USDC Custody Token
+[[test.validator.account]]
+address = "7u7cD7NxcZEuzRCBaYo8uVpotRdqZwez47vvuwzCov43"
+filename = "ts/tests/accounts/jupiter/jupiter_usdc_custody_token.json"
+
+### Jupiter V6 -- USDT Custody Token
+[[test.validator.account]]
+address = "6pXVFSACE5BND2C3ibGRWMG1fNtV7hfynWrfNKtCXhN3"
+filename = "ts/tests/accounts/jupiter/jupiter_usdt_custody_token.json"
+
+### Jupiter V6 -- LUT #1
+[[test.validator.account]]
+address = "GxS6FiQ3mNnAar9HGQ6mxP7t6FcwmHkU7peSeQDUHmpN"
+filename = "ts/tests/accounts/jupiter/jupiter_lut1.json"
+
+### Whirlpool -- USDC-USDT Pool
+[[test.validator.account]]
+address = "4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_pool.json"
+
+### Whirlpool -- USDC-USDT Pool -- USDC Vault
+[[test.validator.account]]
+address = "4oY1eVHJrt7ywuFoQnAZwto4qcQip1QhYMAhD11PU4QL"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_vault.json"
+
+### Whirlpool -- USDC-USDT Pool -- USDT Vault
+[[test.validator.account]]
+address = "4dSG9tKHZR4CAictyEnH9XuGZyKapodWXq5xyg7uFwE9"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdt_vault.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 0
+[[test.validator.account]]
+address = "FqFkv2xNNCUyx1RYV61pGZ9AMzGfgcD8uXC9zCF5JKnR"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array__0.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 1
+[[test.validator.account]]
+address = "8kZSTVuV7C4GD9ZVR4wDtRSXv1SvsSQPfqUbthueRNGV"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array__1.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 2
+[[test.validator.account]]
+address = "2B48L1ACPvVb67UKeSMkUGdzrnhvNMm6pFt2nspGKxs4"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array__2.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 3
+[[test.validator.account]]
+address = "A7sdy3NoAZp49cQNpreMGARAb9QJjYrrSyDALhThgk3D"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array__3.json"
+
+### Whirlpool -- USDC-USDT Pool Tick Array 4
+[[test.validator.account]]
+address = "9opqNK3dWUijw8VNLtvne4juCTq1qADaph29tZqkoZHa"
+filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array__4.json"
