@@ -1,0 +1,52 @@
+[workspace]
+members = [
+    "messages"
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.0.0"
+authors = ["Wormhole Contributors"]
+license = "Apache-2.0"
+homepage = "https://https://github.com/xlabs"
+repository = "https://github.com/xlabs/swap-layer"
+
+[workspace.dependencies.liquidity-layer-messages]
+path = "../../lib/example-liquidity-layer/universal/rs/messages"
+
+[workspace.dependencies]
+wormhole-io = "0.3.0-alpha.1"
+ruint = "1.9.0"
+hex-literal = "0.4.1"
+anchor-lang = "0.30.0"
+solana-program = "1.18.11"
+
+[workspace.lints.clippy]
+correctness = { level = "warn"}
+
+arithmetic_side_effects = "deny"
+as_conversions = "deny"
+cast_abs_to_unsigned = "deny"
+cast_lossless= "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"
+eq_op = "deny"
+expect_used = "deny"
+float_cmp = "deny"
+integer_division = "deny"
+large_futures = "deny"
+large_stack_arrays = "deny"
+large_stack_frames = "deny"
+lossy_float_literal = "deny"
+manual_slice_size_calculation = "deny"
+modulo_one = "deny"
+out_of_bounds_indexing = "deny"
+overflow_check_conditional = "deny"
+panic = "deny"
+recursive_format_impl = "deny"
+todo = "deny"
+unchecked_duration_subtraction = "deny"
+unreachable = "deny"
