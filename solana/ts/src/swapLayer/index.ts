@@ -517,53 +517,61 @@ export class SwapLayerProgram {
             .instruction();
     }
 
-    // async completeSwapDirectIx(
-    //     accounts: { payer: PublicKey; preparedFill: PublicKey; beneficiary?: PublicKey },
-    //     args: {
-    //         innerIx: TransactionInstruction;
-    //     },
-    // ): Promise<TransactionInstruction> {
-    //     const { payer, preparedFill } = accounts;
-    //     const { innerIx } = args;
+    async completeSwapDirectIx(
+        accounts: {
+            payer: PublicKey;
+            preparedFill: PublicKey;
+            recipient: PublicKey;
+            dstMint?: PublicKey;
+            beneficiary?: PublicKey;
+            srcMint?: PublicKey;
+        },
+        args: {
+            cpiInstruction: TransactionInstruction;
+        },
+    ): Promise<TransactionInstruction> {
+        const { payer, preparedFill, recipient } = accounts;
+        const { cpiInstruction } = args;
 
-    //     let { beneficiary } = accounts;
-    //     beneficiary ??= payer;
+        let { beneficiary, srcMint, dstMint } = accounts;
+        beneficiary ??= payer;
+        srcMint ??= this.mint;
+        dstMint ??= splToken.NATIVE_MINT;
 
-    //     const swapAuthority =
+        const swapAuthority = this.swapAuthorityAddress(preparedFill);
 
-    //     return this.program.methods
-    //         .completeSwap(innerIx.data)
-    //         .accounts({
-    //             payer: payer,
-    //             consumeSwapLayerFill: await this.consumeSwapLayerFillComposite({
-    //                 preparedFill,
-    //                 beneficiary,
-    //             }),
-    //             swapAuthority,
-    //             srcSwapToken: splToken.getAssociatedTokenAddressSync(
-    //                 swapLayer.mint,
-    //                 swapAuthority,
-    //                 true, // allowOwnerOffCurve
-    //             ),
-    //             dstSwapToken: splToken.getAssociatedTokenAddressSync(
-    //                 USDT_MINT_ADDRESS,
-    //                 swapAuthority,
-    //                 true, // allowOwnerOffCurve
-    //             ),
-    //             usdc: swapLayer.usdcComposite(),
-    //             dstMint: USDT_MINT_ADDRESS,
-    //             recipientToken: splToken.getAssociatedTokenAddressSync(
-    //                 USDT_MINT_ADDRESS,
-    //                 recipient.publicKey,
-    //             ),
-    //             recipient: recipient.publicKey,
-    //             associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
-    //             tokenProgram: splToken.TOKEN_PROGRAM_ID,
-    //             systemProgram: SystemProgram.programId,
-    //         })
-    //         .remainingAccounts(innerIx.keys)
-    //         .instruction();
-    // }
+        return this.program.methods
+            .completeSwapDirect(cpiInstruction.data)
+            .accounts({
+                completeSwap: {
+                    payer,
+                    consumeSwapLayerFill: await this.consumeSwapLayerFillComposite({
+                        preparedFill,
+                        beneficiary,
+                    }),
+                    authority: swapAuthority,
+                    srcSwapToken: splToken.getAssociatedTokenAddressSync(
+                        srcMint,
+                        swapAuthority,
+                        true, // allowOwnerOffCurve
+                    ),
+                    dstSwapToken: splToken.getAssociatedTokenAddressSync(
+                        dstMint,
+                        swapAuthority,
+                        true, // allowOwnerOffCurve
+                    ),
+                    srcMint,
+                    dstMint,
+                    associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+                    tokenProgram: splToken.TOKEN_PROGRAM_ID,
+                    systemProgram: SystemProgram.programId,
+                },
+                recipientToken: splToken.getAssociatedTokenAddressSync(dstMint, recipient),
+                recipient,
+            })
+            .remainingAccounts(cpiInstruction.keys)
+            .instruction();
+    }
 
     tokenRouterProgram(): tokenRouterSdk.TokenRouterProgram {
         switch (this._programId) {

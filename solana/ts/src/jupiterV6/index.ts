@@ -20,7 +20,7 @@ export function toTransactionInstruction(instruction: jupAg.Instruction): Transa
 }
 
 export type ModifySharedAccountsRouteOpts = {
-    inAmount: bigint;
+    inAmount?: bigint;
     quotedOutAmount?: bigint;
     slippageBps?: number;
     cpi?: boolean;
@@ -40,10 +40,8 @@ export function modifySharedAccountsRouteInstruction(
     tokenOwner: PublicKey,
     opts: ModifySharedAccountsRouteOpts,
 ): ModifiedSharedAccountsRoute {
-    const { inAmount } = opts;
-    let { quotedOutAmount, slippageBps, cpi } = opts;
-    quotedOutAmount ??= inAmount;
-    slippageBps ??= 0;
+    const { inAmount, quotedOutAmount, slippageBps } = opts;
+    let { cpi } = opts;
     cpi ??= false;
 
     const ix = toTransactionInstruction(instruction);
@@ -72,14 +70,20 @@ export function modifySharedAccountsRouteInstruction(
 
     // Deserialize to modify args.
     const args = decodeSharedAccountsRouteArgs(ix.data) as any;
-    args.inAmount = inAmount;
-    args.quotedOutAmount = quotedOutAmount;
-    args.slippageBps = slippageBps;
+    if (inAmount !== undefined) {
+        args.inAmount = inAmount;
+    }
+    if (quotedOutAmount !== undefined) {
+        args.quotedOutAmount = quotedOutAmount;
+    }
+    if (slippageBps !== undefined) {
+        args.slippageBps = slippageBps;
+    }
 
     // Serialize again.
     ix.data = encodeSharedAccountsRouteArgs(args);
 
-    const minAmountOut = (quotedOutAmount * BigInt(10000 - slippageBps)) / BigInt(10000);
+    const minAmountOut = (args.quotedOutAmount * BigInt(10000 - args.slippageBps)) / BigInt(10000);
 
     return {
         instruction: ix,
