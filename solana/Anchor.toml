@@ -179,11 +179,6 @@ filename = "ts/tests/accounts/usdt_mint.json"
 address = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
 program = "ts/tests/artifacts/mainnet_jupiter_v6.so"
 
-### Whirlpool Program
-[[test.genesis]]
-address = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
-program = "ts/tests/artifacts/mainnet_whirlpool.so"
-
 ### Jupiter V6 -- Custody Token Owner
 [[test.validator.account]]
 address = "BQ72nSv9f3PRyRKCBnHLVrerrv37CYTHm5h3s9VSGQDV"
@@ -203,6 +198,11 @@ filename = "ts/tests/accounts/jupiter/jupiter_usdt_custody_token.json"
 [[test.validator.account]]
 address = "GxS6FiQ3mNnAar9HGQ6mxP7t6FcwmHkU7peSeQDUHmpN"
 filename = "ts/tests/accounts/jupiter/jupiter_lut1.json"
+
+### Whirlpool Program
+[[test.genesis]]
+address = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+program = "ts/tests/artifacts/mainnet_whirlpool.so"
 
 ### Whirlpool -- USDC-USDT Pool
 [[test.validator.account]]
@@ -243,3 +243,28 @@ filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array__3.json"
 [[test.validator.account]]
 address = "9opqNK3dWUijw8VNLtvne4juCTq1qADaph29tZqkoZHa"
 filename = "ts/tests/accounts/whirlpool/whirlpool_usdc_usdt_tick_array__4.json"
+
+### Phoenix V1 Program
+[[test.genesis]]
+address = "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY"
+program = "ts/tests/artifacts/mainnet_phoenix_v1.so"
+
+### Phoenix V1 -- Jupiter Trader Quote Token Account
+[[test.validator.account]]
+address = "EXrqY7jLTLp83H38L8Zw3GvGkk1KoQbYTckPGBghwD8X"
+filename = "ts/tests/accounts/phoenix_v1/phoenix_jupiter_trader_quote_token.json"
+
+### Phoenix V1 -- USDC Custody
+[[test.validator.account]]
+address = "3HSYXeGc3LjEPCuzoNDjQN37F1ebsSiR4CqXVqQCdekZ"
+filename = "ts/tests/accounts/phoenix_v1/phoenix_usdc_custody.json"
+
+### Phoenix V1 -- WSOL Custody
+[[test.validator.account]]
+address = "8g4Z9d6PqGkgH31tMW6FwxGhwYJrXpxZHQrkikpLJKrG"
+filename = "ts/tests/accounts/phoenix_v1/phoenix_wsol_custody.json"
+
+### Phoenix V1 -- WSOL-USDC Market State
+[[test.validator.account]]
+address = "4DoNfFBfF7UokCC2FQzriy7yHK6DY6NVdYpuekQ5pRgg"
+filename = "ts/tests/accounts/phoenix_v1/phoenix_wsol_usdc_market_state.json"

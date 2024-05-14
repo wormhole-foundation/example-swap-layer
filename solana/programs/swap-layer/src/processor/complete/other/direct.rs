@@ -7,7 +7,7 @@ use crate::{
     },
 };
 use anchor_lang::prelude::*;
-use anchor_spl::token;
+use anchor_spl::{associated_token, token};
 use swap_layer_messages::{
     messages::SwapMessageV1,
     types::{JupiterV6SwapParameters, OutputSwap, OutputToken, RedeemMode, SwapType},
@@ -30,16 +30,23 @@ pub struct CompleteSwapDirect<'info> {
 
     #[account(
         mut,
-        associated_token::mint = complete_swap.dst_mint,
-        associated_token::authority = recipient
+        address = associated_token::get_associated_token_address(
+            &recipient.key(),
+            &complete_swap.dst_mint.key()
+        )
     )]
-    /// Recipient associated token account. The recipient authority check
-    /// is necessary to ensure that the recipient is the intended recipient
-    /// of the bridged tokens. Mutable.
-    recipient_token: Box<Account<'info, token::TokenAccount>>,
+    /// Recipient associated token account. The recipient authority check is necessary to ensure
+    /// that the recipient is the intended recipient of the bridged tokens.
+    ///
+    /// If OutputToken::Other, this account will be deserialized to ensure that the recipient is
+    /// the owner of this token account.
+    ///
+    /// CHECK: Mutable ATA whose owner is the recipient and mint is the destination mint.
+    recipient_token: UncheckedAccount<'info>,
 
     /// CHECK: This account must be the owner of the recipient token account. The recipient token
     /// account must be encoded in the prepared fill.
+    #[account(mut)]
     recipient: UncheckedAccount<'info>,
 }
 
@@ -64,6 +71,17 @@ where
 
     match redeem_mode {
         RedeemMode::Direct => match output_token {
+            OutputToken::Gas(OutputSwap {
+                deadline: _,
+                limit_amount,
+                swap_type: SwapType::JupiterV6(swap_params),
+            }) => handle_complete_swap_direct_jupiter_v6(
+                ctx,
+                ix_data,
+                limit_amount.try_into().unwrap(),
+                swap_params,
+                true,
+            ),
             OutputToken::Other {
                 address: _,
                 swap:
@@ -77,6 +95,7 @@ where
                 ix_data,
                 limit_amount.try_into().unwrap(),
                 swap_params,
+                false,
             ),
             _ => err!(SwapLayerError::InvalidOutputToken),
         },
@@ -89,6 +108,7 @@ pub fn handle_complete_swap_direct_jupiter_v6<'a, 'b, 'c, 'info>(
     ix_data: Vec<u8>,
     limit_amount: u64,
     swap_params: JupiterV6SwapParameters,
+    unwrap_native: bool,
 ) -> Result<()>
 where
     'c: 'info,
@@ -184,9 +204,7 @@ where
         // This is perverse, but we are performing a balance check after the swap to see if we get
         // the desired amount. If we don't, revert.
         jupiter_args.quoted_out_amount = limit_amount;
-
-        // Configure 100% slippage (yikes).
-        jupiter_args.slippage_bps = 10000;
+        jupiter_args.slippage_bps = 0;
 
         // Peek into the head of remaining accounts. This account will be the dex program that Jupiter
         // V6 interacts with. If the swap params specify a specific dex program, we need to ensure that
@@ -242,23 +260,41 @@ where
         SwapLayerError::SwapFailed
     );
 
-    // Transfer destination tokens to recipient.
-    token::transfer(
-        CpiContext::new_with_signer(
-            ctx.accounts.complete_swap.token_program.to_account_info(),
-            token::Transfer {
-                from: dst_swap_token.to_account_info(),
-                to: ctx.accounts.recipient_token.to_account_info(),
-                authority: swap_authority.to_account_info(),
-            },
-            &[swap_authority_seeds],
-        ),
-        dst_swap_token.amount,
-    )?;
+    let recipient = &ctx.accounts.recipient;
 
-    ctx.accounts
-        .complete_swap
-        .close_swap_accounts(&ctx.bumps.complete_swap)
+    if !unwrap_native {
+        // Verify that the encoded owner is the actual owner. ATAs are no different from other token
+        // accounts, so anyone can set the authority of an ATA to be someone else.
+        {
+            let mut acc_data: &[_] = &ctx.accounts.recipient_token.data.borrow();
+            let recipient_token_owner =
+                token::TokenAccount::try_deserialize(&mut acc_data).map(|token| token.owner)?;
+            require_keys_eq!(
+                recipient_token_owner,
+                recipient.key(),
+                ErrorCode::ConstraintTokenOwner,
+            );
+        }
+
+        // Transfer destination tokens to recipient.
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.complete_swap.token_program.to_account_info(),
+                token::Transfer {
+                    from: dst_swap_token.to_account_info(),
+                    to: ctx.accounts.recipient_token.to_account_info(),
+                    authority: swap_authority.to_account_info(),
+                },
+                &[swap_authority_seeds],
+            ),
+            dst_swap_token.amount,
+        )?;
+    }
+
+    ctx.accounts.complete_swap.close_swap_accounts(
+        &ctx.bumps.complete_swap,
+        ctx.accounts.recipient.to_account_info(),
+    )
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
