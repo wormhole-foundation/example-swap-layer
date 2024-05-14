@@ -109,21 +109,26 @@ const gasDropoffItem = {
   } as const satisfies CustomConversion<number, bigint>,
 } as const satisfies UintLayoutItem;
 
-//reflects Percentage.sol, models percentage values with a range from 0.0abcd to ab.cd (or 100 %)
+//reflects Percentage.sol, models percentage values with a range from 0.abcd to abc.d (or 1000 %)
 const percentageItem = {
   binary: "uint",
   size: 2,
   custom: {
-    to: (encoded: number): number => (encoded>>2) / 10**(2 + (encoded % 4)),
+    to: (encoded: number): number => (encoded>>2) / 10**(1 + (encoded % 4)),
     from: (percentage: number): number => {
-      if (percentage > 100 || percentage < 0)
-        throw new Error("Percentage must be between 0 and 100");
+      if (percentage > 1000 || percentage < 0)
+        throw new Error("Percentage must be between 0 and 1000");
 
-      if (percentage < 1e-5)
+      if (percentage < 1e-4)
         return 0;
 
-      let negexp = Math.min(3, Math.floor(-Math.log10(percentage)) + 2);
-      let mantissa = Math.round(percentage * 10**(2 + negexp));
+      // percentage | log10 | (mantissa, negexp)
+      //  1000      |   3   |    (10000, 0)
+      //     1      |   1   |    (   10, 1)
+      //     0.1    |   0   |    (    1, 0)
+      //     0.0001 |  -4   |    (    1, 3)
+      let negexp = Math.min(3, -Math.min(0, Math.floor(Math.log10(percentage))));
+      let mantissa = Math.round(percentage * 10**(1 + negexp));
       while (mantissa % 10 == 0 && negexp > 0) {
         mantissa /= 10;
         --negexp;

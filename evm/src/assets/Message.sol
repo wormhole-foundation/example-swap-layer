@@ -54,8 +54,8 @@ function parseSwapMessageStructure(
   sms.redeemOffset = offset;
   if (sms.redeemMode == RedeemMode.Payload) {
     uint payloadLen;
-    (payloadLen, offset) = message.asUint32Unchecked(offset);
-    (sms.payload, offset) = message.slice(offset, payloadLen);
+    (payloadLen, offset) = message.asUint16Unchecked(offset);
+    (sms.payload, offset) = message.sliceUnchecked(offset, payloadLen);
   }
   else if (sms.redeemMode == RedeemMode.Relay)
     offset += RELAY_PARAM_SIZE;

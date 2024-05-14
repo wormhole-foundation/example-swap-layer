@@ -126,7 +126,7 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
   function _calcRelayingFee(
     uint16 targetChain,
     GasDropoff gasDropoff_,
-    IoToken outputTokenType,
+    IoToken, //outputTokenType,
     uint swapCount,
     uint swapType
   ) internal view returns (uint relayingFee) { unchecked {
@@ -144,7 +144,7 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
       if (gasDropoff > maxGasDropoff)
         revert MaxGasDropoffExceeded(gasDropoff, maxGasDropoff);
 
-      relayingFee += feeParams.gasDropoffMargin().compound(
+      relayingFee += feeParams.gasDropoffMargin().compoundUnchecked(
         gasDropoff * feeParams.gasTokenPrice()
       ) / 1 ether;
     }
@@ -154,11 +154,10 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
       if (swapCount != 0 && swapType != SWAP_TYPE_GENERIC_SOLANA)
         revert InvalidSwapTypeForChain(targetChain, swapType);
 
-      //add the cost of ATA rent for non-gas tokens
-      if (outputTokenType == IoToken.Other)
-        relayingFee += feeParams.gasDropoffMargin().compound(
-          SOLANA_ATA_RENT_LAMPORTS * feeParams.gasTokenPrice()
-        ) / LAMPORTS_PER_SOL;
+      //add the cost of ATA rent (since any swap can fail, we might have to spawn a usdc ATA)
+      relayingFee += feeParams.gasDropoffMargin().compoundUnchecked(
+        SOLANA_ATA_RENT_LAMPORTS * feeParams.gasTokenPrice()
+      ) / LAMPORTS_PER_SOL;
     }
     else { //EVM chains
       uint totalGas = GAS_OVERHEAD;
@@ -178,7 +177,12 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
         totalGas += overhead + gasPerSwap * swapCount;
       }
 
-      relayingFee += feeParams.gasPriceMargin().compound(
+      //no overflow possible:
+      //  gasPrice fits in 7 bytes (4 bytes * 1e6)
+      //  gasTokenPrice is 8 bytes
+      //  total gas fits in 3 bytes (never more than 2^24 = 16M gas)
+      //  compound uses at most 2 additional bytes
+      relayingFee += feeParams.gasPriceMargin().compoundUnchecked(
         totalGas * feeParams.gasPrice().from() * feeParams.gasTokenPrice()
       ) / 1 ether;
     }

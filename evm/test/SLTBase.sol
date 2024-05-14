@@ -25,19 +25,41 @@ import "swap-layer/assets/Percentage.sol";
 import "swap-layer/assets/GasPrice.sol";
 import "swap-layer/assets/GasDropoff.sol";
 
+function nextRn(uint[] memory rngSeed) pure returns (uint) {
+  rngSeed[0] = uint(keccak256(abi.encode(rngSeed[0])));
+  return rngSeed[0];
+}
+
+function xPercentOfTheTime(uint x, uint[] memory rngSeed) pure returns (bool) {
+  return (nextRn(rngSeed) % 100) < x;
+}
+
+function fuzzPercentage(uint[] memory rngSeed) pure returns (Percentage) {
+  uint fractionalDigits = uint8(nextRn(rngSeed) % 5); //at most 4 fractional digits
+  uint mantissa         = uint16(nextRn(rngSeed) >> 8) % 1e4; //4 digit mantissa
+
+  if (mantissa > 100 && fractionalDigits == 0)
+    ++fractionalDigits;
+  if (mantissa > 1000 && fractionalDigits < 2)
+    ++fractionalDigits;
+
+  return PercentageLib.to(mantissa, fractionalDigits);
+}
+
 contract SLTBase is Test {
   using UsdcDealer for IUSDC;
 
   uint16  constant FOREIGN_CHAIN_ID               = 0xF00F;
   bytes32 constant FOREIGN_LIQUIDITY_LAYER        = bytes32(uint256(uint160(address(1))));
   bytes32 constant FOREIGN_SWAP_LAYER             = bytes32(uint256(uint160(address(2))));
-  bytes32 constant MATCHING_ENGINE_ADDRESS        = bytes32(uint256(uint160(address(3))));
-  bytes32 constant MATCHING_ENGINE_MINT_RECIPIENT = bytes32(uint256(uint160(address(4))));
+  bytes32 constant SOLANA_SWAP_LAYER              = bytes32(uint256(uint160(address(3))));
+  bytes32 constant MATCHING_ENGINE_ADDRESS        = bytes32(uint256(uint160(address(4))));
+  bytes32 constant MATCHING_ENGINE_MINT_RECIPIENT = bytes32(uint256(uint160(address(5))));
   uint16  constant MATCHING_ENGINE_CHAIN          = 0xFFFF;
   uint32  constant MATCHING_ENGINE_DOMAIN         = 0xFFFFFFFF;
   uint64  constant FAST_TRANSFER_MAX_AMOUNT       = 1e9;
-  uint64  constant FAST_TRANSFER_BASE_FEE         = 1e6;
-  uint64  constant FAST_TRANSFER_INIT_AUCTION_FEE = 1e6;
+  uint64  constant FAST_TRANSFER_BASE_FEE         = 3e5;
+  uint64  constant FAST_TRANSFER_INIT_AUCTION_FEE = 2e5;
   uint64  constant USDC                           = 1e6;
 
   IWormhole immutable wormhole;
@@ -126,7 +148,7 @@ contract SLTBase is Test {
     feeParams = feeParams.baseFee(1e4); //1 cent
     feeParams = feeParams.gasPrice(GasPriceLib.to(1e10)); //10 gwei
     feeParams = feeParams.gasPriceMargin(PercentageLib.to(25, 0)); //25 % volatility margin
-    feeParams = feeParams.maxGasDropoff(GasDropoffLib.to(1 ether));
+    feeParams = feeParams.maxGasDropoff(GasDropoffLib.to(1 ether)); //also means 1 SOL for Solana
     feeParams = feeParams.gasDropoffMargin(PercentageLib.to(1, 0)); //1 % volatility margin
     feeParams = feeParams.gasTokenPrice(1e5); //10 cent per fictional gas token
 
@@ -143,6 +165,9 @@ contract SLTBase is Test {
         assistant,
         feeUpdater,
         feeRecipient,
+        SOLANA_CHAIN_ID,
+        SOLANA_SWAP_LAYER,
+        feeParams,
         FOREIGN_CHAIN_ID,
         FOREIGN_SWAP_LAYER,
         feeParams

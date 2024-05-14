@@ -10,7 +10,7 @@ import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 
 using BytesParsing for bytes;
 
-uint constant SOLANA_CHAIN_ID = 1; //TODO this should come from elsewhere
+uint16 constant SOLANA_CHAIN_ID = 1; //TODO this should come from elsewhere
 
 uint constant MODE_SIZE = 1;
 uint constant BOOL_SIZE = 1;

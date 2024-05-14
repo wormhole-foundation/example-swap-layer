@@ -160,7 +160,7 @@ function parseParamBaseStructure(
     paramBlockOffset = offset;
     if (redeemMode == RedeemMode.Payload) {
       uint payloadLen;
-      (payloadLen, offset) = params.asUint32Unchecked(offset);
+      (payloadLen, offset) = params.asUint16Unchecked(offset);
       offset += payloadLen;
     }
     else if (redeemMode == RedeemMode.Relay)
@@ -263,7 +263,7 @@ function parsePermit2Permit(
   (expiration,  offset) = params.asUint48Unchecked(offset);
   (nonce,       offset) = params.asUint48Unchecked(offset);
   (sigDeadline, offset) = params.asUint256Unchecked(offset);
-  (signature,   offset) = params.slice(offset, SIGNATURE_SIZE);
+  (signature,   offset) = params.sliceUnchecked(offset, SIGNATURE_SIZE);
   return (amount, expiration, nonce, sigDeadline, signature, offset);
 }
 
@@ -278,6 +278,6 @@ function parsePermit2Transfer(
   (amount,      offset) = params.asUint256Unchecked(offset);
   (nonce,       offset) = params.asUint256Unchecked(offset);
   (sigDeadline, offset) = params.asUint256Unchecked(offset);
-  (signature,   offset) = params.slice(offset, SIGNATURE_SIZE);
+  (signature,   offset) = params.sliceUnchecked(offset, SIGNATURE_SIZE);
   return (amount, nonce, sigDeadline, signature, offset);
 }

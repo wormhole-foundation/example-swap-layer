@@ -30,7 +30,7 @@ contract SLTSwapBase is SLTBase {
   //  see here: https://etherscan.io/address/0xDC8d77b69155c7E68A95a4fb0f06a71FF90B943a#readContract#F12
   uint16 constant TRADERJOE_BIN_STEP = 25; //size of a bin = 1 + .0001*binStep
 
-  uint constant BASE_AMOUNT = 10;
+  uint constant BASE_AMOUNT = 1e6;
   uint constant USER_AMOUNT = 1;
 
   INonfungiblePositionManager immutable uniswapPosMan;

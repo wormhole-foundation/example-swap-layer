@@ -20,6 +20,7 @@ enum AttestationType {
 
 error SenderNotRecipient(address sender, address recipient);
 error InvalidMsgValue(uint256 value, uint256 expected);
+error NoExtraParamsAllowed();
 
 abstract contract SwapLayerRedeem is SwapLayerGovernance {
   using BytesParsing for bytes;
@@ -58,16 +59,17 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       gasDropoff = gasDropoff_.from();
       usdcAmount = fill.amount - relayingFee;
 
-      //no extra params when relaying
-      params.checkLength(0);
+      if (params.length != 0)
+        //no extra params when relaying
+        revert NoExtraParamsAllowed();
     }
     else {
       if (!senderIsRecipient) {
         if (sms.redeemMode == RedeemMode.Payload)
           revert SenderNotRecipient(msg.sender, sms.recipient);
-        else
+        else if (params.length != 0)
           //no extra params when redeeming for someone else
-          params.checkLength(0);
+          revert NoExtraParamsAllowed();
       }
       else
         overrideMsg = params.length > 0;
@@ -99,7 +101,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
         (outputToken, offset) = parseIERC20(swapParams, offset);
       }
 
-      uint256 deadline;
+      uint deadline;
       uint minOutputAmount;
       uint swapType;
       bytes memory path;
@@ -118,15 +120,15 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
         deadline,
         path
       );
+
+      if (outputAmount == 0) {
+        outputTokenType = IoToken.Usdc;
+        outputToken = _usdc;
+        outputAmount = usdcAmount;
+      }
     }
 
     swapParams.checkLength(offset);
-
-    if (outputAmount == 0) {
-      outputTokenType = IoToken.Usdc;
-      outputToken = _usdc;
-      outputAmount = usdcAmount;
-    }
 
     if (outputTokenType == IoToken.Gas) {
       outputToken = IERC20(address(0)); //0 represents the gas token itself

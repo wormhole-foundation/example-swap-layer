@@ -59,7 +59,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       redeemPayload = encodeSwapMessageRelayParams(gasDropoff, relayingFee);
     }
     else
-      (redeemPayload, ) = params.slice(mos.redeem.offset - MODE_SIZE, mos.redeem.size + MODE_SIZE);
+      (redeemPayload, ) =
+        params.sliceUnchecked(mos.redeem.offset - MODE_SIZE, mos.redeem.size + MODE_SIZE);
 
     (uint64 usdcAmount, uint wormholeFee) =
       _acquireUsdc(uint(maxFastFee) + relayingFee, mos, params);
@@ -68,7 +69,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     if (peer == bytes32(0))
       revert ChainNotSupported(targetChain);
 
-    (bytes memory outputSwap, ) = params.slice(
+    (bytes memory outputSwap, ) = params.sliceUnchecked(
       mos.output.offset - MODE_SIZE,
       mos.output.size + MODE_SIZE
     );
