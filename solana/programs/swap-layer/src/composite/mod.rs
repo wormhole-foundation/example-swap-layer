@@ -186,15 +186,15 @@ pub struct ConsumeSwapLayerFill<'info> {
     ///
     /// CHECK: Mutable. Seeds must be \["custody"\, source_chain.to_be_bytes()].
     #[account(mut)]
-    pub fill_custody_token: Box<Account<'info, token::TokenAccount>>,
+    fill_custody_token: Box<Account<'info, token::TokenAccount>>,
 
     associated_peer: RegisteredPeer<'info>,
 
     /// CHECK: Recipient of lamports from closing the prepared_fill account.
     #[account(mut)]
-    pub beneficiary: UncheckedAccount<'info>,
+    beneficiary: UncheckedAccount<'info>,
 
-    pub token_router_program: Program<'info, token_router::program::TokenRouter>,
+    token_router_program: Program<'info, token_router::program::TokenRouter>,
 }
 
 impl<'info> ConsumeSwapLayerFill<'info> {
@@ -349,7 +349,11 @@ impl<'info> CompleteSwap<'info> {
         Ok(self.src_swap_token.amount)
     }
 
-    pub fn close_swap_accounts(&self, bumps: &CompleteSwapBumps) -> Result<()> {
+    pub fn close_swap_accounts(
+        &self,
+        bumps: &CompleteSwapBumps,
+        destination: AccountInfo<'info>,
+    ) -> Result<()> {
         let prepared_key = self.prepared_fill_key();
         let swap_authority_seeds = &[
             crate::SWAP_AUTHORITY_SEED_PREFIX,
@@ -361,7 +365,7 @@ impl<'info> CompleteSwap<'info> {
             self.token_program.to_account_info(),
             token::CloseAccount {
                 account: self.src_swap_token.to_account_info(),
-                destination: self.payer.to_account_info(),
+                destination: destination.to_account_info(),
                 authority: self.authority.to_account_info(),
             },
             &[swap_authority_seeds],
@@ -371,7 +375,7 @@ impl<'info> CompleteSwap<'info> {
             self.token_program.to_account_info(),
             token::CloseAccount {
                 account: self.dst_swap_token.to_account_info(),
-                destination: self.payer.to_account_info(),
+                destination,
                 authority: self.authority.to_account_info(),
             },
             &[swap_authority_seeds],

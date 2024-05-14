@@ -5,34 +5,20 @@ import { execSync } from "child_process";
 import { argv } from "process";
 
 const USDC_MINT_ADDRESS = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-const USDT_MINT_ADDRESS = new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB");
 
-const ALLOWED_DEXES = [
-    //"Lifinity V2", // use
-    //"Meteora DLMM", // use
-    //"Orca V2",
-    //"Phoenix", // use
-    //"Raydium",
-    //"Raydium CLMM", // use
-    "Whirlpool", // use
-];
+const ALLOWED_DEXES = ["Phoenix"];
 
 main(argv);
 
 async function main(argv: string[]) {
-    if (argv.length < 3) {
-        console.error("Usage: testJupV6QuoteFlip.ts <amount>");
-        process.exit(1);
-    }
-
-    const amount = Number(argv[2]);
+    const price = 145;
     const slippageBps = 200;
 
     const jupiter = createJupiterApiClient({
         basePath: "https://quote-api.jup.ag/v6",
     });
 
-    const inputMint = USDT_MINT_ADDRESS;
+    const inputMint = splToken.NATIVE_MINT;
     const outputMint = USDC_MINT_ADDRESS;
 
     const swapLayerProgramId = new PublicKey("SwapLayer1111111111111111111111111111111111");
@@ -47,14 +33,14 @@ async function main(argv: string[]) {
         const quoteResponse = await jupiter.quoteGet({
             inputMint: inputMint.toString(),
             outputMint: outputMint.toString(),
-            amount,
+            amount: 100_000 * Math.floor(1_000_000_000 / price),
             slippageBps,
             onlyDirectRoutes: true,
             swapMode: "ExactIn",
             dexes: ALLOWED_DEXES,
         });
         console.log(
-            "USDT -> USDC, quoteResponse out amounts",
+            "WSOL -> USDC, quoteResponse out amounts",
             quoteResponse.outAmount,
             quoteResponse.otherAmountThreshold,
         );
@@ -66,20 +52,30 @@ async function main(argv: string[]) {
             },
         });
         console.log("ixResponse", JSON.stringify(ixResponse.swapInstruction, null, 2));
+        for (let i = 13; i < ixResponse.swapInstruction.accounts.length; i++) {
+            const account = ixResponse.swapInstruction.accounts[i].pubkey;
+            const cmd = `solana account -u m -o collected/${account}.json --output json ${account}`;
+            console.log(cmd);
+            try {
+                execSync(cmd);
+            } catch (_) {
+                console.log("uh oh, failed");
+            }
+        }
     }
 
     {
         const quoteResponse = await jupiter.quoteGet({
             inputMint: outputMint.toString(),
             outputMint: inputMint.toString(),
-            amount,
+            amount: 100_000_000_000,
             slippageBps,
             onlyDirectRoutes: true,
             swapMode: "ExactIn",
             dexes: ALLOWED_DEXES,
         });
         console.log(
-            "USDC -> USDT, quoteResponse out amounts",
+            "USDC -> WSOL, quoteResponse out amounts",
             quoteResponse.outAmount,
             quoteResponse.otherAmountThreshold,
         );
@@ -91,6 +87,16 @@ async function main(argv: string[]) {
             },
         });
         console.log("ixResponse", JSON.stringify(ixResponse.swapInstruction, null, 2));
+        for (let i = 13; i < ixResponse.swapInstruction.accounts.length; i++) {
+            const account = ixResponse.swapInstruction.accounts[i].pubkey;
+            const cmd = `solana account -u m -o collected/${account}.json --output json ${account}`;
+            console.log(cmd);
+            try {
+                execSync(cmd);
+            } catch (_) {
+                console.log("uh oh, failed");
+            }
+        }
     }
 }
 

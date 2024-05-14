@@ -3,7 +3,8 @@ CLONED_PROGRAMS=\
 	ts/tests/artifacts/mainnet_cctp_token_messenger_minter.so \
 	ts/tests/artifacts/mainnet_cctp_message_transmitter.so \
 	ts/tests/artifacts/mainnet_jupiter_v6.so \
-	ts/tests/artifacts/mainnet_whirlpool.so
+	ts/tests/artifacts/mainnet_whirlpool.so \
+	ts/tests/artifacts/mainnet_phoenix_v1.so
 
 .PHONY: all
 all: check
@@ -73,5 +74,5 @@ ts/tests/artifacts/mainnet_jupiter_v6.so: ts/tests/artifacts
 ts/tests/artifacts/mainnet_whirlpool.so: ts/tests/artifacts
 	solana program dump -u m whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc ts/tests/artifacts/mainnet_whirlpool.so
 
-../lib/example-liquidity-layer/solana/artifacts-localnet:
-	cd ../lib/example-liquidity-layer/solana && NETWORK=localnet $(MAKE) build
+ts/tests/artifacts/mainnet_phoenix_v1.so: ts/tests/artifacts
+	solana program dump -u m PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY ts/tests/artifacts/mainnet_phoenix_v1.so
