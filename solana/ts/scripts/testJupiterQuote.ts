@@ -15,10 +15,10 @@ const ALLOWED_DEXES = [
     //"Lifinity V2", // use
     //"Meteora DLMM", // use
     //"Orca V2",
-    //"Phoenix", // use
+    "Phoenix", // use
     //"Raydium",
     //"Raydium CLMM", // use
-    "Whirlpool", // use
+    //"Whirlpool", // use
 ];
 
 main();
@@ -28,13 +28,15 @@ async function main() {
         basePath: "https://quote-api.jup.ag/v6",
     });
 
-    const inputMint = USDT_MINT_ADDRESS;
+    const inputMint = splToken.NATIVE_MINT;
     const outputMint = USDC_MINT_ADDRESS;
+
+    const price = 145;
 
     const quoteRequest = {
         inputMint: inputMint.toString(),
         outputMint: outputMint.toString(),
-        amount: 50000000000,
+        amount: 50_000 * Math.floor(1_000_000_000 / price),
         slippageBps: 50,
         autoSlippage: false,
         computeAutoSlippage: false,
