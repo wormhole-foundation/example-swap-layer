@@ -16,6 +16,7 @@ declare_id!("SwapLayer1111111111111111111111111111111111");
 const CUSTODIAN_BUMP: u8 = 254;
 const COMPLETE_TOKEN_SEED_PREFIX: &[u8] = b"complete";
 const SWAP_AUTHORITY_SEED_PREFIX: &[u8] = b"swap-authority";
+const STAGED_CUSTODY_TOKEN_SEED_PREFIX: &[u8] = b"staged-custody";
 const MAX_BPS: u32 = 1_000_000; // 10,000.00 bps (100%)
 
 #[program]
@@ -104,6 +105,14 @@ pub mod swap_layer {
 
     pub fn complete_transfer_direct(ctx: Context<CompleteTransferDirect>) -> Result<()> {
         processor::complete_transfer_direct(ctx)
+    }
+
+    pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Result<()> {
+        processor::complete_transfer_payload(ctx)
+    }
+
+    pub fn consume_staged_transfer(ctx: Context<ConsumeStagedTransfer>) -> Result<()> {
+        processor::consume_staged_transfer(ctx)
     }
 
     pub fn initiate_transfer(

@@ -4,9 +4,10 @@ use crate::{composite::*, error::SwapLayerError, state::Peer};
 use anchor_lang::prelude::borsh::BorshDeserialize;
 use anchor_lang::prelude::*;
 use anchor_spl::token;
+use common::wormhole_io::Readable;
 use common::wormhole_io::TypePrefixedPayload;
 use swap_layer_messages::messages::SwapMessageV1;
-use swap_layer_messages::types::{OutputToken, RedeemMode, SwapType, Uint48};
+use swap_layer_messages::types::{OutputToken, RedeemMode, Uint48};
 
 #[derive(Accounts)]
 #[instruction(args: InitiateTransferArgs)]
@@ -70,13 +71,26 @@ pub struct InitiateTransferArgs {
     /// The Wormhole chain ID of the network to transfer tokens to.
     pub target_chain: u16,
 
+    /// Optional relay options. If specified, the redeem mode will be set to Relay.
     pub relay_options: Option<RelayOptions>,
 
+    /// The recipient of the transfer.
     pub recipient: [u8; 32],
+
+    /// Encoded output token to be included in the redeem message.
+    pub encoded_output_token: Vec<u8>,
+
+    // Optional payload to be included in the redeem message. If a payload
+    // is specified, the redeem mode will be set to Payload.
+    pub payload: Option<Vec<u8>>,
 }
 
 pub fn initiate_transfer(ctx: Context<InitiateTransfer>, args: InitiateTransferArgs) -> Result<()> {
     require!(args.recipient != [0; 32], SwapLayerError::InvalidRecipient);
+
+    // Decode the output token to verify that it's valid.
+    let output_token = OutputToken::read(&mut &args.encoded_output_token[..])
+        .map_err(|_| SwapLayerError::InvalidOutputToken)?;
 
     // Save this, we will need to account for the relayer fee.
     let mut transfer_amount = args.amount_in;
@@ -88,8 +102,7 @@ pub fn initiate_transfer(ctx: Context<InitiateTransfer>, args: InitiateTransferA
         let relaying_fee = calculate_relayer_fee(
             &ctx.accounts.peer.relay_params,
             denormalize_gas_dropoff(relay_options.gas_dropoff),
-            &SwapType::Invalid,
-            0, // Swap count.
+            &output_token,
         )?;
         require!(
             relaying_fee <= relay_options.max_relayer_fee,
@@ -104,13 +117,19 @@ pub fn initiate_transfer(ctx: Context<InitiateTransfer>, args: InitiateTransferA
                 gas_dropoff: relay_options.gas_dropoff,
                 relaying_fee: Uint48::try_from(relaying_fee).unwrap(),
             },
-            output_token: OutputToken::Usdc,
+            output_token,
+        }
+    } else if args.payload.is_some() {
+        SwapMessageV1 {
+            recipient: args.recipient,
+            redeem_mode: RedeemMode::Payload(args.payload.unwrap()),
+            output_token,
         }
     } else {
         SwapMessageV1 {
             recipient: args.recipient,
             redeem_mode: RedeemMode::Direct,
-            output_token: OutputToken::Usdc,
+            output_token,
         }
     };
 
