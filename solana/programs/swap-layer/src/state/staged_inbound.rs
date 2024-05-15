@@ -1,16 +1,16 @@
 use anchor_lang::prelude::*;
 
 #[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
-pub struct StagedTransferSeeds {
+pub struct StagedInboundSeeds {
     pub prepared_fill: Pubkey,
     pub bump: u8,
 }
 
 #[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
-pub struct StagedTransferInfo {
+pub struct StagedInboundInfo {
     pub staged_custody_token_bump: u8,
 
-    // Payer that created this StagedTransfer.
+    // Payer that created this StagedInbound.
     pub staged_by: Pubkey,
 
     // Exposed out of convenience for the receiving program.
@@ -27,19 +27,19 @@ pub struct StagedTransferInfo {
 
 #[account]
 #[derive(Debug)]
-pub struct StagedTransfer {
-    pub seeds: StagedTransferSeeds,
-    pub info: StagedTransferInfo,
+pub struct StagedInbound {
+    pub seeds: StagedInboundSeeds,
+    pub info: StagedInboundInfo,
     pub recipient_payload: Vec<u8>,
 }
 
-impl StagedTransfer {
-    pub const SEED_PREFIX: &'static [u8] = b"staged";
+impl StagedInbound {
+    pub const SEED_PREFIX: &'static [u8] = b"staged-inbound";
 
     pub fn checked_compute_size(payload_len: usize) -> Option<usize> {
         const FIXED: usize = 8 // DISCRIMINATOR
-            + StagedTransferSeeds::INIT_SPACE
-            + StagedTransferInfo::INIT_SPACE
+            + StagedInboundSeeds::INIT_SPACE
+            + StagedInboundInfo::INIT_SPACE
             + 4 // payload len
         ;
 
@@ -47,8 +47,8 @@ impl StagedTransfer {
     }
 }
 
-impl std::ops::Deref for StagedTransfer {
-    type Target = StagedTransferInfo;
+impl std::ops::Deref for StagedInbound {
+    type Target = StagedInboundInfo;
 
     fn deref(&self) -> &Self::Target {
         &self.info
