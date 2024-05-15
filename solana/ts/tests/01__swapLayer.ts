@@ -47,6 +47,7 @@ import {
     encodeSwapLayerMessage,
     localnet,
     encodeOutputToken,
+    OutputToken,
 } from "../src/swapLayer";
 import {
     FEE_UPDATER_KEYPAIR,
@@ -1324,6 +1325,7 @@ describe("Swap Layer", () => {
                     const amountIn = 6900000000n;
                     const gasDropoff = 100000;
                     const maxRelayerFee = 9999999999999;
+                    const outputToken: OutputToken = { type: "Usdc" };
 
                     // Fetch peer data.
                     const peer = await swapLayer.fetchPeer(foreignChain);
@@ -1331,8 +1333,7 @@ describe("Swap Layer", () => {
                     const expectedRelayerFee = calculateRelayerFee(
                         peer.relayParams,
                         denormalizeGasDropOff(gasDropoff),
-                        { none: {} },
-                        0,
+                        outputToken,
                     );
 
                     // Balance check.
@@ -1359,7 +1360,7 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: foreignRecipientAddress,
-                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            encodedOutputToken: Buffer.from(encodeOutputToken(outputToken)),
                             payload: null,
                         },
                     );
@@ -1406,7 +1407,7 @@ describe("Swap Layer", () => {
                                         gasDropoff,
                                         relayingFee: expectedRelayerFee,
                                     },
-                                    outputToken: { type: "Usdc" },
+                                    outputToken,
                                 }),
                             ),
                         ),
@@ -1424,6 +1425,7 @@ describe("Swap Layer", () => {
                     const amountIn = 6900000000n;
                     const gasDropoff = 0;
                     const maxRelayerFee = 9999999999999;
+                    const outputToken: OutputToken = { type: "Usdc" };
 
                     // Fetch peer data.
                     const peer = await swapLayer.fetchPeer(foreignChain);
@@ -1431,8 +1433,7 @@ describe("Swap Layer", () => {
                     const expectedRelayerFee = calculateRelayerFee(
                         peer.relayParams,
                         denormalizeGasDropOff(gasDropoff),
-                        { none: {} },
-                        0,
+                        outputToken,
                     );
 
                     // Balance check.
@@ -1459,7 +1460,7 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: foreignRecipientAddress,
-                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            encodedOutputToken: Buffer.from(encodeOutputToken(outputToken)),
                             payload: null,
                         },
                     );
@@ -1506,7 +1507,239 @@ describe("Swap Layer", () => {
                                         gasDropoff,
                                         relayingFee: expectedRelayerFee,
                                     },
-                                    outputToken: { type: "Usdc" },
+                                    outputToken,
+                                }),
+                            ),
+                        ),
+                    );
+
+                    // Verify the prepared custody token balance.
+                    const { amount: preparedCustodyTokenBalance } = await splToken.getAccount(
+                        connection,
+                        tokenRouter.preparedCustodyTokenAddress(preparedOrder.publicKey),
+                    );
+                    expect(preparedCustodyTokenBalance).equals(amountIn + expectedRelayerFee);
+                });
+
+                it("Initiate Transfer With Gas Dropoff And Target Swap", async function () {
+                    const amountIn = 6900000000n;
+                    const gasDropoff = 100000;
+                    const maxRelayerFee = 9999999999999;
+                    const outputToken: OutputToken = {
+                        type: "Gas",
+                        swap: {
+                            deadline: 0,
+                            limitAmount: 0n,
+                            type: {
+                                id: "UniswapV3",
+                                firstPoolId: 500,
+                                path: [
+                                    {
+                                        address: "0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9",
+                                        poolId: 500,
+                                    },
+                                ],
+                            },
+                        },
+                    };
+
+                    // Fetch peer data.
+                    const peer = await swapLayer.fetchPeer(foreignChain);
+
+                    const expectedRelayerFee = calculateRelayerFee(
+                        peer.relayParams,
+                        denormalizeGasDropOff(gasDropoff),
+                        outputToken,
+                    );
+
+                    // Balance check.
+                    const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
+                        connection,
+                        payer,
+                        USDC_MINT_ADDRESS,
+                        payer.publicKey,
+                    );
+                    const payerBefore = await getUsdcAtaBalance(connection, payer.publicKey);
+
+                    const preparedOrder = Keypair.generate();
+
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken(outputToken)),
+                            payload: null,
+                        },
+                    );
+
+                    await expectIxOk(connection, [ix], [payer, preparedOrder]);
+
+                    // Balance check.
+                    const payerAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                    expect(payerAfter).to.equal(payerBefore - amountIn - expectedRelayerFee);
+
+                    // Verify the relevant information in the prepared order.
+                    const preparedOrderData = await tokenRouter.fetchPreparedOrder(
+                        preparedOrder.publicKey,
+                    );
+
+                    const {
+                        info: { preparedCustodyTokenBump },
+                    } = preparedOrderData;
+
+                    hackedExpectDeepEqual(
+                        preparedOrderData,
+                        new PreparedOrder(
+                            {
+                                orderSender: payer.publicKey,
+                                preparedBy: payer.publicKey,
+                                orderType: {
+                                    market: {
+                                        minAmountOut: null,
+                                    },
+                                },
+                                srcToken: payerToken.address,
+                                refundToken: payerToken.address,
+                                targetChain: foreignChain,
+                                redeemer: foreignSwapLayerAddress,
+                                preparedCustodyTokenBump,
+                            },
+                            Buffer.from(
+                                encodeSwapLayerMessage({
+                                    recipient: new UniversalAddress(
+                                        Uint8Array.from(foreignRecipientAddress),
+                                    ),
+                                    redeemMode: {
+                                        mode: "Relay",
+                                        gasDropoff,
+                                        relayingFee: expectedRelayerFee,
+                                    },
+                                    outputToken,
+                                }),
+                            ),
+                        ),
+                    );
+
+                    // Verify the prepared custody token balance.
+                    const { amount: preparedCustodyTokenBalance } = await splToken.getAccount(
+                        connection,
+                        tokenRouter.preparedCustodyTokenAddress(preparedOrder.publicKey),
+                    );
+                    expect(preparedCustodyTokenBalance).equals(amountIn + expectedRelayerFee);
+                });
+
+                it("Initiate Transfer Without Gas Dropoff And Target Swap", async function () {
+                    const amountIn = 6900000000n;
+                    const gasDropoff = 0;
+                    const maxRelayerFee = 9999999999999;
+                    const outputToken: OutputToken = {
+                        type: "Gas",
+                        swap: {
+                            deadline: 0,
+                            limitAmount: 0n,
+                            type: {
+                                id: "UniswapV3",
+                                firstPoolId: 500,
+                                path: [
+                                    {
+                                        address: "0x5991A2dF15A8F6A256D3Ec51E99254Cd3fb576A9",
+                                        poolId: 500,
+                                    },
+                                ],
+                            },
+                        },
+                    };
+
+                    // Fetch peer data.
+                    const peer = await swapLayer.fetchPeer(foreignChain);
+
+                    const expectedRelayerFee = calculateRelayerFee(
+                        peer.relayParams,
+                        denormalizeGasDropOff(gasDropoff),
+                        outputToken,
+                    );
+
+                    // Balance check.
+                    const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
+                        connection,
+                        payer,
+                        USDC_MINT_ADDRESS,
+                        payer.publicKey,
+                    );
+                    const payerBefore = await getUsdcAtaBalance(connection, payer.publicKey);
+
+                    const preparedOrder = Keypair.generate();
+
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain,
+                            relayOptions: {
+                                gasDropoff: gasDropoff,
+                                maxRelayerFee: new BN(maxRelayerFee),
+                            },
+                            recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken(outputToken)),
+                            payload: null,
+                        },
+                    );
+
+                    await expectIxOk(connection, [ix], [payer, preparedOrder]);
+
+                    // Balance check.
+                    const payerAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                    expect(payerAfter).to.equal(payerBefore - amountIn - expectedRelayerFee);
+
+                    // Verify the relevant information in the prepared order.
+                    const preparedOrderData = await tokenRouter.fetchPreparedOrder(
+                        preparedOrder.publicKey,
+                    );
+
+                    const {
+                        info: { preparedCustodyTokenBump },
+                    } = preparedOrderData;
+
+                    hackedExpectDeepEqual(
+                        preparedOrderData,
+                        new PreparedOrder(
+                            {
+                                orderSender: payer.publicKey,
+                                preparedBy: payer.publicKey,
+                                orderType: {
+                                    market: {
+                                        minAmountOut: null,
+                                    },
+                                },
+                                srcToken: payerToken.address,
+                                refundToken: payerToken.address,
+                                targetChain: foreignChain,
+                                redeemer: foreignSwapLayerAddress,
+                                preparedCustodyTokenBump,
+                            },
+                            Buffer.from(
+                                encodeSwapLayerMessage({
+                                    recipient: new UniversalAddress(
+                                        Uint8Array.from(foreignRecipientAddress),
+                                    ),
+                                    redeemMode: {
+                                        mode: "Relay",
+                                        gasDropoff,
+                                        relayingFee: expectedRelayerFee,
+                                    },
+                                    outputToken,
                                 }),
                             ),
                         ),
