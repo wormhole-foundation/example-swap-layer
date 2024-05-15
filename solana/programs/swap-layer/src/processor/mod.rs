@@ -7,5 +7,5 @@ pub use complete::*;
 mod initiate;
 pub use initiate::*;
 
-mod consume_staged_transfer;
-pub use consume_staged_transfer::*;
+mod release_inbound;
+pub use release_inbound::*;
