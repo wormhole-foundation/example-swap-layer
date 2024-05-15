@@ -286,15 +286,4 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     return abi.encode(OrderResponse(encodedVaa, encodedCctpMessage, cctpAttestation));
   }
-
-  // function _singleSwap(uint8 swapType, uint32 deadline, uint128 minOutputAmount) internal pure returns (bytes memory) {
-
-  // }
-
-//relay
-//deadline expired
-//hits slippage
-//relay self-redeem
-//relay self-redeem override
-//payload
 }

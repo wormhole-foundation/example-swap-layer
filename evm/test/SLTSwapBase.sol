@@ -23,8 +23,6 @@ contract SLTSwapBase is SLTBase {
   uint24 constant UNISWAP_FEE = 500;
   //int24 constant UNISWAP_MAX_TICK = 887272;
   int24 constant UNISWAP_MAX_TICK = 887270;
-  //chose so that with additional 18 decimals it still fits in a uint64, which allows us to
-  //  calculate the  price via uint160(Math.sqrt((amount1 << 192) / amount0));
   uint8 constant TRADERJOE_VERSION = 2;
   //only 25, 50, and 100 are open on Mainnet Ethereum
   //  see here: https://etherscan.io/address/0xDC8d77b69155c7E68A95a4fb0f06a71FF90B943a#readContract#F12
@@ -61,7 +59,7 @@ contract SLTSwapBase is SLTBase {
     //.5 eth = 1 mockToken
     pools[0] = _makePoolParams(
       address(wnative),
-      BASE_AMOUNT * 5e17,
+      BASE_AMOUNT * 1 ether / 2,
       address(mockToken),
       BASE_AMOUNT * 1e18
     );
@@ -70,7 +68,7 @@ contract SLTSwapBase is SLTBase {
       address(mockToken),
       BASE_AMOUNT * 1e18,
       address(usdc),
-      BASE_AMOUNT * 5e6
+      BASE_AMOUNT * 5 * USDC
     );
 
     for (uint i = 0; i < pools.length; ++i) {
@@ -104,7 +102,12 @@ contract SLTSwapBase is SLTBase {
   }
 
   function _deployUniswapPool(address token0, uint amount0, address token1, uint amount1) private {
-    uint160 sqrtPriceX96 = uint160(Math.sqrt((amount1 << 192) / amount0));
+    require(amount1 <= type(uint128).max, "excessive pool balance");
+    uint160 sqrtPriceX96 = uint160(
+      amount1 <= type(uint64).max
+      ? Math.sqrt((amount1 << 192) / amount0)
+      : Math.sqrt((amount1 << 128) / amount0) << 32
+    );
     uniswapPosMan.createAndInitializePoolIfNecessary(token0, token1, UNISWAP_FEE, sqrtPriceX96);
     IERC20(token0).approve(address(uniswapPosMan), amount0);
     IERC20(token1).approve(address(uniswapPosMan), amount1);
@@ -124,6 +127,7 @@ contract SLTSwapBase is SLTBase {
   }
 
   function _deployTJLBPool(address token0, uint amount0, address token1, uint amount1) private {
+    require(amount1 <= type(uint128).max, "excessive pool balance");
     uint256 price128x128 = (amount1 << 128) / amount0;
     uint24 activeId = TJMath.getIdFromPrice(price128x128, TRADERJOE_BIN_STEP);
 

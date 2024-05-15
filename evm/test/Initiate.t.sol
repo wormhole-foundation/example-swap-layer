@@ -2,9 +2,6 @@
 
 pragma solidity ^0.8.24;
 
-//TODO remove
-import {console2 as console} from "forge-std/console2.sol";
-
 import { WormholeCctpMessages } from "wormhole-sdk/libraries/WormholeCctpMessages.sol";
 import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 import { WormholeOverride, PublishedMessage } from "wormhole-sdk/testing/WormholeOverride.sol";
@@ -46,17 +43,18 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
   function _setUp2() internal override {
     _wormholeMsgFee_ = IWormhole(_swapLayerWormhole()).messageFee();
+    vm.prank(user);
+    usdc.approve(address(swapLayer), type(uint256).max);
   }
 
   function testInitiateDirectUsdc() public {
     uint amount = USER_AMOUNT * USDC;
     _dealOverride(address(usdc), user, amount);
-    vm.startPrank(user);
-    usdc.approve(address(swapLayer), amount);
 
     vm.recordLogs();
 
     assertEq(usdc.balanceOf(address(swapLayer)), 0);
+    vm.prank(user);
     (uint amountOut, , ) = _swapLayerInitiate(InitiateUsdc({
       targetParams: TargetParams(FOREIGN_CHAIN_ID, recipient.toUniversalAddress()),
       amount: amount,
@@ -74,6 +72,57 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     assertEq(uint8(sms.redeemMode), uint8(RedeemMode.Direct));
     assertEq(sms.payload.length, 0);
     (IoToken outputToken, uint offset) = parseIoToken(swapMessage, sms.swapOffset);
+    assertEq(uint8(outputToken), uint8(IoToken.Usdc));
+    assertEq(offset, swapMessage.length);
+  }
+
+  function testInitiateRelayUsdc() public {
+    uint amount = USER_AMOUNT * USDC;
+    _dealOverride(address(usdc), user, 2*amount);
+    uint maxRelayerFee = amount/2;
+    uint gasDropoff = 1 ether / 10;
+    uint expectedRelayerFee =
+      _swapLayerRelayingFee(FOREIGN_CHAIN_ID, gasDropoff, IoToken.Usdc, 0, 0);
+    uint expectedSentAmount = amount + expectedRelayerFee;
+    uint userBalanceBeforeUsdc = usdc.balanceOf(user);
+
+    vm.recordLogs();
+
+    assertEq(usdc.balanceOf(address(swapLayer)), 0);
+    vm.prank(user);
+    (uint amountOut, , , uint relayerFee) = _swapLayerInitiate(InitiateRelayUsdc({
+      targetParams: TargetParams(FOREIGN_CHAIN_ID, recipient.toUniversalAddress()),
+      relayParams: RelayParams(gasDropoff, maxRelayerFee),
+      isExactIn: false,
+      amount: amount,
+      outputParams: _swapLayerEncodeOutputParamsUsdc()
+    }));
+    assertLt(relayerFee, maxRelayerFee + 1); //no less than or equal
+    assertEq(relayerFee, expectedRelayerFee);
+    assertEq(amountOut, expectedSentAmount);
+    assertEq(usdc.balanceOf(user), userBalanceBeforeUsdc - expectedSentAmount);
+    assertEq(usdc.balanceOf(address(swapLayer)), 0);
+
+    PublishedMessage[] memory pubMsgs = wormhole.fetchPublishedMessages(vm.getRecordedLogs());
+    assertEq(pubMsgs.length, 1);
+    (SwapMessageStructure memory sms, bytes memory swapMessage) =
+      _decodeAndCheckDepositMessage(pubMsgs[0], expectedSentAmount);
+
+    uint offset;
+    assertEq(uint8(sms.redeemMode), uint8(RedeemMode.Relay));
+    (bytes memory relaySlice, ) = swapMessage.slice(sms.redeemOffset, 4+6);
+    bytes memory expectedRelayParams = abi.encodePacked(
+      GasDropoff.unwrap(GasDropoffLib.to(gasDropoff)),
+      uint48(relayerFee)
+    );
+    assertEq(relaySlice, expectedRelayParams);
+    (GasDropoff gasDropoffMsg, uint relayerFeeMsg, ) =
+      parseRelayParams(swapMessage, sms.redeemOffset);
+    assertEq(gasDropoffMsg.from(), gasDropoff);
+    assertEq(relayerFeeMsg, relayerFee);
+    assertEq(sms.payload.length, 0);
+    IoToken outputToken;
+    (outputToken, offset) = parseIoToken(swapMessage, sms.swapOffset);
     assertEq(uint8(outputToken), uint8(IoToken.Usdc));
     assertEq(offset, swapMessage.length);
   }
@@ -100,6 +149,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
         outputParams: _swapLayerEncodeOutputParamsUsdc()
       })
     ));
+
     assertEq(success, false);
     assertEq(errorData.length, 4);
     (bytes4 errorSelector, ) = errorData.asBytes4Unchecked(0);
@@ -113,7 +163,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
         FOREIGN_CHAIN_ID,
         user.toUniversalAddress()
       ),
-      amount: USER_AMOUNT * 1e18,
+      amount: USER_AMOUNT * 1 ether,
       isExactIn: true,
       evmSwapParams: EvmSwapParams({
         swapDeadline: _deadline(),
@@ -159,8 +209,8 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       outputParams: _swapLayerEncodeOutputParamsUsdc()
     }));
 
-    assertTrue(amountOut > 0);
-    assertTrue(relayerFee > 0);
+    assertGt(amountOut, 0);
+    assertGt(relayerFee, 0);
   }
 
   function _decodeAndCheckDepositMessage(
