@@ -25,6 +25,9 @@ export const decodeSwapLayerMessage = (encoded: Uint8Array): SwapLayerMessage =>
 export const encodeSwapLayerMessage = (message: SwapLayerMessage): Uint8Array =>
     serializeLayout(swapLayerMessageLayout, message);
 
+export const encodeOutputToken = (outputToken: OutputToken): Uint8Array =>
+    serializeLayout(outputTokenItem, outputToken);
+
 const forceBigIntConversion = {
     custom: {
         to: (encoded: number) => BigInt(encoded),

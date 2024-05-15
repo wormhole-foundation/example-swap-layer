@@ -4,7 +4,9 @@ use crate::{
     state::{ExecutionParams, RelayParams},
 };
 use anchor_lang::prelude::*;
-use swap_layer_messages::types::SwapType;
+use swap_layer_messages::types::{
+    OutputToken, SwapType, TraderJoeSwapParameters, UniswapSwapParameters,
+};
 
 // EVM gas overheads in gas units.
 const EVM_GAS_OVERHEAD: u64 = 100_000;
@@ -42,14 +44,28 @@ fn compound(percentage: u32, base: u64) -> Option<u64> {
     }
 }
 
-fn calculate_evm_swap_overhead(swap_type: &SwapType, swap_count: u8) -> Option<u64> {
-    match swap_type {
-        SwapType::TraderJoe(_) => TRADERJOE_GAS_OVERHEAD
-            .checked_add(TRADERJOE_GAS_PER_SWAP.checked_mul(u64::from(swap_count))?),
-        SwapType::UniswapV3(_) => UNISWAP_GAS_OVERHEAD
-            .checked_add(UNISWAP_GAS_PER_SWAP.checked_mul(u64::from(swap_count))?),
-        _ => None,
-    }
+fn calculate_evm_swap_overhead(swap_type: &SwapType) -> Option<u64> {
+    let (overhead, cost_per_swap, num_hops) = match swap_type {
+        SwapType::TraderJoe(TraderJoeSwapParameters {
+            first_pool_id: _,
+            path,
+        }) => (
+            TRADERJOE_GAS_OVERHEAD,
+            TRADERJOE_GAS_PER_SWAP,
+            path.len().saturating_add(1),
+        ),
+        SwapType::UniswapV3(UniswapSwapParameters {
+            first_leg_fee: _,
+            path,
+        }) => (
+            UNISWAP_GAS_OVERHEAD,
+            UNISWAP_GAS_PER_SWAP,
+            path.len().saturating_add(1),
+        ),
+        _ => return None,
+    };
+
+    overhead.checked_add(cost_per_swap.checked_mul(num_hops.try_into().unwrap())?)
 }
 
 fn calculate_evm_gas_cost(
@@ -91,8 +107,7 @@ fn calculate_gas_dropoff_cost(
 pub fn calculate_relayer_fee(
     relay_params: &RelayParams,
     denorm_gas_dropoff: u64,
-    swap_type: &SwapType,
-    swap_count: u8,
+    output_token: &OutputToken,
 ) -> Result<u64> {
     require!(
         relay_params.base_fee != u32::MAX,
@@ -134,11 +149,14 @@ pub fn calculate_relayer_fee(
                 total_gas = total_gas.saturating_add(DROPOFF_GAS_OVERHEAD);
             }
 
-            if swap_count > 0 {
-                let overhead = calculate_evm_swap_overhead(swap_type, swap_count)
-                    .ok_or(SwapLayerError::EvmGasCalculationFailed)?;
-                total_gas = total_gas.saturating_add(overhead);
-            }
+            let swap_overhead = match output_token {
+                OutputToken::Gas(swap) | OutputToken::Other { address: _, swap } => {
+                    calculate_evm_swap_overhead(&swap.swap_type)
+                        .ok_or(SwapLayerError::EvmGasCalculationFailed)?
+                }
+                _ => 0,
+            };
+            total_gas = total_gas.saturating_add(swap_overhead);
 
             let evm_gas_cost = calculate_evm_gas_cost(
                 gas_price,
@@ -158,8 +176,11 @@ pub fn calculate_relayer_fee(
 
 #[cfg(test)]
 mod test {
+    use hex_literal::hex;
+
     use swap_layer_messages::types::{
-        TraderJoePoolId, TraderJoeSwapParameters, UniswapSwapParameters,
+        OutputSwap, TraderJoePoolId, TraderJoeSwapParameters, TraderJoeSwapPath, Uint24,
+        UniswapSwapParameters, UniswapSwapPath,
     };
 
     use crate::state::{ExecutionParams, RelayParams};
@@ -207,22 +228,9 @@ mod test {
             first_leg_fee: 0.into(),
             path: vec![],
         });
-        let swap_count = 1;
-        let gas_overhead = calculate_evm_swap_overhead(swap_type, swap_count);
+        let gas_overhead = calculate_evm_swap_overhead(swap_type);
 
         assert_eq!(gas_overhead, Some(200_000));
-    }
-
-    #[test]
-    fn test_uniswap_gas_overhead_three_swap() {
-        let swap_type = &SwapType::UniswapV3(UniswapSwapParameters {
-            first_leg_fee: 0.into(),
-            path: vec![],
-        });
-        let swap_count = 3;
-        let gas_overhead = calculate_evm_swap_overhead(swap_type, swap_count);
-
-        assert_eq!(gas_overhead, Some(400_000));
     }
 
     #[test]
@@ -234,25 +242,9 @@ mod test {
             },
             path: vec![],
         });
-        let swap_count = 1;
-        let gas_overhead = calculate_evm_swap_overhead(swap_type, swap_count);
+        let gas_overhead = calculate_evm_swap_overhead(swap_type);
 
         assert_eq!(gas_overhead, Some(200_000));
-    }
-
-    #[test]
-    fn test_traderjoe_gas_overhead_three_swap() {
-        let swap_type = &SwapType::TraderJoe(TraderJoeSwapParameters {
-            first_pool_id: TraderJoePoolId {
-                version: 0,
-                bin_size: 69,
-            },
-            path: vec![],
-        });
-        let swap_count = 3;
-        let gas_overhead = calculate_evm_swap_overhead(swap_type, swap_count);
-
-        assert_eq!(gas_overhead, Some(400_000));
     }
 
     #[test]
@@ -284,33 +276,48 @@ mod test {
     fn test_calculate_relayer_fee_no_swap() {
         let relay_params = test_relay_params();
         let denorm_gas_dropoff = 50_000_000;
-        let swap_type = &SwapType::Invalid;
-        let swap_count = 0;
+        let output_token = &OutputToken::Usdc;
 
-        let relayer_fee =
-            calculate_relayer_fee(&relay_params, denorm_gas_dropoff, swap_type, swap_count);
+        let relayer_fee = calculate_relayer_fee(&relay_params, denorm_gas_dropoff, output_token);
 
         assert_eq!(relayer_fee.unwrap(), 16775000);
     }
 
     #[test]
-    fn test_calculate_relayer_fee_with_uniswap_swap() {
+    fn test_calculate_relayer_fee_with_gas_uniswap_swap() {
         let relay_params = test_relay_params();
         let denorm_gas_dropoff = 50_000_000;
-        let swap_type = &SwapType::UniswapV3(UniswapSwapParameters {
-            first_leg_fee: 0.into(),
-            path: vec![],
+        let swap_type = SwapType::UniswapV3(UniswapSwapParameters {
+            first_leg_fee: Uint24::from(500),
+            path: vec![
+                UniswapSwapPath {
+                    evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                    fee: Uint24::from(500),
+                },
+                UniswapSwapPath {
+                    evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                    fee: Uint24::from(500),
+                },
+                UniswapSwapPath {
+                    evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                    fee: Uint24::from(500),
+                },
+            ],
         });
-        let swap_count = 4;
 
-        let relayer_fee =
-            calculate_relayer_fee(&relay_params, denorm_gas_dropoff, swap_type, swap_count);
+        let output_token = OutputToken::Gas(OutputSwap {
+            deadline: 0,
+            limit_amount: 0,
+            swap_type: swap_type.clone(),
+        });
+
+        let relayer_fee = calculate_relayer_fee(&relay_params, denorm_gas_dropoff, &output_token);
 
         assert_eq!(relayer_fee.unwrap(), 18025000);
     }
 
     #[test]
-    fn test_calculate_relayer_fee_with_trader_joe_swap() {
+    fn test_calculate_relayer_fee_with_gas_trader_joe_swap() {
         let relay_params = test_relay_params();
         let denorm_gas_dropoff = 50_000_000;
         let swap_type = &SwapType::TraderJoe(TraderJoeSwapParameters {
@@ -318,12 +325,21 @@ mod test {
                 version: 0,
                 bin_size: 69,
             },
-            path: vec![],
+            path: vec![TraderJoeSwapPath {
+                evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                pool_id: TraderJoePoolId {
+                    version: 0,
+                    bin_size: 69,
+                },
+            }],
         });
-        let swap_count = 2;
+        let output_token = OutputToken::Gas(OutputSwap {
+            deadline: 0,
+            limit_amount: 0,
+            swap_type: swap_type.clone(),
+        });
 
-        let relayer_fee =
-            calculate_relayer_fee(&relay_params, denorm_gas_dropoff, swap_type, swap_count);
+        let relayer_fee = calculate_relayer_fee(&relay_params, denorm_gas_dropoff, &output_token);
 
         assert_eq!(relayer_fee.unwrap(), 17525000);
     }
