@@ -21,6 +21,7 @@ pub enum SwapLayerError {
     ExceedsMaxRelayingFee = 0x111,
     InvalidPreparedOrder = 0x112,
     InvalidFeeRecipient = 0x113,
+    PayloadTooLarge = 0x114,
 
     // EVM Execution Param errors
     InvalidBaseFee = 0x200,
