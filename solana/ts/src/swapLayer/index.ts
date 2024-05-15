@@ -9,7 +9,7 @@ import { Connection, PublicKey, SystemProgram, TransactionInstruction } from "@s
 import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
 import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
-import { Custodian, Peer, RelayParams } from "./state";
+import { Custodian, Peer, RelayParams, StagedTransfer } from "./state";
 
 export const PROGRAM_IDS = ["SwapLayer1111111111111111111111111111111111"] as const;
 
@@ -31,6 +31,8 @@ export type InitiateTransferArgs = {
     targetChain: number;
     relayOptions: RelayOptions | null;
     recipient: Array<number>;
+    encodedOutputToken: Buffer;
+    payload: Buffer | null;
 };
 
 export type UpdateRelayParametersArgs = {
@@ -192,6 +194,21 @@ export class SwapLayerProgram {
             srcSwapToken: splToken.getAssociatedTokenAddressSync(sourceMint, authority, true),
             dstSwapToken: splToken.getAssociatedTokenAddressSync(destinationMint, authority, true),
         };
+    }
+
+    stagedTransferAddress(preparedFill: PublicKey) {
+        return StagedTransfer.address(this.ID, preparedFill);
+    }
+
+    stagedTransferTokenAddress(stagedTransfer: PublicKey): PublicKey {
+        return PublicKey.findProgramAddressSync(
+            [Buffer.from("staged-custody"), stagedTransfer.toBuffer()],
+            this.ID,
+        )[0];
+    }
+
+    async fetchStagedTransfer(addr: PublicKey): Promise<StagedTransfer> {
+        return this.program.account.stagedTransfer.fetch(addr);
     }
 
     async fetchCustodian(input?: { address: PublicKey }): Promise<Custodian> {
@@ -455,8 +472,6 @@ export class SwapLayerProgram {
             throw new Error("fee recipient token account not found");
         }
 
-        const tokenRouter = this.tokenRouterProgram();
-
         return this.program.methods
             .completeTransferRelay()
             .accounts({
@@ -497,8 +512,6 @@ export class SwapLayerProgram {
         recipient ??= payer;
         recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.mint, recipient);
 
-        const tokenRouter = this.tokenRouterProgram();
-
         return this.program.methods
             .completeTransferDirect()
             .accounts({
@@ -512,6 +525,64 @@ export class SwapLayerProgram {
                 ),
                 recipient,
                 recipientTokenAccount,
+                tokenProgram: splToken.TOKEN_PROGRAM_ID,
+            })
+            .instruction();
+    }
+
+    async completeTransferPayloadIx(
+        accounts: {
+            payer: PublicKey;
+            preparedFill: PublicKey;
+            peer?: PublicKey;
+            beneficiary?: PublicKey;
+        },
+        sourceChain?: wormholeSdk.ChainId,
+    ) {
+        let { payer, preparedFill, peer, beneficiary } = accounts;
+
+        beneficiary ??= payer;
+
+        const stagedTransfer = this.stagedTransferAddress(preparedFill);
+        const stagedCustodyToken = this.stagedTransferTokenAddress(stagedTransfer);
+
+        return this.program.methods
+            .completeTransferPayload()
+            .accounts({
+                payer: payer,
+                consumeSwapLayerFill: await this.consumeSwapLayerFillComposite(
+                    {
+                        preparedFill,
+                        beneficiary,
+                        associatedPeer: peer,
+                    },
+                    { sourceChain },
+                ),
+                stagedTransfer,
+                stagedCustodyToken,
+                usdc: this.usdcComposite(this.mint),
+                tokenProgram: splToken.TOKEN_PROGRAM_ID,
+                systemProgram: SystemProgram.programId,
+            })
+            .instruction();
+    }
+
+    async consumeStagedTransferIx(accounts: {
+        stagedTransfer: PublicKey;
+        recipient: PublicKey;
+        dstToken: PublicKey;
+        beneficiary: PublicKey;
+    }): Promise<TransactionInstruction> {
+        const { stagedTransfer, recipient, dstToken, beneficiary } = accounts;
+
+        return this.program.methods
+            .consumeStagedTransfer()
+            .accounts({
+                recipient,
+                beneficiary,
+                stagedTransfer,
+                dstToken,
+                stagedCustodyToken: this.stagedTransferTokenAddress(stagedTransfer),
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
             })
             .instruction();

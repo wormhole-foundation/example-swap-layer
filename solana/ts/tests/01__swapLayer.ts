@@ -38,6 +38,7 @@ import {
     Custodian,
     Peer,
     RelayParams,
+    StagedTransfer,
     SwapLayerProgram,
     U32_MAX,
     UpdateRelayParametersArgs,
@@ -45,6 +46,7 @@ import {
     denormalizeGasDropOff,
     encodeSwapLayerMessage,
     localnet,
+    encodeOutputToken,
 } from "../src/swapLayer";
 import {
     FEE_UPDATER_KEYPAIR,
@@ -1126,6 +1128,8 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload: null,
                         },
                     );
 
@@ -1154,6 +1158,8 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload: null,
                         },
                     );
 
@@ -1186,6 +1192,8 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: new Array(32).fill(0),
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload: null,
                         },
                     );
 
@@ -1215,6 +1223,8 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload: null,
                         },
                     );
 
@@ -1258,6 +1268,8 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload: null,
                         },
                     );
 
@@ -1295,6 +1307,8 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload: null,
                         },
                     );
 
@@ -1345,6 +1359,8 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload: null,
                         },
                     );
 
@@ -1443,6 +1459,8 @@ describe("Swap Layer", () => {
                                 maxRelayerFee: new BN(maxRelayerFee),
                             },
                             recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload: null,
                         },
                     );
 
@@ -1667,8 +1685,51 @@ describe("Swap Layer", () => {
                     await expectIxErr(connection, [transferIx], [payer], "InvalidPeer");
                 });
 
-                it.skip("Cannot Complete Transfer (InvalidOutputToken)", async function () {
-                    // TODO: Need to use encoded swaptype for this test.
+                it("Cannot Complete Transfer (Invalid Output Token)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(payer.publicKey.toString(), "base58"),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: 0,
+                                relayingFee: 6900n,
+                            },
+                            outputToken: {
+                                type: "Gas",
+                                swap: {
+                                    deadline: 0,
+                                    limitAmount: 0n,
+                                    type: {
+                                        id: "JupiterV6",
+                                        dexProgramId: { isSome: false },
+                                    },
+                                },
+                            },
+                        }),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: payer.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidOutputToken");
                 });
 
                 it("Cannot Complete Transfer (Invalid Recipient)", async function () {
@@ -1969,6 +2030,8 @@ describe("Swap Layer", () => {
                             targetChain: foreignChain,
                             relayOptions: null,
                             recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload: null,
                         },
                     );
 
@@ -2170,8 +2233,52 @@ describe("Swap Layer", () => {
                     await expectIxErr(connection, [transferIx], [payer], "InvalidRecipient");
                 });
 
-                it.skip("Cannot Complete Transfer (InvalidOutputToken)", async function () {
-                    // TODO: Need to use encoded swaptype for this test.
+                it("Cannot Complete Transfer (Invalid Output Token)", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: {
+                                mode: "Direct",
+                            },
+                            outputToken: {
+                                type: "Gas",
+                                swap: {
+                                    deadline: 0,
+                                    limitAmount: 0n,
+                                    type: {
+                                        id: "JupiterV6",
+                                        dexProgramId: { isSome: false },
+                                    },
+                                },
+                            },
+                        }),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferDirectIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedFill,
+                            recipient: recipient.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(connection, [transferIx], [payer], "InvalidOutputToken");
                 });
 
                 it("Complete Transfer (Recipient Not Payer)", async function () {
@@ -2279,12 +2386,233 @@ describe("Swap Layer", () => {
             });
         });
 
-        describe("Jupiter V6 Swap", function () {
-            // TODO
+        describe("USDC Transfer (Payload)", function () {
+            describe("Outbound", function () {
+                it("Initiate Transfer", async function () {
+                    const amountIn = 6900000000n;
+                    const payload = Buffer.from("Insert payload here");
 
-            before("Not Paused", async function () {
-                const custodian = await tokenRouter.fetchCustodian();
-                expect(custodian.paused).is.false;
+                    // Balance check.
+                    const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
+                        connection,
+                        payer,
+                        USDC_MINT_ADDRESS,
+                        payer.publicKey,
+                    );
+                    const payerBefore = await getUsdcAtaBalance(connection, payer.publicKey);
+
+                    const preparedOrder = Keypair.generate();
+
+                    const ix = await swapLayer.initiateTransferIx(
+                        {
+                            payer: payer.publicKey,
+                            preparedOrder: preparedOrder.publicKey,
+                        },
+                        {
+                            amountIn: new BN(amountIn.toString()),
+                            targetChain: foreignChain,
+                            relayOptions: null,
+                            recipient: foreignRecipientAddress,
+                            encodedOutputToken: Buffer.from(encodeOutputToken({ type: "Usdc" })),
+                            payload,
+                        },
+                    );
+
+                    await expectIxOk(connection, [ix], [payer, preparedOrder]);
+
+                    // Balance check.
+                    const payerAfter = await getUsdcAtaBalance(connection, payer.publicKey);
+                    expect(payerAfter).to.equal(payerBefore - amountIn);
+
+                    // Verify the relevant information in the prepared order.
+                    const preparedOrderData = await tokenRouter.fetchPreparedOrder(
+                        preparedOrder.publicKey,
+                    );
+
+                    const {
+                        info: { preparedCustodyTokenBump },
+                    } = preparedOrderData;
+
+                    hackedExpectDeepEqual(
+                        preparedOrderData,
+                        new PreparedOrder(
+                            {
+                                orderSender: payer.publicKey,
+                                preparedBy: payer.publicKey,
+                                orderType: {
+                                    market: {
+                                        minAmountOut: null,
+                                    },
+                                },
+                                srcToken: payerToken.address,
+                                refundToken: payerToken.address,
+                                targetChain: foreignChain,
+                                redeemer: foreignSwapLayerAddress,
+                                preparedCustodyTokenBump,
+                            },
+                            Buffer.from(
+                                encodeSwapLayerMessage({
+                                    recipient: new UniversalAddress(
+                                        Uint8Array.from(foreignRecipientAddress),
+                                    ),
+                                    redeemMode: { mode: "Payload", payload },
+                                    outputToken: { type: "Usdc" },
+                                }),
+                            ),
+                        ),
+                    );
+
+                    // Verify the prepared custody token balance.
+                    const { amount: preparedCustodyTokenBalance } = await splToken.getAccount(
+                        connection,
+                        tokenRouter.preparedCustodyTokenAddress(preparedOrder.publicKey),
+                    );
+                    expect(preparedCustodyTokenBalance).equals(amountIn);
+                });
+            });
+
+            describe("Inbound", function () {
+                const localVariables = {};
+
+                it("Stage Transfer", async function () {
+                    const payload = Buffer.from("Insert payload here");
+
+                    const result = await createAndRedeemCctpFillForTest(
+                        connection,
+                        tokenRouter,
+                        swapLayer,
+                        tokenRouterLkupTable,
+                        payer,
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: { mode: "Payload", payload },
+                            outputToken: { type: "Usdc" },
+                        }),
+                    );
+                    const { vaa, message } = result!;
+
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                    const beneficiary = Keypair.generate();
+
+                    const transferIx = await swapLayer.completeTransferPayloadIx(
+                        {
+                            payer: payer.publicKey,
+                            beneficiary: beneficiary.publicKey,
+                            preparedFill,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxOk(connection, [transferIx], [payer]);
+
+                    // Balance check.
+                    const stagedTransfer = swapLayer.stagedTransferAddress(preparedFill);
+                    const stagedTransferTokenAddress =
+                        swapLayer.stagedTransferTokenAddress(stagedTransfer);
+
+                    const { amount: balanceAfter } = await splToken.getAccount(
+                        connection,
+                        stagedTransferTokenAddress,
+                    );
+                    expect(balanceAfter).to.equal(message.deposit!.header.amount);
+
+                    // State check.
+                    const stagedTransferData = await swapLayer.fetchStagedTransfer(stagedTransfer);
+                    hackedExpectDeepEqual(
+                        stagedTransferData,
+                        new StagedTransfer(
+                            {
+                                preparedFill,
+                                bump: stagedTransferData.seeds.bump,
+                            },
+                            {
+                                stagedCustodyTokenBump:
+                                    stagedTransferData.info.stagedCustodyTokenBump,
+                                stagedBy: payer.publicKey,
+                                sourceChain: foreignChain,
+                                recipient: recipient.publicKey,
+                                isNative: false,
+                            },
+                            payload,
+                        ),
+                    );
+
+                    localVariables["stagedTransfer"] = stagedTransfer;
+                });
+
+                it("Consume Staged Transfer", async function () {
+                    const stagedTransfer = localVariables["stagedTransfer"];
+                    const beneficiary = Keypair.generate();
+                    const dstTokenOwner = Keypair.generate();
+
+                    const dstToken = splToken.getAssociatedTokenAddressSync(
+                        USDC_MINT_ADDRESS,
+                        dstTokenOwner.publicKey,
+                    );
+
+                    await expectIxOk(
+                        connection,
+                        [
+                            splToken.createAssociatedTokenAccountInstruction(
+                                payer.publicKey,
+                                dstToken,
+                                dstTokenOwner.publicKey,
+                                USDC_MINT_ADDRESS,
+                            ),
+                        ],
+                        [payer],
+                    );
+
+                    const expectedLamports = await connection
+                        .getAccountInfo(stagedTransfer)
+                        .then((info) => info!.lamports);
+                    const custodyToken = swapLayer.stagedTransferTokenAddress(stagedTransfer);
+                    const { amount: stagedTokenBalance } = await splToken.getAccount(
+                        connection,
+                        custodyToken,
+                    );
+                    const expectedCustodyTokenLamports = await connection
+                        .getAccountInfo(custodyToken)
+                        .then((info) => info!.lamports);
+
+                    const consumeIx = await swapLayer.consumeStagedTransferIx({
+                        recipient: recipient.publicKey,
+                        beneficiary: beneficiary.publicKey,
+                        stagedTransfer,
+                        dstToken: dstToken,
+                    });
+
+                    await expectIxOk(connection, [consumeIx], [recipient]);
+
+                    // Verify that accounts were closed.
+                    {
+                        const accInfo = await connection.getAccountInfo(stagedTransfer);
+                        expect(accInfo).is.null;
+                    }
+                    {
+                        const accInfo = await connection.getAccountInfo(custodyToken);
+                        expect(accInfo).is.null;
+                    }
+
+                    const { amount: dstTokenBalance } = await splToken.getAccount(
+                        connection,
+                        dstToken,
+                    );
+                    expect(dstTokenBalance).equals(stagedTokenBalance);
+
+                    const beneficiaryBalance = await connection.getBalance(beneficiary.publicKey);
+                    expect(beneficiaryBalance).equals(
+                        expectedLamports + expectedCustodyTokenLamports,
+                    );
+                });
             });
         });
     });
@@ -2367,8 +2695,9 @@ async function createAndRedeemCctpFillForTest(
         units: 300_000,
     });
 
-    const { value: lookupTableAccount } =
-        await connection.getAddressLookupTable(tokenRouterLkupTable);
+    const { value: lookupTableAccount } = await connection.getAddressLookupTable(
+        tokenRouterLkupTable,
+    );
 
     await expectIxOk(connection, [computeIx, ix], [payer], {
         addressLookupTableAccounts: [lookupTableAccount!],
@@ -2445,19 +2774,4 @@ async function updateRelayParamsForTest(
     );
 
     await expectIxOk(swapLayer.program.provider.connection, [ix], [feeUpdater]);
-}
-
-async function addPeerForTest(
-    swapLayer: SwapLayerProgram,
-    ownerOrAssistant: Keypair,
-    addPeerArgs: AddPeerArgs,
-) {
-    const ix = await swapLayer.addPeerIx(
-        {
-            ownerOrAssistant: ownerOrAssistant.publicKey,
-        },
-        addPeerArgs,
-    );
-
-    expectIxOk(swapLayer.program.provider.connection, [ix], [ownerOrAssistant]);
 }
