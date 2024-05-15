@@ -10,10 +10,8 @@ import {
 } from "@solana/web3.js";
 import { CctpTokenBurnMessage } from "@wormhole-foundation/example-liquidity-layer-solana/cctp";
 import {
-    FastMarketOrder,
     LiquidityLayerDeposit,
     LiquidityLayerMessage,
-    SlowOrderResponse,
 } from "@wormhole-foundation/example-liquidity-layer-solana/common";
 import * as matchingEngineSdk from "@wormhole-foundation/example-liquidity-layer-solana/matchingEngine";
 import {
@@ -31,6 +29,7 @@ import {
     expectIxOk,
     getBlockTime,
     postLiquidityLayerVaa,
+    toUniversalAddress,
 } from "@wormhole-foundation/example-liquidity-layer-solana/testing";
 import { VaaAccount } from "@wormhole-foundation/example-liquidity-layer-solana/wormhole";
 import { Chain, toChainId } from "@wormhole-foundation/sdk-base";
@@ -54,6 +53,10 @@ import {
     createLut,
     tryNativeToUint8Array,
 } from "./helpers";
+import {
+    FastMarketOrder,
+    SlowOrderResponse,
+} from "@wormhole-foundation/example-liquidity-layer-definitions";
 
 describe("Jupiter V6 Testing", () => {
     const connection = new Connection(LOCALHOST, "processed");
@@ -786,10 +789,10 @@ describe("Jupiter V6 Testing", () => {
         return {
             amountIn: amountIn ?? 1_000_000_000n,
             minAmountOut: minAmountOut ?? 0n,
-            targetChain: toChainId(targetChain ?? "Solana"),
-            redeemer: Array.from(swapLayer.custodianAddress().toBuffer()),
-            sender: sender ?? REGISTERED_PEERS["Ethereum"]!,
-            refundAddress: new Array(32).fill(3),
+            targetChain: targetChain ?? "Solana",
+            redeemer: toUniversalAddress(swapLayer.custodianAddress().toBuffer()),
+            sender: toUniversalAddress(sender ?? REGISTERED_PEERS["Ethereum"]!),
+            refundAddress: toUniversalAddress(new Array(32).fill(3)),
             maxFee: maxFee ?? 42069n,
             initAuctionFee: initAuctionFee ?? 1_250_000n,
             deadline: deadline ?? 0,
@@ -891,15 +894,16 @@ describe("Jupiter V6 Testing", () => {
             const finalizedMessage = new LiquidityLayerMessage({
                 deposit: new LiquidityLayerDeposit(
                     {
-                        tokenAddress: burnMessage.burnTokenAddress,
+                        tokenAddress: toUniversalAddress(burnMessage.burnTokenAddress),
                         amount,
                         sourceCctpDomain,
                         destinationCctpDomain,
                         cctpNonce,
-                        burnSource: Array.from(Buffer.alloc(32, "beefdead", "hex")),
-                        mintRecipient: Array.from(
+                        burnSource: toUniversalAddress(Buffer.alloc(32, "beefdead", "hex")),
+                        mintRecipient: toUniversalAddress(
                             matchingEngine.cctpMintRecipientAddress().toBuffer(),
                         ),
+                        payload: new Uint8Array(),
                     },
                     {
                         slowOrderResponse,
