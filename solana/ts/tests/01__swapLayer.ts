@@ -27,10 +27,11 @@ import {
     expectIxOk,
     getUsdcAtaBalance,
     postLiquidityLayerVaa,
+    toUniversalAddress,
 } from "@wormhole-foundation/example-liquidity-layer-solana/testing";
 import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
 import { PreparedOrder } from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter/state";
-import { ChainId, toChainId } from "@wormhole-foundation/sdk-base";
+import { ChainId, toChain, toChainId } from "@wormhole-foundation/sdk-base";
 import { UniversalAddress } from "@wormhole-foundation/sdk-definitions";
 import { use as chaiUse, expect } from "chai";
 import {
@@ -2884,19 +2885,20 @@ async function createAndRedeemCctpFillForTest(
     const message = new LiquidityLayerMessage({
         deposit: new LiquidityLayerDeposit(
             {
-                tokenAddress: burnMessage.burnTokenAddress,
+                tokenAddress: toUniversalAddress(burnMessage.burnTokenAddress),
                 amount,
                 sourceCctpDomain,
                 destinationCctpDomain,
                 cctpNonce,
-                burnSource,
-                mintRecipient: encodedMintRecipient,
+                burnSource: toUniversalAddress(burnSource),
+                mintRecipient: toUniversalAddress(encodedMintRecipient),
+                payload: new Uint8Array(),
             },
             {
                 fill: {
-                    sourceChain: foreignChain as ChainId,
-                    orderSender,
-                    redeemer: Array.from(redeemer.toBuffer()),
+                    sourceChain: toChain(foreignChain),
+                    orderSender: toUniversalAddress(orderSender),
+                    redeemer: toUniversalAddress(redeemer.toBuffer()),
                     redeemerMessage: Buffer.from(redeemerMessage),
                 },
             },

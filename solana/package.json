@@ -23,6 +23,7 @@
         "@solana/spl-token": "^0.4.3",
         "@solana/web3.js": "^1.91.6",
         "@types/node-fetch": "^2.6.11",
+        "@wormhole-foundation/example-liquidity-layer-definitions": "file:../lib/example-liquidity-layer/wormhole-foundation-example-liquidity-layer-definitions-0.0.1.tgz",
         "@wormhole-foundation/example-liquidity-layer-solana": "file:../lib/example-liquidity-layer/wormhole-foundation-example-liquidity-layer-solana-0.0.1.tgz",
         "@wormhole-foundation/sdk-base": "^0.6.8",
         "@wormhole-foundation/sdk-definitions": "^0.6.8",
