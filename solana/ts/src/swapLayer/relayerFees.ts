@@ -1,4 +1,4 @@
-import { RelayParams } from ".";
+import { OutputToken, RelayParams } from ".";
 
 // Gas overheads for EVM.
 const EVM_GAS_OVERHEAD = 100_000n;
@@ -42,17 +42,28 @@ function compound(percentage: number, base: bigint): bigint {
     }
 }
 
-function calculateEvmSwapOverhead(swapType: DestinationSwapType, swapCount: number): bigint {
-    switch (swapType) {
-        case { none: {} }:
-            return 0n;
-        case { uniswapV3: {} }:
-            return UNISWAP_GAS_OVERHEAD + UNISWAP_GAS_PER_SWAP * BigInt(swapCount);
-        case { traderJoe: {} }:
-            return TRADERJOE_GAS_OVERHEAD + TRADERJOE_GAS_PER_SWAP * BigInt(swapCount);
-        default:
+function calculateEvmSwapOverhead(outputToken: OutputToken): bigint {
+    let overhead = 0n;
+    let costPerSwap = 0n;
+    let pathLen = 0n;
+
+    if (outputToken.type === "Usdc") {
+        return 0n;
+    } else {
+        if (outputToken.swap.type.id === "UniswapV3") {
+            overhead = UNISWAP_GAS_OVERHEAD;
+            costPerSwap = UNISWAP_GAS_PER_SWAP;
+            pathLen = BigInt(outputToken.swap.type.path.length) + 1n;
+        } else if (outputToken.swap.type.id === "TraderJoe") {
+            overhead = TRADERJOE_GAS_OVERHEAD;
+            costPerSwap = TRADERJOE_GAS_PER_SWAP;
+            pathLen = BigInt(outputToken.swap.type.path.length) + 1n;
+        } else {
             throw Error("Unsupported swap type");
+        }
     }
+
+    return overhead + pathLen * costPerSwap;
 }
 
 function calculateEvmGasCost(
@@ -78,8 +89,7 @@ function calculateGasDropoffCost(
 export function calculateRelayerFee(
     relayParams: RelayParams,
     denormGasDropOff: bigint,
-    swapType: DestinationSwapType,
-    swapCount: number,
+    outputToken: OutputToken,
 ) {
     if (relayParams.baseFee === U32_MAX) {
         throw Error("Relaying Disabled");
@@ -108,9 +118,7 @@ export function calculateRelayerFee(
             totalGas += DROPOFF_GAS_OVERHEAD;
         }
 
-        if (swapCount > 0) {
-            totalGas += calculateEvmSwapOverhead(swapType, swapCount);
-        }
+        totalGas += calculateEvmSwapOverhead(outputToken);
 
         relayerFee += calculateEvmGasCost(
             relayParams.executionParams.evm.gasPrice,
