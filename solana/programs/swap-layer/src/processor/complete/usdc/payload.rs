@@ -1,7 +1,7 @@
 use crate::{
     composite::*,
     error::SwapLayerError,
-    state::{StagedTransfer, StagedTransferInfo, StagedTransferSeeds},
+    state::{StagedInbound, StagedInboundInfo, StagedInboundSeeds},
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token;
@@ -34,23 +34,23 @@ pub struct CompleteTransferPayload<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = try_compute_staged_transfer_size(&consume_swap_layer_fill.read_message_unchecked())?,
+        space = try_compute_staged_inbound_size(&consume_swap_layer_fill.read_message_unchecked())?,
         seeds = [
-            StagedTransfer::SEED_PREFIX,
+            StagedInbound::SEED_PREFIX,
             consume_swap_layer_fill.prepared_fill_key().as_ref(),
         ],
         bump
     )]
-    staged_transfer: Account<'info, StagedTransfer>,
+    staged_inbound: Account<'info, StagedInbound>,
 
     #[account(
         init_if_needed,
         payer = payer,
         token::mint = usdc,
-        token::authority = staged_transfer,
+        token::authority = staged_inbound,
         seeds = [
             crate::STAGED_CUSTODY_TOKEN_SEED_PREFIX,
-            staged_transfer.key().as_ref(),
+            staged_inbound.key().as_ref(),
         ],
         bump,
     )]
@@ -63,10 +63,10 @@ pub struct CompleteTransferPayload<'info> {
 }
 
 pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Result<()> {
-    let staged_transfer = &mut ctx.accounts.staged_transfer;
+    let staged_inbound = &mut ctx.accounts.staged_inbound;
 
     // Set the staged transfer if it hasn't been set yet.
-    if staged_transfer.staged_by == Pubkey::default() {
+    if staged_inbound.staged_by == Pubkey::default() {
         // Consume the prepared fill, and send the tokens to the staged custody account.
         ctx.accounts.consume_swap_layer_fill.consume_prepared_fill(
             ctx.accounts.staged_custody_token.to_account_info(),
@@ -78,12 +78,12 @@ pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Resul
             .consume_swap_layer_fill
             .read_message_unchecked();
 
-        staged_transfer.set_inner(StagedTransfer {
-            seeds: StagedTransferSeeds {
+        staged_inbound.set_inner(StagedInbound {
+            seeds: StagedInboundSeeds {
                 prepared_fill: ctx.accounts.consume_swap_layer_fill.prepared_fill_key(),
-                bump: ctx.bumps.staged_transfer,
+                bump: ctx.bumps.staged_inbound,
             },
-            info: StagedTransferInfo {
+            info: StagedInboundInfo {
                 staged_custody_token_bump: ctx.bumps.staged_custody_token,
                 staged_by: ctx.accounts.payer.key(),
                 source_chain: ctx.accounts.consume_swap_layer_fill.fill.source_chain,
@@ -97,12 +97,12 @@ pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Resul
     Ok(())
 }
 
-fn try_compute_staged_transfer_size(swap_msg: &SwapMessageV1) -> Result<usize> {
+fn try_compute_staged_inbound_size(swap_msg: &SwapMessageV1) -> Result<usize> {
     // Match on Payload redeem type.
     match &swap_msg.redeem_mode {
         RedeemMode::Payload(payload) => {
             let payload_size = payload.len();
-            StagedTransfer::checked_compute_size(payload_size)
+            StagedInbound::checked_compute_size(payload_size)
                 .ok_or(error!(SwapLayerError::PayloadTooLarge))
         }
         _ => Err(SwapLayerError::InvalidRedeemMode.into()),
