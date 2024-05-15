@@ -1,11 +1,11 @@
 import { PublicKey } from "@solana/web3.js";
 
-export type StagedTransferSeeds = {
+export type StagedInboundSeeds = {
     preparedFill: PublicKey;
     bump: number;
 };
 
-export type StagedTransferInfo = {
+export type StagedInboundInfo = {
     stagedCustodyTokenBump: number;
     stagedBy: PublicKey;
     sourceChain: number;
@@ -13,12 +13,12 @@ export type StagedTransferInfo = {
     isNative: boolean;
 };
 
-export class StagedTransfer {
-    seeds: StagedTransferSeeds;
-    info: StagedTransferInfo;
+export class StagedInbound {
+    seeds: StagedInboundSeeds;
+    info: StagedInboundInfo;
     recipientPayload: Buffer;
 
-    constructor(seeds: StagedTransferSeeds, info: StagedTransferInfo, recipientPayload: Buffer) {
+    constructor(seeds: StagedInboundSeeds, info: StagedInboundInfo, recipientPayload: Buffer) {
         this.seeds = seeds;
         this.info = info;
         this.recipientPayload = recipientPayload;
@@ -26,7 +26,7 @@ export class StagedTransfer {
 
     static address(programId: PublicKey, preparedFill: PublicKey) {
         return PublicKey.findProgramAddressSync(
-            [Buffer.from("staged"), preparedFill.toBuffer()],
+            [Buffer.from("staged-inbound"), preparedFill.toBuffer()],
             programId,
         )[0];
     }

@@ -9,7 +9,7 @@ import { Connection, PublicKey, SystemProgram, TransactionInstruction } from "@s
 import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
 import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
-import { Custodian, Peer, RelayParams, StagedTransfer } from "./state";
+import { Custodian, Peer, RelayParams, StagedInbound } from "./state";
 
 export const PROGRAM_IDS = ["SwapLayer1111111111111111111111111111111111"] as const;
 
@@ -196,19 +196,19 @@ export class SwapLayerProgram {
         };
     }
 
-    stagedTransferAddress(preparedFill: PublicKey) {
-        return StagedTransfer.address(this.ID, preparedFill);
+    stagedInboundAddress(preparedFill: PublicKey) {
+        return StagedInbound.address(this.ID, preparedFill);
     }
 
-    stagedTransferTokenAddress(stagedTransfer: PublicKey): PublicKey {
+    stagedInboundTokenAddress(StagedInbound: PublicKey): PublicKey {
         return PublicKey.findProgramAddressSync(
-            [Buffer.from("staged-custody"), stagedTransfer.toBuffer()],
+            [Buffer.from("staged-custody"), StagedInbound.toBuffer()],
             this.ID,
         )[0];
     }
 
-    async fetchStagedTransfer(addr: PublicKey): Promise<StagedTransfer> {
-        return this.program.account.stagedTransfer.fetch(addr);
+    async fetchStagedInbound(addr: PublicKey): Promise<StagedInbound> {
+        return this.program.account.stagedInbound.fetch(addr);
     }
 
     async fetchCustodian(input?: { address: PublicKey }): Promise<Custodian> {
@@ -543,8 +543,8 @@ export class SwapLayerProgram {
 
         beneficiary ??= payer;
 
-        const stagedTransfer = this.stagedTransferAddress(preparedFill);
-        const stagedCustodyToken = this.stagedTransferTokenAddress(stagedTransfer);
+        const stagedInbound = this.stagedInboundAddress(preparedFill);
+        const stagedCustodyToken = this.stagedInboundTokenAddress(stagedInbound);
 
         return this.program.methods
             .completeTransferPayload()
@@ -558,7 +558,7 @@ export class SwapLayerProgram {
                     },
                     { sourceChain },
                 ),
-                stagedTransfer,
+                stagedInbound,
                 stagedCustodyToken,
                 usdc: this.usdcComposite(this.mint),
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
@@ -567,22 +567,22 @@ export class SwapLayerProgram {
             .instruction();
     }
 
-    async consumeStagedTransferIx(accounts: {
-        stagedTransfer: PublicKey;
+    async releaseInboundIx(accounts: {
+        stagedInbound: PublicKey;
         recipient: PublicKey;
         dstToken: PublicKey;
         beneficiary: PublicKey;
     }): Promise<TransactionInstruction> {
-        const { stagedTransfer, recipient, dstToken, beneficiary } = accounts;
+        const { stagedInbound, recipient, dstToken, beneficiary } = accounts;
 
         return this.program.methods
-            .consumeStagedTransfer()
+            .releaseInbound()
             .accounts({
                 recipient,
                 beneficiary,
-                stagedTransfer,
+                stagedInbound,
                 dstToken,
-                stagedCustodyToken: this.stagedTransferTokenAddress(stagedTransfer),
+                stagedCustodyToken: this.stagedInboundTokenAddress(stagedInbound),
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
             })
             .instruction();

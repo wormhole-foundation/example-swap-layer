@@ -1,12 +1,12 @@
-use crate::state::StagedTransfer;
+use crate::state::StagedInbound;
 use anchor_lang::prelude::*;
 use anchor_spl::token;
 
-/// Accounts required for [consume_prepared_fill].
+/// Accounts required for [consume_inbound].
 #[derive(Accounts)]
-pub struct ConsumeStagedTransfer<'info> {
+pub struct ReleaseInbound<'info> {
     /// This signer must be the same one encoded in the staged transfer.
-    #[account(address = staged_transfer.recipient)]
+    #[account(address = staged_inbound.recipient)]
     recipient: Signer<'info>,
 
     /// CHECK: This recipient may not necessarily be the same one encoded in the staged transfer (as
@@ -20,7 +20,7 @@ pub struct ConsumeStagedTransfer<'info> {
         mut,
         close = beneficiary,
     )]
-    staged_transfer: Account<'info, StagedTransfer>,
+    staged_inbound: Account<'info, StagedInbound>,
 
     /// Destination token account, which the redeemer may not own. But because the redeemer is a
     /// signer and is the one encoded in the Deposit Fill message, he may have the tokens be sent
@@ -37,22 +37,22 @@ pub struct ConsumeStagedTransfer<'info> {
         mut,
         seeds = [
             crate::STAGED_CUSTODY_TOKEN_SEED_PREFIX,
-            staged_transfer.key().as_ref(),
+            staged_inbound.key().as_ref(),
         ],
-        bump = staged_transfer.staged_custody_token_bump,
+        bump = staged_inbound.staged_custody_token_bump,
     )]
     staged_custody_token: Account<'info, token::TokenAccount>,
 
     token_program: Program<'info, token::Token>,
 }
 
-pub fn consume_staged_transfer(ctx: Context<ConsumeStagedTransfer>) -> Result<()> {
-    let staged_transfer = &ctx.accounts.staged_transfer;
+pub fn release_inbound(ctx: Context<ReleaseInbound>) -> Result<()> {
+    let staged_inbound = &ctx.accounts.staged_inbound;
 
-    let staged_transfer_signer_seeds = &[
-        StagedTransfer::SEED_PREFIX,
-        staged_transfer.seeds.prepared_fill.as_ref(),
-        &[staged_transfer.seeds.bump],
+    let staged_inbound_signer_seeds = &[
+        StagedInbound::SEED_PREFIX,
+        staged_inbound.seeds.prepared_fill.as_ref(),
+        &[staged_inbound.seeds.bump],
     ];
 
     let custody_token = &ctx.accounts.staged_custody_token;
@@ -64,9 +64,9 @@ pub fn consume_staged_transfer(ctx: Context<ConsumeStagedTransfer>) -> Result<()
             token::Transfer {
                 from: custody_token.to_account_info(),
                 to: ctx.accounts.dst_token.to_account_info(),
-                authority: staged_transfer.to_account_info(),
+                authority: staged_inbound.to_account_info(),
             },
-            &[staged_transfer_signer_seeds],
+            &[staged_inbound_signer_seeds],
         ),
         custody_token.amount,
     )?;
@@ -77,8 +77,8 @@ pub fn consume_staged_transfer(ctx: Context<ConsumeStagedTransfer>) -> Result<()
         token::CloseAccount {
             account: custody_token.to_account_info(),
             destination: ctx.accounts.beneficiary.to_account_info(),
-            authority: staged_transfer.to_account_info(),
+            authority: staged_inbound.to_account_info(),
         },
-        &[staged_transfer_signer_seeds],
+        &[staged_inbound_signer_seeds],
     ))
 }
