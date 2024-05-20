@@ -892,23 +892,18 @@ describe("Jupiter V6 Testing", () => {
                 await craftCctpTokenBurnMessage(sourceCctpDomain, cctpNonce, amount);
 
             const finalizedMessage = new LiquidityLayerMessage({
-                deposit: new LiquidityLayerDeposit(
-                    {
-                        tokenAddress: toUniversalAddress(burnMessage.burnTokenAddress),
-                        amount,
-                        sourceCctpDomain,
-                        destinationCctpDomain,
-                        cctpNonce,
-                        burnSource: toUniversalAddress(Buffer.alloc(32, "beefdead", "hex")),
-                        mintRecipient: toUniversalAddress(
-                            matchingEngine.cctpMintRecipientAddress().toBuffer(),
-                        ),
-                        payload: new Uint8Array(),
-                    },
-                    {
-                        slowOrderResponse,
-                    },
-                ),
+                deposit: new LiquidityLayerDeposit({
+                    tokenAddress: toUniversalAddress(burnMessage.burnTokenAddress),
+                    amount,
+                    sourceCctpDomain,
+                    destinationCctpDomain,
+                    cctpNonce,
+                    burnSource: toUniversalAddress(Buffer.alloc(32, "beefdead", "hex")),
+                    mintRecipient: toUniversalAddress(
+                        matchingEngine.cctpMintRecipientAddress().toBuffer(),
+                    ),
+                    payload: { id: 2, ...slowOrderResponse },
+                }),
             });
 
             const finalizedVaa = await postLiquidityLayerVaa(
