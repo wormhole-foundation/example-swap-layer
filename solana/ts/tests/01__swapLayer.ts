@@ -2086,7 +2086,7 @@ describe("Swap Layer", () => {
                     const feeRecipientAfter = await getUsdcAtaBalance(connection, feeRecipient);
 
                     expect(recipientAfter).to.equal(
-                        recipientBefore + message.deposit!.header.amount,
+                        recipientBefore + message.deposit!.message.amount,
                     );
                     expect(payerLamportAfter).to.be.lessThan(payerLamportBefore);
                     expect(feeRecipientAfter).to.equal(feeRecipientBefore);
@@ -2153,7 +2153,7 @@ describe("Swap Layer", () => {
                     const feeRecipientAfter = await getUsdcAtaBalance(connection, feeRecipient);
 
                     expect(recipientAfter - recipientBefore).to.equal(
-                        message.deposit!.header.amount - relayerFee,
+                        message.deposit!.message.amount - relayerFee,
                     );
                     expect(recipientLamportAfter - recipientLamportBefore).to.equal(
                         Number(gasAmountDenorm),
@@ -2225,7 +2225,7 @@ describe("Swap Layer", () => {
                     const feeRecipientAfter = await getUsdcAtaBalance(connection, feeRecipient);
 
                     expect(recipientAfter - recipientBefore).to.equal(
-                        message.deposit!.header.amount - relayerFee,
+                        message.deposit!.message.amount - relayerFee,
                     );
                     expect(recipientLamportAfter - recipientLamportBefore).to.equal(
                         Number(gasAmount),
@@ -2565,7 +2565,7 @@ describe("Swap Layer", () => {
                     const beneficiaryAfter = await connection.getBalance(beneficiary.publicKey);
 
                     expect(recipientAfter).to.equal(
-                        recipientBefore + message.deposit!.header.amount,
+                        recipientBefore + message.deposit!.message.amount,
                     );
                     expect(beneficiaryAfter).to.be.greaterThan(beneficiaryBefore);
                 });
@@ -2613,7 +2613,7 @@ describe("Swap Layer", () => {
                     const beneficiaryAfter = await connection.getBalance(beneficiary.publicKey);
 
                     expect(recipientAfter).to.equal(
-                        recipientBefore + message.deposit!.header.amount,
+                        recipientBefore + message.deposit!.message.amount,
                     );
                     expect(beneficiaryAfter).to.be.greaterThan(beneficiaryBefore);
                 });
@@ -2756,7 +2756,7 @@ describe("Swap Layer", () => {
                         connection,
                         stagedInboundTokenAddress,
                     );
-                    expect(balanceAfter).to.equal(message.deposit!.header.amount);
+                    expect(balanceAfter).to.equal(message.deposit!.message.amount);
 
                     // State check.
                     const stagedInboundData = await swapLayer.fetchStagedInbound(stagedInbound);
@@ -2883,26 +2883,22 @@ async function createAndRedeemCctpFillForTest(
         );
 
     const message = new LiquidityLayerMessage({
-        deposit: new LiquidityLayerDeposit(
-            {
-                tokenAddress: toUniversalAddress(burnMessage.burnTokenAddress),
-                amount,
-                sourceCctpDomain,
-                destinationCctpDomain,
-                cctpNonce,
-                burnSource: toUniversalAddress(burnSource),
-                mintRecipient: toUniversalAddress(encodedMintRecipient),
-                payload: new Uint8Array(),
+        deposit: new LiquidityLayerDeposit({
+            tokenAddress: toUniversalAddress(burnMessage.burnTokenAddress),
+            amount,
+            sourceCctpDomain,
+            destinationCctpDomain,
+            cctpNonce,
+            burnSource: toUniversalAddress(burnSource),
+            mintRecipient: toUniversalAddress(encodedMintRecipient),
+            payload: {
+                id: 1,
+                sourceChain: toChain(foreignChain),
+                orderSender: toUniversalAddress(orderSender),
+                redeemer: toUniversalAddress(redeemer.toBuffer()),
+                redeemerMessage: Buffer.from(redeemerMessage),
             },
-            {
-                fill: {
-                    sourceChain: toChain(foreignChain),
-                    orderSender: toUniversalAddress(orderSender),
-                    redeemer: toUniversalAddress(redeemer.toBuffer()),
-                    redeemerMessage: Buffer.from(redeemerMessage),
-                },
-            },
-        ),
+        }),
     });
 
     const vaa = await postLiquidityLayerVaa(
