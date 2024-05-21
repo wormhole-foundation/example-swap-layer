@@ -12,7 +12,7 @@ import {
     uint64ToBigInt,
 } from "@wormhole-foundation/example-liquidity-layer-solana/common";
 import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
-import { ChainId } from "@wormhole-foundation/sdk-base";
+import { ChainId, toChain } from "@wormhole-foundation/sdk-base";
 import { keccak256 } from "@wormhole-foundation/sdk-definitions";
 import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
@@ -216,6 +216,12 @@ export class SwapLayerProgram {
         return StagedInbound.address(this.ID, preparedFill);
     }
 
+    preparedOrderAddress(stagedOutbound: PublicKey) {
+        return PublicKey.findProgramAddressSync(
+            [Buffer.from("prepared-order"), stagedOutbound.toBuffer()],
+            this.ID,
+        )[0];
+    }
     async fetchStagedInbound(addr: PublicKey): Promise<StagedInbound> {
         return this.program.account.stagedInbound.fetch(addr);
     }
@@ -569,30 +575,56 @@ export class SwapLayerProgram {
     async initiateTransferIx(
         accounts: {
             payer: PublicKey;
-            preparedOrder: PublicKey; // Just generate a keypair
-            payerToken?: PublicKey;
-            peer?: PublicKey;
+            stagedOutbound: PublicKey;
+            preparedOrder?: PublicKey;
+            usdcRefundToken?: PublicKey;
+            stagedCustodyToken?: PublicKey;
+            preparedBy?: PublicKey;
         },
-        args: InitiateTransferArgs,
+        opts: {
+            targetChain?: ChainId;
+        } = {},
     ) {
-        let { payer, preparedOrder, payerToken, peer } = accounts;
+        let {
+            payer,
+            preparedOrder,
+            usdcRefundToken,
+            stagedOutbound,
+            stagedCustodyToken,
+            preparedBy,
+        } = accounts;
 
-        payerToken ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, payer);
-        peer ??= this.peerAddress(args.targetChain as wormholeSdk.ChainId);
+        let { targetChain } = opts;
+        if (
+            targetChain === undefined ||
+            usdcRefundToken === undefined ||
+            preparedBy === undefined
+        ) {
+            const { info } = await this.fetchStagedOutbound(stagedOutbound);
+            targetChain ??= info.targetChain as ChainId;
+            usdcRefundToken ??= info.usdcRefundToken;
+            preparedBy ??= info.preparedBy;
+        }
 
-        const tokenRouter = this.tokenRouterProgram();
+        preparedOrder ??= this.preparedOrderAddress(stagedOutbound);
+        stagedCustodyToken ??= this.stagedCustodyTokenAddress(stagedOutbound);
 
         return this.program.methods
-            .initiateTransfer(args)
+            .initiateTransfer()
             .accounts({
                 payer,
-                payerToken,
-                usdc: this.usdcComposite(),
-                peer,
-                tokenRouterCustodian: tokenRouter.custodianAddress(),
+                custodian: this.checkedCustodianComposite(),
+                preparedBy,
+                stagedOutbound,
+                stagedCustodyToken,
+                usdcRefundToken,
+                targetPeer: this.registeredPeerComposite({ chain: targetChain }),
+                tokenRouterCustodian: this.tokenRouterProgram().custodianAddress(),
                 preparedOrder,
-                preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(preparedOrder),
-                tokenRouterProgram: tokenRouter.ID,
+                preparedCustodyToken:
+                    this.tokenRouterProgram().preparedCustodyTokenAddress(preparedOrder),
+                usdc: this.usdcComposite(),
+                tokenRouterProgram: this.tokenRouterProgram().ID,
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
                 systemProgram: SystemProgram.programId,
             })

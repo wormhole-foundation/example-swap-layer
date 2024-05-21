@@ -12,7 +12,7 @@ use swap_layer_messages::{
 };
 
 #[derive(Accounts)]
-pub struct InitiateTransferNew<'info> {
+pub struct InitiateTransfer<'info> {
     #[account(mut)]
     payer: Signer<'info>,
 
@@ -90,7 +90,7 @@ pub struct InitiateTransferNew<'info> {
     system_program: Program<'info, System>,
 }
 
-pub fn initiate_transfer_new(ctx: Context<InitiateTransferNew>) -> Result<()> {
+pub fn initiate_transfer(ctx: Context<InitiateTransfer>) -> Result<()> {
     // We perform this operation first so we can have an immutable reference to the staged outbound
     // account.
     let staged_redeem = std::mem::take(&mut ctx.accounts.staged_outbound.staged_redeem);
@@ -169,7 +169,14 @@ pub fn initiate_transfer_new(ctx: Context<InitiateTransferNew>) -> Result<()> {
                 token_program: token_program.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),
             },
-            &[Custodian::SIGNER_SEEDS],
+            &[
+                Custodian::SIGNER_SEEDS,
+                &[
+                    crate::PREPARED_ORDER_SEED_PREFIX,
+                    staged_outbound.key().as_ref(),
+                    &[ctx.bumps.prepared_order],
+                ],
+            ],
         ),
         token_router::PrepareMarketOrderArgs {
             amount_in: custody_token.amount,
