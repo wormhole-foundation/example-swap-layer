@@ -36,16 +36,18 @@ abstract contract SwapLayerUniswapV3R is SwapLayerBase {
     bool approveCheck,
     bytes memory path
   ) internal override returns (uint /*inOutAmount*/) {
-    if ( approveCheck &&
-         inputToken.allowance(address(this), _uniswapRouter) < inputAmount)
+    if (approveCheck && inputToken.allowance(address(this), _uniswapRouter) < inputAmount)
       _maxApprove(inputToken, _uniswapRouter);
 
     SwapParams memory swapParams =
       SwapParams(path, address(this), block.timestamp, inputAmount, outputAmount);
 
-    bytes memory funcCall = isExactIn
-      ? abi.encodeCall(IUniswapV3SwapRouter.exactInput, (swapParams))
-      : abi.encodeCall(IUniswapV3SwapRouter.exactOutput, (swapParams));
+    bytes memory funcCall = abi.encodeWithSelector(
+      isExactIn
+      ? IUniswapV3SwapRouter.exactInput.selector
+      : IUniswapV3SwapRouter.exactOutput.selector,
+      (swapParams)
+    );
 
     (bool success, bytes memory result) = _uniswapRouter.call(funcCall);
     if (!success) {
