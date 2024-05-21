@@ -12,11 +12,11 @@ pub struct UpdatePeer<'info> {
             Peer::SEED_PREFIX,
             &args.chain.to_be_bytes()
         ],
-        bump,
+        bump = peer.seeds.bump,
     )]
     peer: Account<'info, Peer>,
 }
 
 pub fn update_peer(ctx: Context<UpdatePeer>, args: crate::AddPeerArgs) -> Result<()> {
-    crate::handle_add_peer(&mut ctx.accounts.peer, args)
+    crate::handle_add_peer(&mut ctx.accounts.peer, args, None)
 }

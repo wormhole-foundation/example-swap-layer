@@ -1,13 +1,13 @@
-use crate::utils::gas_dropoff::denormalize_gas_dropoff;
-use crate::utils::relayer_fees::calculate_relayer_fee;
-use crate::{composite::*, error::SwapLayerError, state::Peer};
-use anchor_lang::prelude::borsh::BorshDeserialize;
+use crate::{
+    composite::*, error::SwapLayerError, state::Peer, utils::relayer_fees::calculate_relayer_fee,
+};
 use anchor_lang::prelude::*;
 use anchor_spl::token;
-use common::wormhole_io::Readable;
-use common::wormhole_io::TypePrefixedPayload;
-use swap_layer_messages::messages::SwapMessageV1;
-use swap_layer_messages::types::{OutputToken, RedeemMode, Uint48};
+use common::wormhole_io::{Readable, TypePrefixedPayload};
+use swap_layer_messages::{
+    messages::SwapMessageV1,
+    types::{OutputToken, RedeemMode, Uint48},
+};
 
 #[derive(Accounts)]
 #[instruction(args: InitiateTransferArgs)]
@@ -101,7 +101,7 @@ pub fn initiate_transfer(ctx: Context<InitiateTransfer>, args: InitiateTransferA
         // Relaying fee must be less than the user-specific maximum.
         let relaying_fee = calculate_relayer_fee(
             &ctx.accounts.peer.relay_params,
-            denormalize_gas_dropoff(relay_options.gas_dropoff),
+            relay_options.gas_dropoff,
             &output_token,
         )?;
         require!(
