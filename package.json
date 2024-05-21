@@ -9,9 +9,6 @@
     "generate": "npm run generate --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   },
-  "dependencies": {
-    "@wormhole-foundation/sdk": "^0.7.0-beta.3"
-  },
   "devDependencies": {
     "typescript": "5.4.5",
     "@types/chai": "^4.3.5",
