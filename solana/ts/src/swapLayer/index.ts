@@ -12,7 +12,7 @@ import {
     uint64ToBigInt,
 } from "@wormhole-foundation/example-liquidity-layer-solana/common";
 import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
-import { ChainId } from "@wormhole-foundation/sdk-base";
+import { ChainId, toChain } from "@wormhole-foundation/sdk-base";
 import { keccak256 } from "@wormhole-foundation/sdk-definitions";
 import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
@@ -569,30 +569,37 @@ export class SwapLayerProgram {
     async initiateTransferIx(
         accounts: {
             payer: PublicKey;
-            preparedOrder: PublicKey; // Just generate a keypair
-            payerToken?: PublicKey;
-            peer?: PublicKey;
+            preparedOrder: PublicKey;
+            stagedOutbound: PublicKey;
+            refundToken?: PublicKey;
+            stagedCustodyToken?: PublicKey;
+            preparedBy?: PublicKey;
         },
-        args: InitiateTransferArgs,
+        targetChain: ChainId,
     ) {
-        let { payer, preparedOrder, payerToken, peer } = accounts;
+        let { payer, preparedOrder, refundToken, stagedOutbound, stagedCustodyToken, preparedBy } =
+            accounts;
 
-        payerToken ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, payer);
-        peer ??= this.peerAddress(args.targetChain as wormholeSdk.ChainId);
-
-        const tokenRouter = this.tokenRouterProgram();
+        refundToken ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, payer);
+        stagedCustodyToken ??= this.stagedCustodyTokenAddress(stagedOutbound);
+        preparedBy ??= payer;
 
         return this.program.methods
-            .initiateTransfer(args)
+            .initiateTransfer()
             .accounts({
                 payer,
-                payerToken,
-                usdc: this.usdcComposite(),
-                peer,
-                tokenRouterCustodian: tokenRouter.custodianAddress(),
+                custodian: this.checkedCustodianComposite(),
+                preparedBy,
+                stagedOutbound,
+                stagedCustodyToken,
+                usdcRefundToken: refundToken,
+                targetPeer: this.registeredPeerComposite({ chain: targetChain }),
+                tokenRouterCustodian: this.tokenRouterProgram().custodianAddress(),
                 preparedOrder,
-                preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(preparedOrder),
-                tokenRouterProgram: tokenRouter.ID,
+                preparedCustodyToken:
+                    this.tokenRouterProgram().preparedCustodyTokenAddress(preparedOrder),
+                usdc: this.usdcComposite(),
+                tokenRouterProgram: this.tokenRouterProgram().ID,
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
                 systemProgram: SystemProgram.programId,
             })
