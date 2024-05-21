@@ -124,15 +124,8 @@ pub mod swap_layer {
         processor::stage_outbound(ctx, args)
     }
 
-    pub fn initiate_transfer(
-        ctx: Context<InitiateTransfer>,
-        args: InitiateTransferArgs,
-    ) -> Result<()> {
-        processor::initiate_transfer(ctx, args)
-    }
-
-    pub fn initiate_transfer_new(ctx: Context<InitiateTransferNew>) -> Result<()> {
-        processor::initiate_transfer_new(ctx)
+    pub fn initiate_transfer(ctx: Context<InitiateTransfer>) -> Result<()> {
+        processor::initiate_transfer(ctx)
     }
 
     pub fn initiate_swap_exact_in<'a, 'b, 'c, 'info>(
