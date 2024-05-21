@@ -25,4 +25,11 @@ impl From<[u8; 8]> for AnchorSelector {
 
 pub trait AnchorInstructionData: AnchorDeserialize {
     fn require_selector(data: &mut &[u8]) -> Result<()>;
+
+    fn deserialize_checked(data: &[u8]) -> Result<Self> {
+        let mut data = data;
+        Self::require_selector(&mut data)?;
+
+        AnchorDeserialize::deserialize(&mut data).map_err(Into::into)
+    }
 }

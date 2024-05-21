@@ -83,7 +83,7 @@ describe("Jupiter V6 Testing", () => {
 
     describe("Jupiter V6 Setup", function () {
         before("Generate ATAs", async function () {
-            for (const mint of [swapLayer.mint, USDT_MINT_ADDRESS, splToken.NATIVE_MINT]) {
+            for (const mint of [swapLayer.usdcMint, USDT_MINT_ADDRESS, splToken.NATIVE_MINT]) {
                 for (let i = 0; i < 8; ++i) {
                     const authority = jupiterV6.programAuthorityAddress(i);
 
