@@ -15,8 +15,13 @@ declare_id!("SwapLayer1111111111111111111111111111111111");
 
 const CUSTODIAN_BUMP: u8 = 254;
 const COMPLETE_TOKEN_SEED_PREFIX: &[u8] = b"complete";
+
 const SWAP_AUTHORITY_SEED_PREFIX: &[u8] = b"swap-authority";
+const TRANSFER_AUTHORITY_SEED_PREFIX: &[u8] = b"transfer-authority";
+
+const PREPARED_ORDER_SEED_PREFIX: &[u8] = b"prepared-order";
 const STAGED_CUSTODY_TOKEN_SEED_PREFIX: &[u8] = b"staged-custody";
+
 const MAX_BPS: u32 = 1_000_000; // 10,000.00 bps (100%)
 
 #[program]
@@ -115,6 +120,10 @@ pub mod swap_layer {
         processor::release_inbound(ctx)
     }
 
+    pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> Result<()> {
+        processor::stage_outbound(ctx, args)
+    }
+
     pub fn initiate_transfer(
         ctx: Context<InitiateTransfer>,
         args: InitiateTransferArgs,
@@ -122,13 +131,27 @@ pub mod swap_layer {
         processor::initiate_transfer(ctx, args)
     }
 
-    pub fn complete_swap_direct<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, CompleteSwapDirect<'info>>,
-        ix_data: Vec<u8>,
+    pub fn initiate_transfer_new(ctx: Context<InitiateTransferNew>) -> Result<()> {
+        processor::initiate_transfer_new(ctx)
+    }
+
+    pub fn initiate_swap_exact_in<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, InitiateSwapExactIn<'info>>,
+        instruction_data: Vec<u8>,
     ) -> Result<()>
     where
         'c: 'info,
     {
-        processor::complete_swap_direct(ctx, ix_data)
+        processor::initiate_swap_exact_in(ctx, instruction_data)
+    }
+
+    pub fn complete_swap_direct<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, CompleteSwapDirect<'info>>,
+        instruction_data: Vec<u8>,
+    ) -> Result<()>
+    where
+        'c: 'info,
+    {
+        processor::complete_swap_direct(ctx, instruction_data)
     }
 }

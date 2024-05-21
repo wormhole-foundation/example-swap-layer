@@ -6,10 +6,18 @@ import * as wormholeSdk from "@certusone/wormhole-sdk";
 import { BN, Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import { Connection, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
+import {
+    Uint64,
+    uint64ToBN,
+    uint64ToBigInt,
+} from "@wormhole-foundation/example-liquidity-layer-solana/common";
 import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
+import { ChainId } from "@wormhole-foundation/sdk-base";
+import { keccak256 } from "@wormhole-foundation/sdk-definitions";
 import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
-import { Custodian, Peer, RelayParams, StagedInbound } from "./state";
+import { OutputToken, encodeOutputToken } from "./messages";
+import { Custodian, Peer, RedeemOption, RelayParams, StagedInbound, StagedOutbound } from "./state";
 
 export const PROGRAM_IDS = ["SwapLayer1111111111111111111111111111111111"] as const;
 
@@ -48,7 +56,7 @@ type RegisteredPeerComposite = { peer: PublicKey };
 
 export class SwapLayerProgram {
     private _programId: ProgramId;
-    private _mint: PublicKey;
+    private _usdcMint: PublicKey;
 
     program: Program<SwapLayer>;
 
@@ -56,19 +64,23 @@ export class SwapLayerProgram {
         return this.program.programId;
     }
 
-    get mint(): PublicKey {
-        return this._mint;
+    get usdcMint(): PublicKey {
+        return this._usdcMint;
     }
 
-    constructor(connection: Connection, programId: ProgramId, mint: PublicKey) {
+    constructor(connection: Connection, programId: ProgramId, usdcMint: PublicKey) {
         this._programId = programId;
-        this._mint = mint;
+        this._usdcMint = usdcMint;
         this.program = new Program(
             { ...(IDL as any), address: this._programId },
             {
                 connection,
             },
         );
+    }
+
+    connection(): Connection {
+        return this.program.provider.connection;
     }
 
     custodianAddress(): PublicKey {
@@ -81,7 +93,7 @@ export class SwapLayerProgram {
 
     usdcComposite(mint?: PublicKey): { mint: PublicKey } {
         return {
-            mint: mint ?? this.mint,
+            mint: mint ?? this._usdcMint,
         };
     }
 
@@ -131,8 +143,12 @@ export class SwapLayerProgram {
         return { feeUpdater, custodian: this.checkedCustodianComposite(custodian) };
     }
 
-    registeredPeerComposite(chain: wormholeSdk.ChainId): RegisteredPeerComposite {
-        return { peer: this.peerAddress(chain) };
+    registeredPeerComposite(opts: { peer?: PublicKey; chain?: ChainId }): RegisteredPeerComposite {
+        const { peer, chain } = opts;
+        if (peer === undefined && chain === undefined) {
+            throw new Error("peer or chain must be provided");
+        }
+        return { peer: peer ?? this.peerAddress(chain) };
     }
 
     async consumeSwapLayerFillComposite(
@@ -200,15 +216,20 @@ export class SwapLayerProgram {
         return StagedInbound.address(this.ID, preparedFill);
     }
 
-    stagedInboundTokenAddress(StagedInbound: PublicKey): PublicKey {
-        return PublicKey.findProgramAddressSync(
-            [Buffer.from("staged-custody"), StagedInbound.toBuffer()],
-            this.ID,
-        )[0];
-    }
-
     async fetchStagedInbound(addr: PublicKey): Promise<StagedInbound> {
         return this.program.account.stagedInbound.fetch(addr);
+    }
+
+    async fetchStagedOutbound(addr: PublicKey): Promise<StagedOutbound> {
+        // @ts-ignore: This works.
+        return this.program.account.stagedOutbound.fetch(addr);
+    }
+
+    stagedCustodyTokenAddress(stagedAccount: PublicKey): PublicKey {
+        return PublicKey.findProgramAddressSync(
+            [Buffer.from("staged-custody"), stagedAccount.toBuffer()],
+            this.ID,
+        )[0];
     }
 
     async fetchCustodian(input?: { address: PublicKey }): Promise<Custodian> {
@@ -240,9 +261,12 @@ export class SwapLayerProgram {
                 custodian: this.custodianAddress(),
                 ownerAssistant,
                 feeRecipient,
-                feeRecipientToken: splToken.getAssociatedTokenAddressSync(this.mint, feeRecipient),
+                feeRecipientToken: splToken.getAssociatedTokenAddressSync(
+                    this.usdcMint,
+                    feeRecipient,
+                ),
                 feeUpdater,
-                usdc: this.usdcComposite(this.mint),
+                usdc: this.usdcComposite(),
                 systemProgram: SystemProgram.programId,
             })
             .instruction();
@@ -401,11 +425,145 @@ export class SwapLayerProgram {
                 admin: this.adminMutComposite(ownerOrAssistant, custodian),
                 newFeeRecipient,
                 newFeeRecipientToken: splToken.getAssociatedTokenAddressSync(
-                    this.mint,
+                    this.usdcMint,
                     newFeeRecipient,
                 ),
             })
             .instruction();
+    }
+
+    async stageOutboundIx(
+        accounts: {
+            payer: PublicKey;
+            stagedOutbound: PublicKey;
+            usdcRefundToken: PublicKey;
+            sender?: PublicKey | null;
+            senderToken?: PublicKey | null;
+            programTransferAuthority?: PublicKey | null;
+            srcMint?: PublicKey;
+            peer?: PublicKey;
+        },
+        args: {
+            transferType: "native" | "programTransferAuthority" | "sender";
+            amountIn: Uint64;
+            targetChain: ChainId;
+            recipient: Array<number>;
+            redeemOption:
+                | { relay: { gasDropoff: number; maxRelayerFee: Uint64 } }
+                | { payload: Uint8Array | Buffer }
+                | null;
+            outputToken: OutputToken | null;
+        },
+    ): Promise<[approveIx: TransactionInstruction | null, stageIx: TransactionInstruction]> {
+        const { payer, stagedOutbound, usdcRefundToken, peer } = accounts;
+        const { transferType, amountIn, redeemOption: inputRedeemOption, outputToken } = args;
+
+        let { sender, senderToken, programTransferAuthority, srcMint } = accounts;
+        srcMint ??= transferType === "native" ? splToken.NATIVE_MINT : this.usdcMint;
+
+        const redeemOption = ((): RedeemOption | null => {
+            if (inputRedeemOption === null) {
+                return null;
+            } else if ("relay" in inputRedeemOption) {
+                const { gasDropoff, maxRelayerFee } = inputRedeemOption.relay;
+                return {
+                    relay: {
+                        gasDropoff,
+                        maxRelayerFee: uint64ToBN(maxRelayerFee),
+                    },
+                };
+            } else if ("payload" in inputRedeemOption) {
+                const { payload } = inputRedeemOption;
+                return { payload: [Buffer.from(payload)] };
+            } else {
+                throw new Error("invalid redeem option");
+            }
+        })();
+
+        const encodedOutputToken =
+            outputToken === null ? null : Buffer.from(encodeOutputToken(outputToken));
+        const ixBuilder = this.program.methods.stageOutbound({
+            ...args,
+            amountIn: uint64ToBN(amountIn),
+            redeemOption,
+            encodedOutputToken,
+        });
+
+        if (transferType === "native") {
+            if (sender === undefined) {
+                sender = payer;
+            }
+            if (senderToken === undefined) {
+                senderToken = null;
+            }
+            if (programTransferAuthority === undefined) {
+                programTransferAuthority = null;
+            }
+        } else if (transferType === "programTransferAuthority") {
+            if (sender === undefined) {
+                sender = null;
+            }
+            // This checks if undefined or null.
+            if (senderToken === undefined) {
+                throw new Error("senderToken must be provided");
+            }
+        } else if (transferType === "sender") {
+            if (sender === undefined) {
+                sender = payer;
+            }
+            senderToken ??= splToken.getAssociatedTokenAddressSync(srcMint, sender);
+            if (programTransferAuthority === undefined) {
+                programTransferAuthority = null;
+            }
+        } else {
+            throw new Error("invalid transfer type");
+        }
+
+        const definedAccounts = {
+            payer,
+            sender,
+            programTransferAuthority: null,
+            senderToken,
+            targetPeer: this.registeredPeerComposite({ peer, chain: args.targetChain }),
+            stagedOutbound,
+            stagedCustodyToken: this.stagedCustodyTokenAddress(stagedOutbound),
+            usdcRefundToken,
+            srcMint,
+            tokenProgram: splToken.TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+        };
+
+        // TODO: This approval amount will not be correct if RedeemOption is Relay. Fix this.
+        let approveIx: TransactionInstruction | null = null;
+        if (programTransferAuthority === undefined) {
+            if (transferType === "programTransferAuthority") {
+                const hashedArgs = await ixBuilder
+                    .accounts(definedAccounts)
+                    .instruction()
+                    .then((ix) => keccak256(ix.data.subarray(8)));
+
+                // Replace the program transfer authority in the defined accounts.
+                [programTransferAuthority] = PublicKey.findProgramAddressSync(
+                    [Buffer.from("transfer-authority"), hashedArgs],
+                    this.ID,
+                );
+
+                const owner = await splToken
+                    .getAccount(this.connection(), senderToken)
+                    .then((token) => token.owner)
+                    .catch((_) => PublicKey.default);
+                approveIx = splToken.createApproveInstruction(
+                    senderToken,
+                    programTransferAuthority,
+                    owner,
+                    uint64ToBigInt(amountIn),
+                );
+
+                definedAccounts.programTransferAuthority = programTransferAuthority;
+            }
+        }
+
+        return [approveIx, await ixBuilder.accounts(definedAccounts).instruction()];
     }
 
     async initiateTransferIx(
@@ -419,7 +577,7 @@ export class SwapLayerProgram {
     ) {
         let { payer, preparedOrder, payerToken, peer } = accounts;
 
-        payerToken ??= splToken.getAssociatedTokenAddressSync(this.mint, payer);
+        payerToken ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, payer);
         peer ??= this.peerAddress(args.targetChain as wormholeSdk.ChainId);
 
         const tokenRouter = this.tokenRouterProgram();
@@ -429,7 +587,7 @@ export class SwapLayerProgram {
             .accounts({
                 payer,
                 payerToken,
-                usdc: this.usdcComposite(this.mint),
+                usdc: this.usdcComposite(),
                 peer,
                 tokenRouterCustodian: tokenRouter.custodianAddress(),
                 preparedOrder,
@@ -464,7 +622,7 @@ export class SwapLayerProgram {
         } = accounts;
 
         beneficiary ??= payer;
-        recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.mint, recipient);
+        recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, recipient);
 
         // Need the undefined check to satisfy the type checker.
         feeRecipientToken ??= await this.fetchCustodian().then((c) => c.feeRecipientToken);
@@ -487,7 +645,7 @@ export class SwapLayerProgram {
                 completeTokenAccount: this.completeTokenAccountKey(preparedFill),
                 recipient,
                 recipientTokenAccount,
-                usdc: this.usdcComposite(this.mint),
+                usdc: this.usdcComposite(),
                 feeRecipientToken,
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
                 systemProgram: SystemProgram.programId,
@@ -510,7 +668,7 @@ export class SwapLayerProgram {
 
         beneficiary ??= payer;
         recipient ??= payer;
-        recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.mint, recipient);
+        recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, recipient);
 
         return this.program.methods
             .completeTransferDirect()
@@ -544,7 +702,7 @@ export class SwapLayerProgram {
         beneficiary ??= payer;
 
         const stagedInbound = this.stagedInboundAddress(preparedFill);
-        const stagedCustodyToken = this.stagedInboundTokenAddress(stagedInbound);
+        const stagedCustodyToken = this.stagedCustodyTokenAddress(stagedInbound);
 
         return this.program.methods
             .completeTransferPayload()
@@ -560,7 +718,7 @@ export class SwapLayerProgram {
                 ),
                 stagedInbound,
                 stagedCustodyToken,
-                usdc: this.usdcComposite(this.mint),
+                usdc: this.usdcComposite(),
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
                 systemProgram: SystemProgram.programId,
             })
@@ -582,7 +740,7 @@ export class SwapLayerProgram {
                 beneficiary,
                 stagedInbound,
                 dstToken,
-                stagedCustodyToken: this.stagedInboundTokenAddress(stagedInbound),
+                stagedCustodyToken: this.stagedCustodyTokenAddress(stagedInbound),
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
             })
             .instruction();
@@ -595,7 +753,6 @@ export class SwapLayerProgram {
             recipient: PublicKey;
             dstMint?: PublicKey;
             beneficiary?: PublicKey;
-            srcMint?: PublicKey;
         },
         args: {
             cpiInstruction: TransactionInstruction;
@@ -604,9 +761,8 @@ export class SwapLayerProgram {
         const { payer, preparedFill, recipient } = accounts;
         const { cpiInstruction } = args;
 
-        let { beneficiary, srcMint, dstMint } = accounts;
+        let { beneficiary, dstMint } = accounts;
         beneficiary ??= payer;
-        srcMint ??= this.mint;
         dstMint ??= splToken.NATIVE_MINT;
 
         const swapAuthority = this.swapAuthorityAddress(preparedFill);
@@ -622,7 +778,7 @@ export class SwapLayerProgram {
                     }),
                     authority: swapAuthority,
                     srcSwapToken: splToken.getAssociatedTokenAddressSync(
-                        srcMint,
+                        this.usdcMint,
                         swapAuthority,
                         true, // allowOwnerOffCurve
                     ),
@@ -631,7 +787,7 @@ export class SwapLayerProgram {
                         swapAuthority,
                         true, // allowOwnerOffCurve
                     ),
-                    srcMint,
+                    usdc: this.usdcComposite(),
                     dstMint,
                     associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
                     tokenProgram: splToken.TOKEN_PROGRAM_ID,
@@ -648,9 +804,9 @@ export class SwapLayerProgram {
         switch (this._programId) {
             case localnet(): {
                 return new tokenRouterSdk.TokenRouterProgram(
-                    this.program.provider.connection,
+                    this.connection(),
                     tokenRouterSdk.localnet(),
-                    this.mint,
+                    this.usdcMint,
                 );
             }
             default: {

@@ -17,13 +17,18 @@ export type RelayParams = {
     executionParams: ExecutionParams;
 };
 
-export class Peer {
+export type PeerSeeds = {
     chain: number;
+    bump: number;
+};
+
+export class Peer {
+    seeds: PeerSeeds;
     address: Array<number>;
     relayParams: RelayParams;
 
-    constructor(chain: number, address: Array<number>, relayParams: RelayParams) {
-        this.chain = chain;
+    constructor(seeds: PeerSeeds, address: Array<number>, relayParams: RelayParams) {
+        this.seeds = seeds;
         this.address = address;
         this.relayParams = relayParams;
     }

@@ -12,7 +12,7 @@ pub enum ExecutionParams {
     },
 }
 
-#[derive(Debug, Default, Clone, InitSpace, AnchorSerialize, AnchorDeserialize)]
+#[derive(Debug, Clone, InitSpace, AnchorSerialize, AnchorDeserialize)]
 pub struct RelayParams {
     // Atomic usdc (i.e. 6 decimals -> 1e6 = 1 usdc), max=disabled
     pub base_fee: u32,
@@ -27,12 +27,19 @@ pub struct RelayParams {
     pub execution_params: ExecutionParams,
 }
 
-#[account]
-#[derive(Default, InitSpace)]
-/// Foreign Peer account data.
-pub struct Peer {
+#[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, InitSpace)]
+pub struct PeerSeeds {
     /// Peer chain. Cannot equal `1` (Solana's Chain ID).
     pub chain: u16,
+    pub bump: u8,
+}
+
+#[account]
+#[derive(Debug, InitSpace)]
+/// Foreign Peer account data.
+pub struct Peer {
+    /// TODO: add bump seed
+    pub seeds: PeerSeeds,
     /// Peer address. Cannot be zero address.
     pub address: [u8; 32],
     /// Relay parameters.

@@ -35,5 +35,5 @@ pub struct AddPeerArgs {
 }
 
 pub fn add_peer(ctx: Context<AddPeer>, args: AddPeerArgs) -> Result<()> {
-    crate::handle_add_peer(&mut ctx.accounts.peer, args)
+    crate::handle_add_peer(&mut ctx.accounts.peer, args, ctx.bumps.peer.into())
 }

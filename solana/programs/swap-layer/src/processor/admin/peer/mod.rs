@@ -4,12 +4,19 @@ pub use add::*;
 mod update;
 pub use update::*;
 
-use crate::utils::relay_parameters::verify_relay_params;
-use crate::{error::SwapLayerError, state::Peer};
+use crate::{
+    error::SwapLayerError,
+    state::{Peer, PeerSeeds},
+    utils::relay_parameters::verify_relay_params,
+};
 use anchor_lang::prelude::*;
 use common::wormhole_cctp_solana::wormhole::SOLANA_CHAIN;
 
-pub fn handle_add_peer(peer: &mut Account<Peer>, args: AddPeerArgs) -> Result<()> {
+pub fn handle_add_peer(
+    peer: &mut Account<Peer>,
+    args: AddPeerArgs,
+    bump_seed: Option<u8>,
+) -> Result<()> {
     require!(
         args.chain != 0 && args.chain != SOLANA_CHAIN,
         SwapLayerError::ChainNotAllowed
@@ -19,9 +26,28 @@ pub fn handle_add_peer(peer: &mut Account<Peer>, args: AddPeerArgs) -> Result<()
     // Verify the relay parameters.
     verify_relay_params(&args.relay_params)?;
 
-    peer.chain = args.chain;
-    peer.address = args.address;
-    peer.relay_params = args.relay_params;
+    let AddPeerArgs {
+        chain,
+        address,
+        relay_params,
+    } = args;
+
+    let seeds = PeerSeeds {
+        chain,
+        bump: bump_seed.unwrap_or(peer.seeds.bump),
+    };
+    let expected = Pubkey::create_program_address(
+        &[Peer::SEED_PREFIX, &seeds.chain.to_be_bytes(), &[seeds.bump]],
+        &crate::id(),
+    )
+    .map_err(|_| ErrorCode::ConstraintSeeds)?;
+    require_keys_eq!(peer.key(), expected, ErrorCode::ConstraintSeeds);
+
+    peer.set_inner(Peer {
+        seeds,
+        address,
+        relay_params,
+    });
 
     Ok(())
 }
