@@ -34,7 +34,7 @@ function feeParamsState() pure returns (FeeParamsState storage state) {
   }
 }
 
-error MaxGasDropoffExceeded(uint requested, uint maximum);
+error ExceedsMaxGasDropoff(uint requested, uint maximum);
 error RelayingDisabledForChain();
 error InvalidSwapTypeForChain(uint16 chain, uint swapType);
 
@@ -142,7 +142,7 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
     if (gasDropoff > 0) {
       uint maxGasDropoff = feeParams.maxGasDropoff().from();
       if (gasDropoff > maxGasDropoff)
-        revert MaxGasDropoffExceeded(gasDropoff, maxGasDropoff);
+        revert ExceedsMaxGasDropoff(gasDropoff, maxGasDropoff);
 
       relayingFee += feeParams.gasDropoffMargin().compoundUnchecked(
         gasDropoff * feeParams.gasTokenPrice()
