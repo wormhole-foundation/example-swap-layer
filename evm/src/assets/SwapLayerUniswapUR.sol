@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
+
 import "./SwapLayerBase.sol";
 
 uint8 constant UNIVERSAL_ROUTER_EXACT_IN = 0;
@@ -45,7 +47,7 @@ abstract contract SwapLayerUniswapUR is SwapLayerBase {
     bool revertOnFailure,
     bool approveCheck,
     bytes memory path
-  ) internal override returns (uint /*inOutAmount*/) {
+  ) internal override returns (uint /*inOutAmount*/) { unchecked {
     if (approveCheck) {
       //universal router always uses permit2 for transfers...
       //see here: https://github.com/Uniswap/universal-router/blob/41183d6eb154f0ab0e74a0e911a5ef9ea51fc4bd/contracts/modules/uniswap/v3/V3SwapRouter.sol#L65
@@ -68,6 +70,23 @@ abstract contract SwapLayerUniswapUR is SwapLayerBase {
       return balanceAfter - balanceBefore;
     }
     else {
+      {
+        //TODO either eventually replace this with proper memcpy or adjust parseEvmSwapParams
+        //     so it expects an inverse path order for exact out swaps in case of uniswap and
+        //     also composes the usdc and outputToken path correctly (switch on isExactIn)
+        uint size = 20;
+        uint offset = path.length - size;
+        (bytes memory invertedPath, ) = BytesParsing.sliceUnchecked(path, offset, size);
+        do {
+          size = size == 20 ? 3 : 20;
+          offset -= size;
+          bytes memory slice;
+          (slice, ) = BytesParsing.sliceUnchecked(path, offset, size);
+          invertedPath = abi.encodePacked(invertedPath, slice);
+        } while (offset != 0);
+        path = invertedPath;
+      }
+
       (uint balanceBefore, uint balanceAfter) = _universalRouterSwap(
         UNIVERSAL_ROUTER_EXACT_OUT,
         inputToken,
@@ -78,7 +97,7 @@ abstract contract SwapLayerUniswapUR is SwapLayerBase {
       );
       return balanceBefore - balanceAfter;
     }
-  }
+  }}
 
   function _universalRouterSwap(
     uint8 command,
