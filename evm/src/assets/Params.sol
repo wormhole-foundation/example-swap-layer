@@ -59,7 +59,7 @@ error InvalidAddress(bytes32 addr);
 
 //swap layout:
 // 4 bytes  deadline (unix timestamp, 0 = no deadline)
-//16 bytes  limitAmount
+//16 bytes  outputAmount
 // 1 byte   swapType
 //followed by depending on swapType:
 // * uniswap or traderjoe:
@@ -76,15 +76,15 @@ function parseEvmSwapParams(
   uint offset
 ) pure returns (uint, uint, uint, bytes memory, uint) { unchecked {
   uint deadline;
-  uint limitAmount;
+  uint outputAmount;
   uint swapType;
   uint24 firstPoolId;
   uint pathLength; //total number of swaps = pathLength + 1
-  (deadline,    offset) = params.asUint32Unchecked(offset);
-  (limitAmount, offset) = params.asUint128Unchecked(offset);
-  (swapType,    offset) = params.asUint8Unchecked(offset);
+  (deadline,     offset) = params.asUint32Unchecked(offset);
+  (outputAmount, offset) = params.asUint128Unchecked(offset);
+  (swapType,     offset) = params.asUint8Unchecked(offset);
   if (swapType != SWAP_TYPE_UNISWAPV3 && swapType != SWAP_TYPE_TRADERJOE)
-    return (deadline, limitAmount, SWAP_TYPE_INVALID, new bytes(0), params.length);
+    return (deadline, outputAmount, SWAP_TYPE_INVALID, new bytes(0), params.length);
 
   (firstPoolId, offset) = params.asUint24Unchecked(offset);
   (pathLength,  offset) = params.asUint8Unchecked(offset);
@@ -94,7 +94,7 @@ function parseEvmSwapParams(
   bytes memory partialPath;
   (partialPath, offset) = params.sliceUnchecked(offset, sliceLen);
   bytes memory path = abi.encodePacked(inputToken, firstPoolId, partialPath, outputToken);
-  return (deadline, limitAmount, swapType, path, offset);
+  return (deadline, outputAmount, swapType, path, offset);
 }}
 
 function parseSwapTypeAndCountAndSkipParams(
