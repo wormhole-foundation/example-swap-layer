@@ -84,7 +84,7 @@ uint constant PERMIT2_PERMIT_SIZE =
 // 1 byte   redeem mode
 //  0: direct
 //  1: payload
-//    4 bytes  length
+//    2 bytes  length
 //    n bytes  payload (n = length)
 //  2: relay
 //    4 bytes  gas dropoff (in 1e12 wei, i.e. microether, i.e. 1 eth = 10**6)
