@@ -64,29 +64,23 @@ abstract contract SwapLayerIntegrationBase {
 
   struct RelayParams {
     uint gasDropoffWei; //always 18 decimals, also for Solana, i.e. 1e18 = 1 SOL
-    uint maxRelayerFeeUsdc;
+    uint maxRelayingFeeUsdc;
   }
 
   struct EvmSwapParams {
-    uint256     swapDeadline;
-    uint256     limitAmount;
+    uint256 deadline;
+    uint256 outputAmount;
     EvmSwapType swapType;
     //the path must be:
     // * either full, i.e. (tokenAddr, poolId, token, poolId, ..., token)
     // * or the first and last token are stripped, i.e. (poolId, token, ..., poolId)
     //the latter is possible because the first and last token are known
-    bytes       path;
+    bytes path;
   }
 
   struct SolanaSwapParams {
     uint256 swapDeadline;
-    uint256 limitAmount;
-  }
-
-  struct ComposedInitiateParams {
-    uint256      msgValueOrPlaceholder;
-    TargetParams targetParams;
-    bytes        params;
+    uint256 outputAmount;
   }
 
   function _swapLayer() internal virtual view returns (ISwapLayer);
@@ -138,7 +132,7 @@ abstract contract SwapLayerIntegrationBase {
   ) internal pure returns (bytes memory) {
     return abi.encodePacked(
       IoToken.Gas,
-      _encodeSharedSwapParams(params.swapDeadline, params.limitAmount),
+      _encodeSharedSwapParams(params.swapDeadline, params.outputAmount),
       SWAP_TYPE_GENERIC_SOLANA
     );
   }
@@ -150,7 +144,7 @@ abstract contract SwapLayerIntegrationBase {
     return abi.encodePacked(
       IoToken.Other,
       outputTokenMint,
-      _encodeSharedSwapParams(params.swapDeadline, params.limitAmount),
+      _encodeSharedSwapParams(params.swapDeadline, params.outputAmount),
       SWAP_TYPE_GENERIC_SOLANA
     );
   }
@@ -161,26 +155,52 @@ abstract contract SwapLayerIntegrationBase {
 
   function _swapLayerDecodeInitiateSlowReturn(
     bytes memory successData
-  ) internal pure returns (uint64, uint64, uint256) {
+  ) internal pure returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence
+  ) {
     return abi.decode(successData, (uint64, uint64, uint256));
   }
 
   function _swapLayerDecodeInitiateRelaySlowReturn(
     bytes memory successData
-  ) internal pure returns (uint64, uint64, uint256, uint64) {
+  ) internal pure returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence
+  ) {
     return abi.decode(successData, (uint64, uint64, uint256, uint64));
   }
 
   function _swapLayerDecodeInitiateFastReturn(
     bytes memory successData
-  ) internal pure returns (uint64, uint64, uint256, uint64) {
+  ) internal pure returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence
+  ) {
     return abi.decode(successData, (uint64, uint64, uint256, uint64));
   }
 
   function _swapLayerDecodeInitiateRelayFastReturn(
     bytes memory successData
-  ) internal pure returns (uint64, uint64, uint256, uint64, uint64) {
+  ) internal pure returns (
+    uint64 sentAmountUsdc,
+    uint64 sequence,
+    uint256 protocolSequence,
+    uint64 fastSequence,
+    uint64 relayingFeeUsdc
+  ) {
     return abi.decode(successData, (uint64, uint64, uint256, uint64, uint64));
+  }
+
+  struct ComposedInitiateParams {
+    uint256      msgValueOrPlaceholder;
+    TargetParams targetParams;
+    bytes        params;
   }
 
   function _swapLayerInitiateRaw(
@@ -363,7 +383,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
-    uint256 relayingFeeUsdc
+    uint64 relayingFeeUsdc
   ) {
     return _swapLayerInitiateRelaySlow(_swapLayerComposeInitiate(params));
   }
@@ -398,7 +418,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
-    uint256 relayingFeeUsdc
+    uint64 relayingFeeUsdc
   ) {
     return _swapLayerInitiateRelaySlow(_swapLayerComposeInitiate(params));
   }
@@ -437,7 +457,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 sentAmountUsdc,
     uint64 sequence,
     uint256 protocolSequence,
-    uint256 relayingFeeUsdc
+    uint64 relayingFeeUsdc
   ) {
     return _swapLayerInitiateRelaySlow(_swapLayerComposeInitiate(params));
   }
@@ -692,7 +712,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 sequence,
     uint256 protocolSequence,
     uint64 fastSequence,
-    uint256 relayingFeeUsdc
+    uint64 relayingFeeUsdc
   ) {
     return _swapLayerInitiateRelayFast(_swapLayerComposeInitiate(params));
   }
@@ -729,7 +749,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 sequence,
     uint256 protocolSequence,
     uint64 fastSequence,
-    uint256 relayingFeeUsdc
+    uint64 relayingFeeUsdc
   ) {
     return _swapLayerInitiateRelayFast(_swapLayerComposeInitiate(params));
   }
@@ -770,7 +790,7 @@ abstract contract SwapLayerIntegrationBase {
     uint64 sequence,
     uint256 protocolSequence,
     uint64 fastSequence,
-    uint256 relayingFeeUsdc
+    uint64 relayingFeeUsdc
   ) {
     return _swapLayerInitiateRelayFast(_swapLayerComposeInitiate(params));
   }
@@ -1005,7 +1025,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256 gasDropoffWei, //always 18 decimals, also for Solana, i.e. 1e18 = 1 SOL
     IoToken outputTokenType,
     uint256 swapCount,
-    uint8 swapType //TODO
+    uint8 swapType //TODO replace with enum
   ) internal view returns (uint48 relayingFeeUsdc) {
     bytes memory query;
     if (outputTokenType == IoToken.Usdc) {
@@ -1027,10 +1047,7 @@ abstract contract SwapLayerIntegrationBase {
         swapType
       );
     }
-
-    bytes memory encoded = _swapLayer().batchQueries(query);
-
-    (relayingFeeUsdc, ) = encoded.asUint48Unchecked(0);
+    (relayingFeeUsdc, ) = _swapLayer().batchQueries(query).asUint48Unchecked(0);
   }
 
   // ---- Mutable Getters ----
@@ -1133,13 +1150,13 @@ abstract contract SwapLayerIntegrationBase {
   }
 
   function _encodeRelayParams(RelayParams memory params) private pure returns (uint88) {
-    _checkMax(params.maxRelayerFeeUsdc, type(uint48).max);
+    _checkMax(params.maxRelayingFeeUsdc, type(uint48).max);
 
     uint gasDropoff = uint(GasDropoff.unwrap(GasDropoffLib.to(params.gasDropoffWei)));
     return uint88(((
       uint(RedeemMode.Relay)
       <<     RELAY_GAS_DROPOFF_SIZE * 8) + gasDropoff
-      << RELAY_MAX_RELAYER_FEE_SIZE * 8) + params.maxRelayerFeeUsdc
+      << RELAY_MAX_RELAYER_FEE_SIZE * 8) + params.maxRelayingFeeUsdc
     );
   }
 
@@ -1156,8 +1173,8 @@ abstract contract SwapLayerIntegrationBase {
     );
   }
 
-  function _encodeTokenIn(address inputToken) private pure returns (uint16) {
-    return uint16(((
+  function _encodeTokenIn(address inputToken) private pure returns (uint176) {
+    return uint176(((
       uint(IoToken.Other)
       <<    BOOL_SIZE * 8) + _encodeBool(true) //approveCheck
       << ADDRESS_SIZE * 8) + uint(uint160(inputToken))
@@ -1191,7 +1208,7 @@ abstract contract SwapLayerIntegrationBase {
       params.path.sliceUnchecked(offset, pathLength * SHARED_PATH_ELEMENT_SIZE);
 
     return abi.encodePacked(
-      _encodeSharedSwapParams(params.swapDeadline, params.limitAmount),
+      _encodeSharedSwapParams(params.deadline, params.outputAmount),
       params.swapType == EvmSwapType.UniswapV3 ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE,
       firstPoolId,
       uint8(pathLength),
@@ -1201,10 +1218,10 @@ abstract contract SwapLayerIntegrationBase {
 
   function _encodeSharedSwapParams(
     uint swapDeadline,
-    uint limitAmount
+    uint outputAmount
   ) private pure returns (uint160) {
     _checkMax(swapDeadline, type(uint32).max);
-    return uint160((swapDeadline << SWAP_PARAM_AMOUNT_SIZE * 8) + _encodeAmount(limitAmount));
+    return uint160((swapDeadline << SWAP_PARAM_AMOUNT_SIZE * 8) + _encodeAmount(outputAmount));
   }
 
   function _swapPathStartOffset(
