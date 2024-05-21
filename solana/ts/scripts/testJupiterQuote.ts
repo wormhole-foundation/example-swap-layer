@@ -1,70 +1,73 @@
 import {
-    InstructionFromJSON,
-    createJupiterApiClient,
+    InstructionToJSON,
     QuoteGetRequest,
+    SwapInfoToJSON,
     SwapInstructionsPostRequest,
+    SwapInstructionsResponseToJSON,
+    SwapRequestToJSON,
+    SwapResponseToJSON,
+    createJupiterApiClient,
 } from "@jup-ag/api";
-import * as splToken from "@solana/spl-token";
-import { PublicKey, TransactionInstruction } from "@solana/web3.js";
-import { execSync } from "child_process";
+import { PublicKey } from "@solana/web3.js";
 
-const USDC_MINT_ADDRESS = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-const USDT_MINT_ADDRESS = new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB");
+const mintKeys = {
+    usdc: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    usdt: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    wsol: "So11111111111111111111111111111111111111112",
+    sol: "So11111111111111111111111111111111111111112",
+} as const;
 
 const ALLOWED_DEXES = [
     //"Lifinity V2", // use
     //"Meteora DLMM", // use
-    //"Orca V2",
     "Phoenix", // use
-    //"Raydium",
     //"Raydium CLMM", // use
-    //"Whirlpool", // use
+    // "Whirlpool", // use
 ];
 
-main();
+main(process.argv);
 
-async function main() {
+async function main(argv: string[]) {
+    const [, , amountIn, inputMint, outputMint] = argv;
+    if (amountIn === undefined || inputMint === undefined || outputMint === undefined) {
+        console.error(
+            "Usage: yarn ts-node testJupiterQuote.ts <amountIn> <inputMint> <outputMint>",
+        );
+        process.exit(1);
+    }
+
     const jupiter = createJupiterApiClient({
         basePath: "https://quote-api.jup.ag/v6",
     });
 
-    const inputMint = splToken.NATIVE_MINT;
-    const outputMint = USDC_MINT_ADDRESS;
-
-    const price = 145;
-
-    const quoteRequest = {
-        inputMint: inputMint.toString(),
-        outputMint: outputMint.toString(),
-        amount: 50_000 * Math.floor(1_000_000_000 / price),
+    const quoteRequest: QuoteGetRequest = {
+        inputMint: mintKeys[inputMint] || new PublicKey(inputMint).toString(),
+        outputMint: mintKeys[outputMint] || new PublicKey(outputMint).toString(),
+        amount: Number(amountIn),
         slippageBps: 50,
         autoSlippage: false,
         computeAutoSlippage: false,
         onlyDirectRoutes: true,
         swapMode: "ExactIn",
         dexes: ALLOWED_DEXES,
-    } as QuoteGetRequest;
+    };
     console.log({ quoteRequest });
 
     const quoteResponse = await jupiter.quoteGet(quoteRequest);
     console.log({ quoteResponse });
 
-    const swapLayerProgramId = new PublicKey("SwapLayer1111111111111111111111111111111111");
-    const [swapAuthority] = PublicKey.findProgramAddressSync(
-        [Buffer.from("swap-authority")],
-        swapLayerProgramId,
-    );
+    const swapAuthority = new PublicKey("Bro1111111111111111111111111111111111111111");
     console.log("swap authority:", swapAuthority.toString());
 
-    const swapInstructionRequest = {
+    const swapInstructionRequest: SwapInstructionsPostRequest = {
         swapRequest: {
             userPublicKey: swapAuthority.toString(),
             useSharedAccounts: true,
             quoteResponse,
         },
-    } as SwapInstructionsPostRequest;
+    };
     console.log({ swapInstructionRequest });
 
     const swapInstructionResponse = await jupiter.swapInstructionsPost(swapInstructionRequest);
-    console.log({ swapInstructionResponse });
+    console.log(JSON.stringify(swapInstructionResponse.swapInstruction, null, 2));
 }
