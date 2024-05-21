@@ -30,7 +30,7 @@ contract PermitsTest is SLTSwapBase {
           address(swapLayer),
           amount,
           usdcPermit.nonces(user),
-          _deadline()
+          _validDeadline()
         ))
       ))
     );
@@ -47,7 +47,7 @@ contract PermitsTest is SLTSwapBase {
         uint128(amount), //input amount
         AcquireMode.Permit,
         amount,          //permit value
-        _deadline(),     //permit deadline
+        _validDeadline(),     //permit deadline
         r, s, v,         //permit signature
         IoToken.Usdc     //output token
       )
@@ -65,7 +65,7 @@ contract PermitsTest is SLTSwapBase {
     ).asAddressUnchecked(0);
 
     uint256 nonce = 0;
-    uint256 sigDeadline = _deadline();
+    uint256 sigDeadline = _validDeadline();
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
       userSecret,
       //see here: https://github.com/Uniswap/permit2/blob/cc56ad0f3439c502c246fc5cfcc3db92bb8b7219/src/SignatureTransfer.sol#L28
@@ -116,9 +116,9 @@ contract PermitsTest is SLTSwapBase {
       abi.encodePacked(QueryType.Immutable, ImmutableType.Permit2)
     ).asAddressUnchecked(0);
 
-    uint48 expiration = uint48(_deadline());
+    uint48 expiration = uint48(_validDeadline());
     uint48 nonce = 0;
-    uint256 sigDeadline = _deadline();
+    uint256 sigDeadline = _validDeadline();
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
       userSecret,
       //see here: https://github.com/Uniswap/permit2/blob/cc56ad0f3439c502c246fc5cfcc3db92bb8b7219/src/SignatureTransfer.sol#L28

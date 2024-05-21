@@ -8,8 +8,9 @@ import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/utils/math/Math.sol";
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
+import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 
-import { SLTBase } from "./SLTBase.sol";
+import { SLTBase, nextRn, xPercentOfTheTime } from "./SLTBase.sol";
 import { INonfungiblePositionManager } from "./external/IUniswap.sol";
 import { ITJLBRouter, ITJLBFactory } from "./external/ITraderJoe.sol";
 import { PriceHelper as TJMath } from "./external/TJMath/PriceHelper.sol";
@@ -19,17 +20,24 @@ import "swap-layer/assets/SwapLayerQuery.sol";
 
 contract SLTSwapBase is SLTBase {
   using BytesParsing for bytes;
+  using { toUniversalAddress } for address;
 
   uint24 constant UNISWAP_FEE = 500;
   //int24 constant UNISWAP_MAX_TICK = 887272;
-  int24 constant UNISWAP_MAX_TICK = 887270;
-  uint8 constant TRADERJOE_VERSION = 2;
+  int24  constant UNISWAP_MAX_TICK = 887270;
+  uint8  constant TRADERJOE_VERSION = 2;
   //only 25, 50, and 100 are open on Mainnet Ethereum
   //  see here: https://etherscan.io/address/0xDC8d77b69155c7E68A95a4fb0f06a71FF90B943a#readContract#F12
   uint16 constant TRADERJOE_BIN_STEP = 25; //size of a bin = 1 + .0001*binStep
 
-  uint constant BASE_AMOUNT = 1e6;
-  uint constant USER_AMOUNT = 1;
+  uint   constant BASE_AMOUNT = 1e6;
+  uint   constant USER_AMOUNT = 1;
+  uint8  constant MOCK_TOKEN_DECIMALS = 18;
+
+  uint   constant USDC_PER_MOCK_TOKEN = 5; //1 mockToken = 5 usdc
+  uint   constant MOCK_TOKEN_PER_ETH = 2; //.5 eth = 1 mockToken
+  uint   constant USDC_PER_ETH = USDC_PER_MOCK_TOKEN * MOCK_TOKEN_PER_ETH; //=> 1 eth = 10 usdc
+
 
   INonfungiblePositionManager immutable uniswapPosMan;
   address immutable user;
@@ -46,29 +54,127 @@ contract SLTSwapBase is SLTBase {
     recipient = makeAddr("recipient");
   }
 
-  function _deadline() internal view returns (uint) {
+  function _tokenToMultiplier(IoToken token) internal pure returns (uint) {
+    if (token == IoToken.Usdc)
+      return USDC;
+    if (token == IoToken.Gas)
+      return 1 ether;
+    return 10 ** MOCK_TOKEN_DECIMALS;
+  }
+
+  function _convertAmount(IoToken from, uint amount, IoToken to) internal pure returns (uint) {
+    if (from == to)
+      return amount;
+
+    uint numerator = _tokenToMultiplier(to);
+    uint denominator = _tokenToMultiplier(from);
+    if (from == IoToken.Gas && to == IoToken.Usdc)
+      denominator /= USDC_PER_ETH;
+    else if (from == IoToken.Usdc && to == IoToken.Gas)
+      numerator /= USDC_PER_ETH;
+    else if (from == IoToken.Other && to == IoToken.Usdc)
+      denominator /= USDC_PER_MOCK_TOKEN;
+    else if (from == IoToken.Usdc && to == IoToken.Other)
+      numerator /= USDC_PER_MOCK_TOKEN;
+    else if (from == IoToken.Gas && to == IoToken.Other)
+      denominator /= MOCK_TOKEN_PER_ETH;
+    else //(from == IoToken.Other && to == IoToken.Gas)
+      numerator /= MOCK_TOKEN_PER_ETH;
+
+    return amount * numerator / denominator;
+  }
+
+  function _validDeadline() internal view returns (uint) {
     return block.timestamp + 1800;
+  }
+
+  function _fuzzIoToken(uint[] memory rngSeed) internal pure returns (IoToken) {
+    if (xPercentOfTheTime(33, rngSeed))
+      return IoToken.Usdc;
+
+    if (xPercentOfTheTime(50, rngSeed))
+      return IoToken.Gas;
+
+    return IoToken.Other;
+  }
+
+  function _fuzzDeadline(
+    uint invalidFrequenzy,
+    uint[] memory rngSeed
+  ) internal view returns (uint32 deadline) {
+    bool deadlineExpired = xPercentOfTheTime(invalidFrequenzy, rngSeed);
+    deadline = uint32(
+      deadlineExpired
+      ? (nextRn(rngSeed) % (block.timestamp-2)) + 1
+      : (xPercentOfTheTime(50, rngSeed) ? _validDeadline() : 0)
+    );
+  }
+
+  function _fuzzEvmSwapType(uint[] memory rngSeed) internal pure returns (uint8 swapType) {
+    swapType = xPercentOfTheTime(50, rngSeed) ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE;
+  }
+
+  function _evmSwapTypeToPoolId(uint8 swapType) internal pure returns (uint24) {
+    return swapType == SWAP_TYPE_UNISWAPV3
+      ? UNISWAP_FEE
+      : uint24((uint(TRADERJOE_VERSION) << TRADERJOE_BINSTEP_SIZE*8) + TRADERJOE_BIN_STEP);
+  }
+
+  function _fuzzEvmOutputParams(uint[] memory rngSeed) internal view returns (
+    IoToken outputToken,
+    uint8 swapCount,
+    uint8 swapType,
+    uint32 deadline,
+    uint128 minOutputAmount,
+    bytes memory encodedSwap
+  ) {
+    outputToken = _fuzzIoToken(rngSeed);
+    if (outputToken != IoToken.Usdc) {
+      (swapCount, swapType, deadline, minOutputAmount, encodedSwap) =
+        _fuzzEvmOutputSwap(outputToken, rngSeed);
+    }
+    else
+      encodedSwap = new bytes(0);
+
+    encodedSwap = abi.encodePacked(outputToken, encodedSwap);
+  }
+
+  function _fuzzEvmOutputSwap(IoToken outputToken, uint[] memory rngSeed) internal view returns (
+    uint8 swapCount,
+    uint8 swapType,
+    uint32 deadline,
+    uint128 minOutputAmount,
+    bytes memory encodedSwap
+  ) {
+    deadline = _fuzzDeadline(20, rngSeed);
+    bool slippageExceeded = xPercentOfTheTime(20, rngSeed);
+    minOutputAmount = slippageExceeded ? type(uint128).max : 0;
+    swapType = _fuzzEvmSwapType(rngSeed);
+    uint24 poolId = _evmSwapTypeToPoolId(swapType);
+    bytes memory sharedSwapParams = abi.encodePacked(deadline, minOutputAmount, swapType, poolId);
+    swapCount = outputToken == IoToken.Other ? 1 : 2;
+    encodedSwap = outputToken == IoToken.Other
+      ? abi.encodePacked(address(mockToken).toUniversalAddress(), sharedSwapParams, swapCount-1)
+      : abi.encodePacked(sharedSwapParams, swapCount-1, address(mockToken), poolId);
   }
 
   function _setUp2() internal virtual { }
 
   function _setUp1() internal override {
-    mockToken = StdUtils.deployMockERC20("MockToken", "MOCK", 18);
+    mockToken = StdUtils.deployMockERC20("MockToken", "MOCK", MOCK_TOKEN_DECIMALS);
 
     PoolParams[] memory pools = new PoolParams[](2);
-    //.5 eth = 1 mockToken
     pools[0] = _makePoolParams(
       address(wnative),
-      BASE_AMOUNT * 1 ether / 2,
+      BASE_AMOUNT * 1 ether / MOCK_TOKEN_PER_ETH,
       address(mockToken),
-      BASE_AMOUNT * 1e18
+      BASE_AMOUNT * 10 ** MOCK_TOKEN_DECIMALS
     );
-    //1 mockToken = 5 usdc => 1 eth = 10 usdc
     pools[1] = _makePoolParams(
       address(mockToken),
-      BASE_AMOUNT * 1e18,
+      BASE_AMOUNT * 10 ** MOCK_TOKEN_DECIMALS,
       address(usdc),
-      BASE_AMOUNT * 5 * USDC
+      BASE_AMOUNT * USDC_PER_MOCK_TOKEN * USDC
     );
 
     for (uint i = 0; i < pools.length; ++i) {
@@ -122,7 +228,7 @@ contract SLTSwapBase is SLTBase {
       amount0Min: 0,
       amount1Min: 0,
       recipient: address(this),
-      deadline: _deadline()
+      deadline: _validDeadline()
     }));
   }
 
@@ -175,7 +281,7 @@ contract SLTSwapBase is SLTBase {
         distributionY: distributionY,
         to: address(this),
         refundTo: address(this),
-        deadline: _deadline()
+        deadline: _validDeadline()
       }));
 
     assertEq(amount0Added, amount0);

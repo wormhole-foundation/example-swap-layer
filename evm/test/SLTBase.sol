@@ -56,11 +56,11 @@ contract SLTBase is Test {
   bytes32 constant MATCHING_ENGINE_ADDRESS        = bytes32(uint256(uint160(address(4))));
   bytes32 constant MATCHING_ENGINE_MINT_RECIPIENT = bytes32(uint256(uint160(address(5))));
   uint16  constant MATCHING_ENGINE_CHAIN          = 0xFFFF;
-  uint32  constant MATCHING_ENGINE_DOMAIN         = 0xFFFFFFFF;
-  uint64  constant FAST_TRANSFER_MAX_AMOUNT       = 1e9;
-  uint64  constant FAST_TRANSFER_BASE_FEE         = 3e5;
-  uint64  constant FAST_TRANSFER_INIT_AUCTION_FEE = 2e5;
   uint64  constant USDC                           = 1e6;
+  uint64  constant FAST_TRANSFER_MAX_AMOUNT       = USDC * 1e5;
+  uint64  constant FAST_TRANSFER_BASE_FEE         = USDC * 3/10;
+  uint64  constant FAST_TRANSFER_INIT_AUCTION_FEE = USDC * 2/10;
+
 
   IWormhole immutable wormhole;
   IWETH     immutable wnative;
@@ -117,7 +117,7 @@ contract SLTBase is Test {
           MATCHING_ENGINE_CHAIN,
           MATCHING_ENGINE_ADDRESS,
           MATCHING_ENGINE_MINT_RECIPIENT,
-          MATCHING_ENGINE_DOMAIN
+          FOREIGN_DOMAIN
         )),
         abi.encodeCall(Implementation.initialize, abi.encodePacked(llOwner)) //ownerAssistant
       )));
@@ -126,6 +126,12 @@ contract SLTBase is Test {
 
       liquidityLayer.addRouterEndpoint(
         FOREIGN_CHAIN_ID,
+        Endpoint(FOREIGN_LIQUIDITY_LAYER, FOREIGN_LIQUIDITY_LAYER),
+        FOREIGN_DOMAIN
+      );
+
+      liquidityLayer.addRouterEndpoint(
+        SOLANA_CHAIN_ID,
         Endpoint(FOREIGN_LIQUIDITY_LAYER, FOREIGN_LIQUIDITY_LAYER),
         FOREIGN_DOMAIN
       );

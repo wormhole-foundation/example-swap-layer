@@ -32,7 +32,7 @@ contract TypeLibsTest is Test {
     }
   }
 
-  function testFuzzPercentage(uint value, uint rngSeed_) public pure {
+  function testPercentageFuzz(uint value, uint rngSeed_) public pure {
     uint[] memory rngSeed = new uint[](1);
     rngSeed[0] = rngSeed_;
     vm.assume(value < type(uint256).max/1e4);

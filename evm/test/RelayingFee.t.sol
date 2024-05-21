@@ -121,9 +121,9 @@ contract RelayingFeeTest is SLTBase, SwapLayerIntegrationBase {
   //this test feels pretty silly because it essentially is just an independently derived copy of
   //  the function in the contract... at least it's good to check that there are no regressions
   function testRelayingFeeFullFuzz(
+    uint32 gasDropoffRaw,
     uint32 baseFee,
     uint32 gasPriceRaw,
-    uint32 gasDropoffRaw,
     uint64 gasTokenPrice,
     uint   rngSeed_
   ) public {
@@ -132,24 +132,24 @@ contract RelayingFeeTest is SLTBase, SwapLayerIntegrationBase {
     vm.assume(baseFee != type(uint32).max);
 
     (uint16 targetChain, uint8 swapType, uint8 swapCount) = _fuzzSwapParams(rngSeed);
-
-    GasPrice gasPrice = GasPrice.wrap(gasPriceRaw);
-    GasDropoff gasDropoff = GasDropoff.wrap(gasDropoffRaw);
-
+    GasPrice gasPrice           = GasPrice.wrap(gasPriceRaw);
     Percentage gasPriceMargin   = fuzzPercentage(rngSeed);
     Percentage gasDropoffMargin = fuzzPercentage(rngSeed);
 
     vm.prank(assistant);
     swapLayer.batchFeeUpdates(abi.encodePacked(
       targetChain, FeeUpdate.BaseFee,          baseFee,
-      targetChain, FeeUpdate.GasPrice,         gasPriceRaw,
+      targetChain, FeeUpdate.GasPrice,         gasPrice,
       targetChain, FeeUpdate.GasTokenPrice,    gasTokenPrice,
       targetChain, FeeUpdate.GasPriceMargin,   gasPriceMargin,
       targetChain, FeeUpdate.GasDropoffMargin, gasDropoffMargin
     ));
 
+    GasDropoff gasDropoff = GasDropoff.wrap(gasDropoffRaw);
+    IoToken outputToken = nextRn(rngSeed) % 2 == 0 ? IoToken.Other : IoToken.Gas;
+
     uint relayingFee =
-      _swapLayerRelayingFee(targetChain, gasDropoff.from(), IoToken.Gas, swapCount, swapType);
+      _swapLayerRelayingFee(targetChain, gasDropoff.from(), outputToken, swapCount, swapType);
 
     uint expected = baseFee;
     if (targetChain == SOLANA_CHAIN_ID) {

@@ -29,48 +29,6 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     return ISwapLayer(payable(address(swapLayer)));
   }
 
-  function _fuzzSwap(uint[] memory rngSeed) internal view returns (
-    uint8 swapCount,
-    uint8 swapType,
-    uint32 deadline,
-    uint128 minOutputAmount,
-    bytes memory swap
-  ) {
-    swapCount = uint8(nextRn(rngSeed) % 3);
-    if (swapCount > 0) {
-      bool deadlineExpired = xPercentOfTheTime(20, rngSeed);
-      deadline = deadlineExpired ? 1 : 0;
-      bool slippageExceeded = xPercentOfTheTime(20, rngSeed);
-      minOutputAmount = slippageExceeded ? type(uint128).max : 0;
-      swapType = uint8((nextRn(rngSeed) % 2) + 1);
-      uint24 poolId = swapType == SWAP_TYPE_UNISWAPV3
-        ? UNISWAP_FEE
-        : uint24((uint(TRADERJOE_VERSION) << 2*8) + TRADERJOE_BIN_STEP);
-      swap = swapCount == 1
-        ? abi.encodePacked(
-            IoToken.Other,
-            address(mockToken).toUniversalAddress(),
-            deadline,
-            minOutputAmount,
-            swapType,
-            poolId,
-            uint8(swapCount-1)
-          )
-        : abi.encodePacked(
-            IoToken.Gas,
-            deadline,
-            minOutputAmount,
-            swapType,
-            poolId,
-            uint8(swapCount-1),
-            address(mockToken),
-            poolId
-          );
-    }
-    else
-      swap = abi.encodePacked(IoToken.Usdc);
-  }
-
   struct RedeemStackVars {
     uint usdcAmount;
     uint userBalanceBeforeEth;
@@ -97,21 +55,17 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     uint paidRelayingFee;
   }
 
-  /// forge-config: default.fuzz.runs = 1000
-  function testRedeemFullFuzz(uint40 amount, uint rngSeed_) public {
-    uint maxUsdc = 1e6 * USDC; //limit to 1 million as avoid exceeding Circle's minterAllowance
-    uint minUsdc = USDC / 100; //at least 1 cent to avoid degenerate cases
-    if (amount > maxUsdc)
-      amount = uint40(amount % maxUsdc);
-    if (amount < minUsdc)
-      amount += uint40(minUsdc);
-
+  /// forge-config: default.fuzz.runs = 10000
+  function testRedeemFullFuzz(uint rngSeed_) public {
     uint[] memory rngSeed = new uint[](1);
     rngSeed[0] = rngSeed_;
     RedeemStackVars memory vars;
-    vars.usdcAmount = amount;
-    (vars.swapCount, vars.swapType, vars.deadline, vars.minOutputAmount, vars.swap) =
-      _fuzzSwap(rngSeed);
+    //limit to 1 million as avoid exceeding Circle's minterAllowance
+    uint maxUsdc = BASE_AMOUNT * USDC;
+    uint minUsdc = USDC / 100; //at least 1 cent to avoid degenerate cases
+    vars.usdcAmount = nextRn(rngSeed) % (maxUsdc - minUsdc) + minUsdc;
+    (, vars.swapCount, vars.swapType, vars.deadline, vars.minOutputAmount, vars.swap) =
+      _fuzzEvmOutputParams(rngSeed);
 
     if (xPercentOfTheTime(33, rngSeed)) {
       vars.redeemMode = RedeemMode.Direct;
@@ -150,13 +104,12 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     vars.withOverride = xPercentOfTheTime(50, rngSeed);
     ComposedRedeemParams memory composedParams;
     if (vars.withOverride) {
-      (vars.swapCount, vars.swapType, vars.deadline, vars.minOutputAmount, vars.swap) =
-        _fuzzSwap(rngSeed);
+      (, vars.swapCount, vars.swapType, vars.deadline, vars.minOutputAmount, vars.swap) =
+        _fuzzEvmOutputParams(rngSeed);
       composedParams = _swapLayerComposeRedeem(RedeemOverride(attestation, vars.swap));
     }
     else
       composedParams = _swapLayerComposeRedeem(Redeem(attestation));
-
 
     if (xPercentOfTheTime(50, rngSeed))
       vars.sender = user;
@@ -197,8 +150,8 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     vm.prank(vars.sender);
     (bool success, bytes memory returnData) = address(swapLayer).call{value: vars.msgValue}(
       abi.encodeCall(
-        _swapLayer().redeem, (
-          uint8(AttestationType.LiquidityLayer),
+        swapLayer.redeem, (
+          AttestationType.LiquidityLayer,
           composedParams.attestation,
           composedParams.params
         )
@@ -249,7 +202,10 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
       (vars.outputToken, vars.outputAmount) = _swapLayerDecodeRedeem(returnData);
 
     uint expectedUserBalanceAfterEthMin = vars.userBalanceBeforeEth + vars.msgValue;
-    if (vars.swapCount == 0 || vars.deadline == 1 || vars.minOutputAmount == type(uint128).max) {
+    if (vars.swapCount == 0 ||
+        (vars.deadline != 0 && vars.deadline < block.timestamp) ||
+        vars.minOutputAmount == type(uint128).max
+    ) {
       assertEq(vars.outputToken, address(usdc), "outputToken is not usdc");
       uint expectedOutputAmount = vars.usdcAmount - vars.paidRelayingFee;
       assertEq(vars.outputAmount, expectedOutputAmount);
