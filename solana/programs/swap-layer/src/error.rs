@@ -1,6 +1,13 @@
 #[anchor_lang::error_code]
 pub enum SwapLayerError {
     DummyError = 0x0,
+    ExceedsCpiAccountRealloc = 0x2,
+    U64Overflow = 0x4,
+
+    // Common errors for inbound and outbound.
+    InvalidTargetChain = 0x20,
+    RelayerFeeOverflow = 0x30,
+
     AssistantZeroPubkey = 0x100,
     FeeRecipientZeroPubkey = 0x101,
     FeeUpdaterZeroPubkey = 0x102,
@@ -32,6 +39,14 @@ pub enum SwapLayerError {
     InvalidMargin = 0x205,
     EvmGasCalculationFailed = 0x206,
 
+    // Staged outbound
+    EitherSenderOrProgramTransferAuthority = 0x240,
+    SenderTokenRequired = 0x242,
+    SenderRequired = 0x244,
+    RelayingFeeExceedsMinAmountOut = 0x260,
+    ZeroMinAmountOut = 0x262,
+    DelegatedAmountMismatch = 0x264,
+
     // Swap
     SwapPastDeadline = 0x300,
     InvalidLimitAmount = 0x302,
@@ -50,6 +65,7 @@ pub enum SwapLayerError {
     JupiterV6DexProgramMismatch = 0x342,
     InvalidJupiterV6QuotedOutAmount = 0x344,
     SwapFailed = 0x346,
+    InvalidSwapInAmount = 0x348,
 
     // Ownership
     NoTransferOwnershipRequest = 0x400,

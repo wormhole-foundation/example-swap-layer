@@ -1,6 +1,13 @@
 use std::ops::Deref;
 
-use crate::{error::SwapLayerError, state::Custodian, state::Peer};
+use crate::{
+    error::SwapLayerError,
+    state::{Custodian, Peer},
+    utils::{
+        jupiter_v6::{self, cpi::SharedAccountsRouteArgs, JUPITER_V6_PROGRAM_ID},
+        AnchorInstructionData,
+    },
+};
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token, token};
 use common::{
@@ -13,7 +20,7 @@ use common::{
 };
 use swap_layer_messages::{
     messages::SwapMessageV1,
-    types::{OutputToken, SwapType},
+    types::{OutputSwap, OutputToken, RedeemMode, SwapType},
 };
 use token_router::state::PreparedFill;
 
@@ -139,9 +146,9 @@ pub struct RegisteredPeer<'info> {
     #[account(
         seeds = [
             Peer::SEED_PREFIX,
-            &peer.chain.to_be_bytes()
+            &peer.seeds.chain.to_be_bytes()
         ],
-        bump,
+        bump = peer.seeds.bump,
     )]
     peer: Box<Account<'info, Peer>>,
 }
@@ -166,7 +173,7 @@ pub struct ConsumeSwapLayerFill<'info> {
                 .map_err(|_| SwapLayerError::InvalidSwapMessage)?;
 
             require_eq!(
-                associated_peer.chain,
+                associated_peer.seeds.chain,
                 fill.source_chain,
                 SwapLayerError::InvalidPeer,
             );
@@ -247,44 +254,63 @@ impl<'info> Deref for ConsumeSwapLayerFill<'info> {
 #[derive(Accounts)]
 pub struct CompleteSwap<'info> {
     #[account(mut)]
-    payer: Signer<'info>,
+    pub payer: Signer<'info>,
 
     #[account(
         constraint = {
             let swap_msg = consume_swap_layer_fill.read_message_unchecked();
 
-            // Ensure that the output token is a swap token for Jupiter V6.
+            // Ensure that the output token is a swap token for Jupiter V6. If swap is not encoded,
+            // we allow the recipient to perform the swap himself in a direct transfer.
+            //
+            // NOTE: The recipient must be equal to the payer if OutputToken::Usdc! This check is
+            // not performed here, but should be performed with the account context composing with
+            // this composite.
             let (expected_dst_mint, swap) = match &swap_msg.output_token {
-                OutputToken::Gas(swap) => (token::spl_token::native_mint::id(), swap),
-                OutputToken::Other { address, swap } => (Pubkey::from(*address), swap),
-                _ => return err!(SwapLayerError::InvalidOutputToken),
+                OutputToken::Usdc => {
+                    require!(
+                        matches!(swap_msg.redeem_mode, RedeemMode::Direct),
+                        SwapLayerError::InvalidRedeemMode,
+                    );
+
+                    (Default::default(), None)
+                },
+                OutputToken::Gas(swap) => (token::spl_token::native_mint::id(), swap.into()),
+                OutputToken::Other { address, swap } => (Pubkey::from(*address), swap.into()),
             };
 
-            require!(
-                matches!(swap.swap_type, SwapType::JupiterV6(_)),
-                SwapLayerError::InvalidSwapType,
-            );
+            if let Some(swap) = swap {
+                // Verify the address matches the destination mint.
+                require_keys_eq!(
+                    dst_mint.key(),
+                    expected_dst_mint,
+                    SwapLayerError::InvalidDestinationMint
+                );
 
-            // Verify the address matches the destination mint.
-            require_keys_eq!(
-                dst_mint.key(),
-                expected_dst_mint,
-                SwapLayerError::InvalidDestinationMint
-            );
+                let OutputSwap {
+                    limit_amount,
+                    deadline,
+                    swap_type,
+                } = swap;
 
-            // Check the deadline for the swap. There may not be a deadline check with the
-            // dex that this instruction composes with, so we will check it here.
-            //
-            // TODO: Do we accept deadline == 0?
-            require!(
-                swap.deadline == 0
-                    || Clock::get().unwrap().unix_timestamp <= i64::from(swap.deadline),
-                SwapLayerError::SwapPastDeadline,
-            );
+                require!(
+                    matches!(swap_type, SwapType::JupiterV6(_)),
+                    SwapLayerError::InvalidSwapType,
+                );
 
-            // Just in case the encoded limit amount exceeds u64, we have nothing to do if
-            // this message were misconfigured.
-            u64::try_from(swap.limit_amount).map_err(|_| SwapLayerError::InvalidLimitAmount)?;
+                // Check the deadline for the swap. There may not be a deadline check with the
+                // dex that this instruction composes with, so we will check it here.
+                //
+                // TODO: Do we accept deadline == 0?
+                require!(
+                    *deadline == 0 || Clock::get().unwrap().unix_timestamp <= i64::from(*deadline),
+                    SwapLayerError::SwapPastDeadline,
+                );
+
+                // Just in case the encoded limit amount exceeds u64, we have nothing to do if
+                // this message were misconfigured.
+                u64::try_from(*limit_amount).map_err(|_| SwapLayerError::InvalidLimitAmount)?;
+            }
 
             true
         }
@@ -306,7 +332,7 @@ pub struct CompleteSwap<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        associated_token::mint = src_mint,
+        associated_token::mint = usdc,
         associated_token::authority = authority
     )]
     pub src_swap_token: Box<Account<'info, token::TokenAccount>>,
@@ -322,10 +348,10 @@ pub struct CompleteSwap<'info> {
     pub dst_swap_token: Box<Account<'info, token::TokenAccount>>,
 
     /// This account must be verified as the source mint for the swap.
-    pub src_mint: Box<Account<'info, token::Mint>>,
+    pub usdc: Usdc<'info>,
 
     /// This account must be verified as the destination mint for the swap.
-    #[account(constraint = src_mint.key() != dst_mint.key() @ SwapLayerError::SameMint)]
+    #[account(constraint = usdc.key() != dst_mint.key() @ SwapLayerError::SameMint)]
     pub dst_mint: Box<Account<'info, token::Mint>>,
 
     pub token_program: Program<'info, token::Token>,
@@ -391,20 +417,137 @@ impl<'info> Deref for CompleteSwap<'info> {
     }
 }
 
-// fn require_jupiter_v6_output_swap(swap: &OutputSwap) -> Result<()> {
-//     // Check the deadline for the swap. There may not be a deadline check with the
-//     // dex that this instruction composes with, so we will check it here.
-//     //
-//     // TODO: Do we accept deadline == 0?
-//     require!(
-//         swap.deadline == 0 || Clock::get().unwrap().unix_timestamp <= i64::from(swap.deadline),
-//         SwapLayerError::SwapPastDeadline,
-//     );
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//  Jupiter V6 handling.
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//     // Just in case the encoded limit amount exceeds u64, we have nothing to do if
-//     // this message were misconfigured.
-//     u64::try_from(swap.limit_amount).map_err(|_| SwapLayerError::InvalidLimitAmount)?;
+#[derive(Accounts)]
+#[instruction(args: SharedAccountsRouteArgs)]
+pub struct JupiterV6SharedAccountsRoute<'info> {
+    pub token_program: Program<'info, token::Token>,
 
-//     // Done.
-//     Ok(())
-// }
+    /// We can lean on Jupiter V6 CPI failing if this is not valid. But we are
+    /// being extra sure about the authority. Per Jupiter's documentation, there
+    /// are only 8 authorities.
+    ///
+    /// CHECK: Seeds must be \["authority", id\] (Jupiter V6 Program).
+    #[account(
+        seeds = [
+            b"authority",
+            &[args.authority_id],
+        ],
+        bump,
+        seeds::program = jupiter_v6_program,
+        constraint = {
+            require!(
+                args.authority_id <= jupiter_v6::AUTHORITY_COUNT,
+                SwapLayerError::InvalidJupiterV6AuthorityId,
+            );
+
+            true
+        }
+    )]
+    pub jupiter_v6_authority: UncheckedAccount<'info>,
+
+    /// CHECK: This account will be the Swap Layer's swap authority.
+    pub transfer_authority: UncheckedAccount<'info>,
+
+    /// CHECK: This account will be the Swap Layer's source token account.
+    #[account(mut)]
+    pub src_custody_token: UncheckedAccount<'info>,
+
+    #[account(
+        mut,
+        associated_token::mint = src_mint,
+        associated_token::authority = jupiter_v6_authority,
+    )]
+    pub jupiter_v6_src_custody_token: Box<Account<'info, token::TokenAccount>>,
+
+    #[account(
+        mut,
+        associated_token::mint = dst_mint,
+        associated_token::authority = jupiter_v6_authority,
+    )]
+    pub jupiter_v6_dst_custody_token: Box<Account<'info, token::TokenAccount>>,
+
+    /// CHECK: This account will be the Swap Layer's destination token account.
+    #[account(mut)]
+    pub dst_custody_token: UncheckedAccount<'info>,
+
+    /// CHECK: This account must be the source mint for the swap.
+    pub src_mint: UncheckedAccount<'info>,
+
+    /// CHECK: This account must be the destination mint for the swap.
+    pub dst_mint: UncheckedAccount<'info>,
+
+    /// CHECK: This is an optional account, which we will enforce to be None (so it will be passed
+    /// in as the Jupiter V6 program ID) because Swap Layer will not collect platform fees.
+    #[account(address = jupiter_v6::JUPITER_V6_PROGRAM_ID)]
+    pub platform_fee_none: UncheckedAccount<'info>,
+
+    /// CHECK: Token 2022 program is optional.
+    pub token_2022_program: UncheckedAccount<'info>,
+
+    /// CHECK: Seeds must be \["__event_authority"\] (Jupiter V6 Program).
+    pub jupiter_v6_event_authority: UncheckedAccount<'info>,
+
+    /// CHECK: Must equal Jupiter V6 Program ID.
+    #[account(address = jupiter_v6::JUPITER_V6_PROGRAM_ID)]
+    pub jupiter_v6_program: UncheckedAccount<'info>,
+}
+
+impl<'info> JupiterV6SharedAccountsRoute<'info> {
+    pub fn set_up(
+        mut cpi_account_infos: &'info [AccountInfo<'info>],
+        ix_data: &[u8],
+    ) -> Result<(Self, SharedAccountsRouteArgs, Vec<AccountInfo<'info>>)> {
+        // Deserialize Jupiter V6 shared accounts route args.
+        let args = AnchorInstructionData::deserialize_checked(ix_data)?;
+
+        // Now try account infos.
+        let accounts = JupiterV6SharedAccountsRoute::try_accounts(
+            &JUPITER_V6_PROGRAM_ID,
+            &mut cpi_account_infos,
+            &ix_data[8..],
+            &mut JupiterV6SharedAccountsRouteBumps {
+                jupiter_v6_authority: Default::default(),
+            },
+            &mut Default::default(),
+        )?;
+
+        Ok((accounts, args, cpi_account_infos.to_vec()))
+    }
+
+    pub fn invoke_cpi(
+        &self,
+        args: SharedAccountsRouteArgs,
+        signer_seeds: &[&[u8]],
+        cpi_remaining_accounts: Vec<AccountInfo<'info>>,
+    ) -> Result<()> {
+        jupiter_v6::cpi::shared_accounts_route(
+            CpiContext::new_with_signer(
+                self.jupiter_v6_program.to_account_info(),
+                jupiter_v6::cpi::SharedAccountsRoute {
+                    token_program: self.token_program.to_account_info(),
+                    program_authority: self.jupiter_v6_authority.to_account_info(),
+                    user_transfer_authority: self.transfer_authority.to_account_info(),
+                    source_token: self.src_custody_token.to_account_info(),
+                    program_source_token: self.jupiter_v6_src_custody_token.to_account_info(),
+                    program_destination_token: self.jupiter_v6_dst_custody_token.to_account_info(),
+                    destination_account: self.dst_custody_token.to_account_info(),
+                    source_mint: self.src_mint.to_account_info(),
+                    destination_mint: self.dst_mint.to_account_info(),
+                    platform_fee: Default::default(),
+                    token_2022_program: self.token_2022_program.to_account_info().into(),
+                    event_authority: self.jupiter_v6_event_authority.to_account_info(),
+                    program: self.jupiter_v6_program.to_account_info(),
+                },
+                &[signer_seeds],
+            )
+            .with_remaining_accounts(cpi_remaining_accounts),
+            args,
+        )
+    }
+}
