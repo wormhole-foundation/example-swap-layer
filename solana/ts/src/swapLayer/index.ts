@@ -760,10 +760,13 @@ export class SwapLayerProgram {
     async releaseInboundIx(accounts: {
         stagedInbound: PublicKey;
         recipient: PublicKey;
-        dstToken: PublicKey;
-        beneficiary: PublicKey;
+        dstToken?: PublicKey;
+        beneficiary?: PublicKey;
     }): Promise<TransactionInstruction> {
-        const { stagedInbound, recipient, dstToken, beneficiary } = accounts;
+        let { stagedInbound, recipient, dstToken, beneficiary } = accounts;
+
+        beneficiary ??= recipient;
+        dstToken ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, recipient);
 
         return this.program.methods
             .releaseInbound()
