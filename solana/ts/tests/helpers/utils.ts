@@ -33,3 +33,8 @@ export async function createLut(connection: Connection, payer: Keypair, addresse
 
     return lookupTable;
 }
+
+export async function whichTokenProgram(connection: Connection, interfaceAccount: PublicKey) {
+    const accInfo = await connection.getAccountInfo(interfaceAccount);
+    return accInfo.owner;
+}
