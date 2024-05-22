@@ -52,13 +52,14 @@ enum FeeUpdate {
 
 uint constant SOLANA_ATA_RENT_LAMPORTS = 2039280;
 uint constant LAMPORTS_PER_SOL = 1e9;
-//uint constant BIT128 = 1 << 128;
-uint constant GAS_OVERHEAD = 1e5; //TODO
-uint constant DROPOFF_GAS_OVERHEAD = 1e4; //TODO
-uint constant UNISWAP_GAS_OVERHEAD = 1e5; //TODO
-uint constant UNISWAP_GAS_PER_SWAP = 1e5; //TODO
-uint constant TRADERJOE_GAS_OVERHEAD = 1e5; //TODO
-uint constant TRADERJOE_GAS_PER_SWAP = 1e5; //TODO
+
+//TODO the following are estimates from forge tests - refine further with testnet measurements:
+uint constant GAS_OVERHEAD           = 280e3;
+uint constant DROPOFF_GAS_OVERHEAD   =  32e3;
+uint constant UNISWAP_GAS_OVERHEAD   =  10e3;
+uint constant UNISWAP_GAS_PER_SWAP   = 120e3;
+uint constant TRADERJOE_GAS_OVERHEAD =  30e3;
+uint constant TRADERJOE_GAS_PER_SWAP =  80e3;
 
 abstract contract SwapLayerRelayingFees is SwapLayerBase {
   using BytesParsing for bytes;

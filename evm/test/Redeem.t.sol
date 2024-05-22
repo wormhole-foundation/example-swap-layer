@@ -59,8 +59,9 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
   function testRedeemFullFuzz(uint rngSeed_) public {
     uint[] memory rngSeed = new uint[](1);
     rngSeed[0] = rngSeed_;
+    unchecked { rngSeed[0] += block.timestamp; }
     RedeemStackVars memory vars;
-    //limit to 1 million as avoid exceeding Circle's minterAllowance
+    //limit to 1 million to avoid exceeding Circle's minterAllowance
     uint maxUsdc = BASE_AMOUNT * USDC;
     uint minUsdc = USDC / 100; //at least 1 cent to avoid degenerate cases
     vars.usdcAmount = nextRn(rngSeed) % (maxUsdc - minUsdc) + minUsdc;
@@ -73,10 +74,13 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     }
     else if (xPercentOfTheTime(50, rngSeed)) {
       vars.redeemMode = RedeemMode.Relay;
-      GasDropoff gd = GasDropoffLib.to(nextRn(rngSeed) % 10 ether);
+      GasDropoff gd;
+      if (xPercentOfTheTime(50, rngSeed))
+        gd = GasDropoffLib.to(nextRn(rngSeed) % 10 ether);
+
       vars.gasDropoff = gd.from();
       vars.relayingFee = vars.usdcAmount * (nextRn(rngSeed) % 1e6) / 1e6;
-      vars.redeemParams = abi.encodePacked(GasDropoff.unwrap(gd), uint48(vars.relayingFee));
+      vars.redeemParams = abi.encodePacked(gd, uint48(vars.relayingFee));
     }
     else {
       vars.redeemMode = RedeemMode.Payload;
@@ -101,7 +105,7 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     vars.feeRecipientBalanceBeforeUsdc = usdc.balanceOf(feeRecipient);
 
     bytes memory attestation = _attestation(vars.usdcAmount, vars.swapMessage);
-    vars.withOverride = xPercentOfTheTime(50, rngSeed);
+    vars.withOverride = xPercentOfTheTime(vars.redeemMode == RedeemMode.Relay ? 1 : 20, rngSeed);
     ComposedRedeemParams memory composedParams;
     if (vars.withOverride) {
       (, vars.swapCount, vars.swapType, vars.deadline, vars.minOutputAmount, vars.swap) =
@@ -111,12 +115,9 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     else
       composedParams = _swapLayerComposeRedeem(Redeem(attestation));
 
-    if (xPercentOfTheTime(50, rngSeed))
-      vars.sender = user;
-    else
-      vars.sender = address(this);
+    vars.sender = xPercentOfTheTime(25, rngSeed) ? user : address(this);
 
-    vars.invalidMsgValue = xPercentOfTheTime(5, rngSeed);
+    vars.invalidMsgValue = xPercentOfTheTime(2, rngSeed);
     if (vars.invalidMsgValue) {
       vars.msgValue = uint48(nextRn(rngSeed));
       vm.deal(vars.sender, vars.msgValue);
@@ -126,11 +127,8 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     else
       vars.msgValue = vars.sender == user ? 0 : vars.gasDropoff;
 
+    console.log("timestamp: %d", block.timestamp);
     console.log("usdcAmount: %d", vars.usdcAmount);
-    console.log("userBalanceBeforeEth: %d", vars.userBalanceBeforeEth);
-    console.log("userBalanceBeforeMock: %d", vars.userBalanceBeforeMock);
-    console.log("userBalanceBeforeUsdc: %d", vars.userBalanceBeforeUsdc);
-    console.log("feeRecipientBalanceBeforeUsdc: %d", vars.feeRecipientBalanceBeforeUsdc);
     console.log("deadline: %d", vars.deadline);
     console.log("minOutputAmount: %d", vars.minOutputAmount);
     console.log("swapCount: %d", vars.swapCount);
@@ -141,12 +139,16 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     console.log("redeemPayloadLength: %d", vars.redeemPayload.length);
     console.log("withOverride: %d", vars.withOverride);
     console.log("invalidMsgValue: %d", vars.invalidMsgValue);
-    console.log("msgValue: %d", vars.msgValue);
-    console.log("senderIsUser: %d", vars.sender == user);
     console.log("swap");
     console.logBytes(vars.swap);
-    console.log("swapMessage");
-    console.logBytes(vars.swapMessage);
+    console.log("senderIsUser: %d", vars.sender == user);
+    // console.log("swapMessage");
+    // console.logBytes(vars.swapMessage);
+    // console.log("msgValue: %d", vars.msgValue);
+    // console.log("userBalanceBeforeEth: %d", vars.userBalanceBeforeEth);
+    // console.log("userBalanceBeforeMock: %d", vars.userBalanceBeforeMock);
+    // console.log("userBalanceBeforeUsdc: %d", vars.userBalanceBeforeUsdc);
+    // console.log("feeRecipientBalanceBeforeUsdc: %d", vars.feeRecipientBalanceBeforeUsdc);
     vm.prank(vars.sender);
     (bool success, bytes memory returnData) = address(swapLayer).call{value: vars.msgValue}(
       abi.encodeCall(
@@ -177,26 +179,34 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
         );
 
     if (expectedError.length > 0) {
-      assertFalse(success, "Call should have failed");
-      assertEq(returnData, expectedError);
+      assertFalse(success, "Call should fail");
+      assertEq(returnData, expectedError, "expected error");
       return;
     }
 
-    assertTrue(success, "Call should have succeeded");
+    assertTrue(success, "Call should succeed");
     returnData = abi.decode(returnData, (bytes));
 
     if (vars.redeemMode == RedeemMode.Relay && vars.sender != user) {
-      assertEq(usdc.balanceOf(feeRecipient), vars.feeRecipientBalanceBeforeUsdc + vars.relayingFee);
+      assertEq(
+        usdc.balanceOf(feeRecipient),
+        vars.feeRecipientBalanceBeforeUsdc + vars.relayingFee,
+        "fee recipient balance"
+      );
       vars.paidRelayingFee = vars.relayingFee;
     }
     else
-      assertEq(usdc.balanceOf(feeRecipient), vars.feeRecipientBalanceBeforeUsdc);
+      assertEq(
+        usdc.balanceOf(feeRecipient),
+        vars.feeRecipientBalanceBeforeUsdc,
+        "fee recipient balance"
+      );
 
     if (vars.redeemMode == RedeemMode.Payload) {
       bytes memory returnedPayload;
       (vars.outputToken, vars.outputAmount, returnedPayload) =
         _swapLayerDecodeRedeemWithPayload(returnData);
-      assertEq(returnedPayload, vars.redeemPayload);
+      assertEq(returnedPayload, vars.redeemPayload, "redeemPayload");
     }
     else
       (vars.outputToken, vars.outputAmount) = _swapLayerDecodeRedeem(returnData);

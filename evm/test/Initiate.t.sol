@@ -246,6 +246,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
   function testInitiateFullFuzz(uint rngSeed_) public {
     uint[] memory rngSeed = new uint[](1);
     rngSeed[0] = rngSeed_;
+    unchecked { rngSeed[0] += block.timestamp; }
     InitiateStackVars memory vars;
 
     vars.targetChain = xPercentOfTheTime(75, rngSeed) ? FOREIGN_CHAIN_ID : SOLANA_CHAIN_ID;
