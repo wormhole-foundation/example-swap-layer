@@ -2,7 +2,7 @@ export * from "./layouts";
 
 import * as jupAg from "@jup-ag/api";
 import * as splToken from "@solana/spl-token";
-import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { Connection, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { decodeSharedAccountsRouteArgs, encodeSharedAccountsRouteArgs } from "./layouts";
 
 export const JUPITER_V6_PROGRAM_ID = new PublicKey("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
@@ -24,6 +24,8 @@ export type ModifySharedAccountsRouteOpts = {
     quotedOutAmount?: bigint;
     slippageBps?: number;
     cpi?: boolean;
+    srcTokenProgram?: PublicKey;
+    dstTokenProgram?: PublicKey;
 };
 
 export type ModifiedSharedAccountsRoute = {
@@ -35,13 +37,14 @@ export type ModifiedSharedAccountsRoute = {
     minAmountOut: bigint;
 };
 
-export function modifySharedAccountsRouteInstruction(
+export async function modifySharedAccountsRouteInstruction(
+    connection: Connection,
     instruction: jupAg.Instruction,
     tokenOwner: PublicKey,
     opts: ModifySharedAccountsRouteOpts,
-): ModifiedSharedAccountsRoute {
+): Promise<ModifiedSharedAccountsRoute> {
     const { inAmount, quotedOutAmount, slippageBps } = opts;
-    let { cpi } = opts;
+    let { cpi, srcTokenProgram, dstTokenProgram } = opts;
     cpi ??= false;
 
     const ix = toTransactionInstruction(instruction);
@@ -52,12 +55,21 @@ export function modifySharedAccountsRouteInstruction(
     ix.keys[userTransferAuthorityIdx].isSigner = !cpi;
 
     const sourceMint = ix.keys[7].pubkey;
+    if (srcTokenProgram === undefined) {
+        const accInfo = await connection.getAccountInfo(sourceMint);
+        srcTokenProgram = accInfo.owner;
+    }
     const destinationMint = ix.keys[8].pubkey;
+    if (dstTokenProgram === undefined) {
+        const accInfo = await connection.getAccountInfo(destinationMint);
+        dstTokenProgram = accInfo.owner;
+    }
 
     const sourceToken = splToken.getAssociatedTokenAddressSync(
         sourceMint,
         tokenOwner,
         true, // allowOwnerOffCurve
+        srcTokenProgram,
     );
     ix.keys[3].pubkey = sourceToken;
 
@@ -65,6 +77,7 @@ export function modifySharedAccountsRouteInstruction(
         destinationMint,
         tokenOwner,
         true, // allowOwnerOffCurve
+        dstTokenProgram,
     );
     ix.keys[6].pubkey = destinationToken;
 

@@ -5,7 +5,7 @@ use crate::{
     utils, TRANSFER_AUTHORITY_SEED_PREFIX,
 };
 use anchor_lang::{prelude::*, system_program};
-use anchor_spl::token;
+use anchor_spl::{token, token_interface};
 use common::wormhole_io::{Readable, Writeable};
 use solana_program::keccak;
 use swap_layer_messages::types::OutputToken;
@@ -88,7 +88,7 @@ pub struct StageOutbound<'info> {
         ],
         bump,
     )]
-    staged_custody_token: Account<'info, token::TokenAccount>,
+    staged_custody_token: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 
     #[account(
         mut,
@@ -97,9 +97,10 @@ pub struct StageOutbound<'info> {
     usdc_refund_token: Box<Account<'info, token::TokenAccount>>,
 
     /// Mint can either be USDC or whichever mint is used to swap into USDC.
-    src_mint: Account<'info, token::Mint>,
+    src_mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
 
     token_program: Program<'info, token::Token>,
+    src_token_program: Interface<'info, token_interface::TokenInterface>,
     system_program: Program<'info, System>,
 }
 
@@ -185,7 +186,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
         None => (amount_in, StagedRedeem::Direct),
     };
 
-    let token_program = &ctx.accounts.token_program;
+    let src_token_program = &ctx.accounts.token_program;
     let custody_token = &ctx.accounts.staged_custody_token;
 
     let sender = match &ctx.accounts.sender_token {
@@ -194,16 +195,20 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
             &ctx.accounts.program_transfer_authority,
         ) {
             (Some(sender), None) => {
-                token::transfer(
+                let src_mint = &ctx.accounts.src_mint;
+
+                token_interface::transfer_checked(
                     CpiContext::new(
-                        token_program.to_account_info(),
-                        token::Transfer {
+                        src_token_program.to_account_info(),
+                        token_interface::TransferChecked {
                             from: sender_token.to_account_info(),
                             to: custody_token.to_account_info(),
                             authority: sender.to_account_info(),
+                            mint: src_mint.to_account_info(),
                         },
                     ),
                     transfer_amount,
+                    src_mint.decimals,
                 )?;
 
                 sender.key()
@@ -254,9 +259,9 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
                 )?;
 
                 let peer_seeds = &ctx.accounts.target_peer.seeds;
-                token::sync_native(CpiContext::new_with_signer(
-                    token_program.to_account_info(),
-                    token::SyncNative {
+                token_interface::sync_native(CpiContext::new_with_signer(
+                    src_token_program.to_account_info(),
+                    token_interface::SyncNative {
                         account: custody_token.to_account_info(),
                     },
                     &[&[

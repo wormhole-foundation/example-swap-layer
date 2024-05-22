@@ -14,9 +14,10 @@ use crate::wormhole_io::{Readable, Writeable, WriteableBytes};
 #[cfg(feature = "anchor")]
 use anchor_lang::prelude::{borsh, AnchorDeserialize, AnchorSerialize};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub enum RedeemMode {
+    #[default]
     Direct,
     Payload(Vec<u8>),
     Relay {
@@ -45,6 +46,23 @@ impl RedeemMode {
                 FIXED
             }
         }
+    }
+}
+
+impl TryFrom<(u32, u64)> for RedeemMode {
+    type Error = <Uint48 as TryFrom<u64>>::Error;
+
+    fn try_from((gas_dropoff, relaying_fee): (u32, u64)) -> Result<Self, Self::Error> {
+        Ok(Self::Relay {
+            gas_dropoff,
+            relaying_fee: relaying_fee.try_into()?,
+        })
+    }
+}
+
+impl From<Vec<u8>> for RedeemMode {
+    fn from(payload: Vec<u8>) -> Self {
+        Self::Payload(payload)
     }
 }
 
