@@ -1718,7 +1718,7 @@ describe("Swap Layer", () => {
                     const holeskyChain = toChainId("Holesky");
 
                     // Need to register a peer for holesky to trigger the invalid peer error.
-                    await addPeerForTest(swapLayer, owner, {
+                    await addPeerForTest(owner, {
                         chain: holeskyChain,
                         address: foreignSwapLayerAddress,
                         relayParams: relayParamsForTest,
@@ -2406,7 +2406,7 @@ describe("Swap Layer", () => {
                                 "00000000000000000000000000000000000000000000000000000000deadbeef",
                                 "hex",
                             ),
-                        ), // Invalid Address.,
+                        ), // Invalid Address
                         wormholeSequence,
                         encodeSwapLayerMessage({
                             recipient: new UniversalAddress(
@@ -2709,142 +2709,340 @@ describe("Swap Layer", () => {
             });
 
             describe("Inbound", function () {
-                const localVariables = {};
-
-                it("Stage Inbound Transfer", async function () {
-                    const payload = Buffer.from("Insert payload here");
-
-                    const result = await createAndRedeemCctpFillForTest(
-                        testCctpNonce++,
-                        foreignChain,
-                        foreignTokenRouterAddress,
-                        foreignSwapLayerAddress,
-                        wormholeSequence,
-                        encodeSwapLayerMessage({
-                            recipient: new UniversalAddress(
-                                recipient.publicKey.toString(),
-                                "base58",
-                            ),
-                            redeemMode: { mode: "Payload", payload },
-                            outputToken: { type: "Usdc" },
-                        }),
-                    );
-                    const { vaa, message } = result!;
-
-                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
-                    const beneficiary = Keypair.generate();
-
-                    const transferIx = await swapLayer.completeTransferPayloadIx(
-                        {
-                            payer: payer.publicKey,
-                            beneficiary: beneficiary.publicKey,
-                            preparedFill,
-                        },
-                        foreignChain,
-                    );
-
-                    await expectIxOk(connection, [transferIx], [payer]);
-
-                    // Balance check.
-                    const stagedInbound = swapLayer.stagedInboundAddress(preparedFill);
-                    const stagedInboundTokenAddress =
-                        swapLayer.stagedCustodyTokenAddress(stagedInbound);
-
-                    const { amount: balanceAfter } = await splToken.getAccount(
-                        connection,
-                        stagedInboundTokenAddress,
-                    );
-                    assert.equal(balanceAfter, message.deposit!.message.amount);
-
-                    // State check.
-                    const stagedInboundData = await swapLayer.fetchStagedInbound(stagedInbound);
-                    assert.deepEqual(
-                        stagedInboundData,
-                        new StagedInbound(
-                            {
-                                preparedFill,
-                                bump: stagedInboundData.seeds.bump,
-                            },
-                            {
-                                stagedCustodyTokenBump:
-                                    stagedInboundData.info.stagedCustodyTokenBump,
-                                stagedBy: payer.publicKey,
-                                sourceChain: foreignChain,
-                                recipient: recipient.publicKey,
-                                isNative: false,
-                            },
-                            payload,
-                        ),
-                    );
-
-                    localVariables["stagedInbound"] = stagedInbound;
+                const payload = Buffer.from("Insert payload here");
+                const validSwapMessage = encodeSwapLayerMessage({
+                    recipient: new UniversalAddress(recipient.publicKey.toString(), "base58"),
+                    redeemMode: { mode: "Payload", payload },
+                    outputToken: { type: "Usdc" },
                 });
 
-                it("Release Inbound", async function () {
-                    const stagedInbound = localVariables["stagedInbound"];
-                    const beneficiary = Keypair.generate();
-                    const dstTokenOwner = Keypair.generate();
+                describe("Stage Inbound", function () {
+                    it("Cannot Stage Inbound (Invalid Output Token)", async function () {
+                        // Try to complete the swap with an invalid output token (include
+                        // swap instructions).
+                        const result = await createAndRedeemCctpFillForTest(
+                            testCctpNonce++,
+                            foreignChain,
+                            foreignTokenRouterAddress,
+                            foreignSwapLayerAddress,
+                            wormholeSequence,
+                            encodeSwapLayerMessage({
+                                recipient: new UniversalAddress(
+                                    recipient.publicKey.toString(),
+                                    "base58",
+                                ),
+                                redeemMode: {
+                                    mode: "Payload",
+                                    payload: Buffer.from("Insert payload here"),
+                                },
+                                outputToken: {
+                                    type: "Gas",
+                                    swap: {
+                                        deadline: 0,
+                                        limitAmount: 0n,
+                                        type: {
+                                            id: "JupiterV6",
+                                            dexProgramId: { isSome: false },
+                                        },
+                                    },
+                                },
+                            }),
+                        );
+                        const { vaa } = result!;
 
-                    const dstToken = splToken.getAssociatedTokenAddressSync(
-                        USDC_MINT_ADDRESS,
-                        dstTokenOwner.publicKey,
-                    );
+                        const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                        const beneficiary = Keypair.generate();
 
-                    await expectIxOk(
-                        connection,
-                        [
-                            splToken.createAssociatedTokenAccountInstruction(
-                                payer.publicKey,
-                                dstToken,
-                                dstTokenOwner.publicKey,
-                                USDC_MINT_ADDRESS,
-                            ),
-                        ],
-                        [payer],
-                    );
+                        const transferIx = await swapLayer.completeTransferPayloadIx(
+                            {
+                                payer: payer.publicKey,
+                                beneficiary: beneficiary.publicKey,
+                                preparedFill,
+                            },
+                            foreignChain,
+                        );
 
-                    const expectedLamports = await connection
-                        .getAccountInfo(stagedInbound)
-                        .then((info) => info!.lamports);
-                    const custodyToken = swapLayer.stagedCustodyTokenAddress(stagedInbound);
-                    const { amount: stagedTokenBalance } = await splToken.getAccount(
-                        connection,
-                        custodyToken,
-                    );
-                    const expectedCustodyTokenLamports = await connection
-                        .getAccountInfo(custodyToken)
-                        .then((info) => info!.lamports);
-
-                    const consumeIx = await swapLayer.releaseInboundIx({
-                        recipient: recipient.publicKey,
-                        beneficiary: beneficiary.publicKey,
-                        stagedInbound,
-                        dstToken: dstToken,
+                        await expectIxErr(connection, [transferIx], [payer], "InvalidOutputToken");
                     });
 
-                    await expectIxOk(connection, [consumeIx], [recipient]);
+                    it("Cannot Stage Inbound (Invalid Swap Message)", async function () {
+                        const result = await createAndRedeemCctpFillForTest(
+                            testCctpNonce++,
+                            foreignChain,
+                            foreignTokenRouterAddress,
+                            foreignSwapLayerAddress,
+                            wormholeSequence,
+                            Buffer.from("invalid message"),
+                        );
+                        const { vaa } = result!;
 
-                    // Verify that accounts were closed.
-                    {
-                        const accInfo = await connection.getAccountInfo(stagedInbound);
-                        assert.isNull(accInfo);
-                    }
-                    {
-                        const accInfo = await connection.getAccountInfo(custodyToken);
-                        assert.isNull(accInfo);
-                    }
+                        const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                        const beneficiary = Keypair.generate();
 
-                    const { amount: dstTokenBalance } = await splToken.getAccount(
-                        connection,
-                        dstToken,
-                    );
-                    assert.equal(dstTokenBalance, stagedTokenBalance);
+                        const transferIx = await swapLayer.completeTransferPayloadIx(
+                            {
+                                payer: payer.publicKey,
+                                beneficiary: beneficiary.publicKey,
+                                preparedFill,
+                            },
+                            foreignChain,
+                        );
 
-                    const beneficiaryBalance = await connection.getBalance(beneficiary.publicKey);
-                    assert.equal(
-                        beneficiaryBalance,
-                        expectedLamports + expectedCustodyTokenLamports,
-                    );
+                        await expectIxErr(connection, [transferIx], [payer], "InvalidSwapMessage");
+                    });
+
+                    it("Cannot Stage Inbound (Peer Doesn't Exist)", async function () {
+                        const result = await createAndRedeemCctpFillForTest(
+                            testCctpNonce++,
+                            foreignChain,
+                            foreignTokenRouterAddress,
+                            foreignSwapLayerAddress,
+                            wormholeSequence,
+                            validSwapMessage,
+                        );
+                        const { vaa } = result!;
+
+                        const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                        const beneficiary = Keypair.generate();
+
+                        const transferIx = await swapLayer.completeTransferPayloadIx(
+                            {
+                                payer: payer.publicKey,
+                                beneficiary: beneficiary.publicKey,
+                                preparedFill,
+                            },
+                            toChainId("Optimism"), // Invalid chain.
+                        );
+
+                        await expectIxErr(
+                            connection,
+                            [transferIx],
+                            [payer],
+                            "AccountNotInitialized",
+                        );
+                    });
+
+                    it("Cannot Stage Inbound (Chain Mismatch)", async function () {
+                        const result = await createAndRedeemCctpFillForTest(
+                            testCctpNonce++,
+                            foreignChain,
+                            foreignTokenRouterAddress,
+                            foreignSwapLayerAddress,
+                            wormholeSequence,
+                            validSwapMessage,
+                        );
+                        const { vaa } = result!;
+
+                        const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                        const beneficiary = Keypair.generate();
+
+                        const transferIx = await swapLayer.completeTransferPayloadIx(
+                            {
+                                payer: payer.publicKey,
+                                beneficiary: beneficiary.publicKey,
+                                preparedFill,
+                            },
+                            toChainId("Holesky"), // Invalid chain.
+                        );
+
+                        await expectIxErr(connection, [transferIx], [payer], "InvalidPeer");
+                    });
+
+                    it("Cannot Stage Inbound (Invalid Peer)", async function () {
+                        const result = await createAndRedeemCctpFillForTest(
+                            testCctpNonce++,
+                            foreignChain,
+                            foreignTokenRouterAddress,
+                            Array.from(
+                                Buffer.alloc(
+                                    32,
+                                    "00000000000000000000000000000000000000000000000000000000deadbeef",
+                                    "hex",
+                                ),
+                            ), // Invalid Address
+                            wormholeSequence,
+                            validSwapMessage,
+                        );
+                        const { vaa } = result!;
+
+                        const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                        const beneficiary = Keypair.generate();
+
+                        const transferIx = await swapLayer.completeTransferPayloadIx(
+                            {
+                                payer: payer.publicKey,
+                                beneficiary: beneficiary.publicKey,
+                                preparedFill,
+                            },
+                            foreignChain,
+                        );
+
+                        await expectIxErr(connection, [transferIx], [payer], "InvalidPeer");
+                    });
+
+                    it("Cannot Stage Inbound (Invalid Redeem Mode)", async function () {
+                        const result = await createAndRedeemCctpFillForTest(
+                            testCctpNonce++,
+                            foreignChain,
+                            foreignTokenRouterAddress,
+                            foreignSwapLayerAddress,
+                            wormholeSequence,
+                            encodeSwapLayerMessage({
+                                recipient: new UniversalAddress(
+                                    recipient.publicKey.toString(),
+                                    "base58",
+                                ),
+                                redeemMode: { mode: "Direct" },
+                                outputToken: { type: "Usdc" },
+                            }),
+                        );
+                        const { vaa } = result!;
+
+                        const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                        const beneficiary = Keypair.generate();
+
+                        const transferIx = await swapLayer.completeTransferPayloadIx(
+                            {
+                                payer: payer.publicKey,
+                                beneficiary: beneficiary.publicKey,
+                                preparedFill,
+                            },
+                            foreignChain,
+                        );
+
+                        await expectIxErr(connection, [transferIx], [payer], "InvalidRedeemMode");
+                    });
+
+                    it("Stage Inbound", async function () {
+                        const result = await createAndRedeemCctpFillForTest(
+                            testCctpNonce++,
+                            foreignChain,
+                            foreignTokenRouterAddress,
+                            foreignSwapLayerAddress,
+                            wormholeSequence,
+                            validSwapMessage,
+                        );
+                        const { vaa, message } = result!;
+
+                        const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                        const beneficiary = Keypair.generate();
+
+                        const transferIx = await swapLayer.completeTransferPayloadIx(
+                            {
+                                payer: payer.publicKey,
+                                beneficiary: beneficiary.publicKey,
+                                preparedFill,
+                            },
+                            foreignChain,
+                        );
+
+                        await expectIxOk(connection, [transferIx], [payer]);
+
+                        // Balance check.
+                        const stagedInbound = swapLayer.stagedInboundAddress(preparedFill);
+                        const stagedInboundTokenAddress =
+                            swapLayer.stagedCustodyTokenAddress(stagedInbound);
+
+                        const { amount: balanceAfter } = await splToken.getAccount(
+                            connection,
+                            stagedInboundTokenAddress,
+                        );
+                        assert.equal(balanceAfter, message.deposit!.message.amount);
+
+                        // State check.
+                        const stagedInboundData = await swapLayer.fetchStagedInbound(stagedInbound);
+                        assert.deepEqual(
+                            stagedInboundData,
+                            new StagedInbound(
+                                {
+                                    preparedFill,
+                                    bump: stagedInboundData.seeds.bump,
+                                },
+                                {
+                                    stagedCustodyTokenBump:
+                                        stagedInboundData.info.stagedCustodyTokenBump,
+                                    stagedBy: payer.publicKey,
+                                    sourceChain: foreignChain,
+                                    recipient: recipient.publicKey,
+                                    isNative: false,
+                                },
+                                payload,
+                            ),
+                        );
+                    });
+                });
+
+                describe("Release Inbound", function () {
+                    it("Cannot Release Inbound (Invalid Recipient)", async function () {
+                        const { stagedInbound } = await stageInboundForTest(validSwapMessage, {
+                            payer: payer.publicKey,
+                        });
+
+                        // Pass a different recipient than the one encoded in validSwapMessage.
+                        const consumeIx = await swapLayer.releaseInboundIx({
+                            recipient: payer.publicKey,
+                            stagedInbound,
+                        });
+
+                        await expectIxErr(connection, [consumeIx], [payer], "ConstraintAddress");
+                    });
+
+                    it("Release Inbound", async function () {
+                        const { stagedInbound, stagedInboundCustody } = await stageInboundForTest(
+                            validSwapMessage,
+                            { payer: payer.publicKey },
+                        );
+
+                        const beneficiary = Keypair.generate();
+                        const dstToken = await createTokenAccountForTest();
+
+                        // Balance check.
+                        const expectedLamports = await connection
+                            .getAccountInfo(stagedInbound)
+                            .then((info) => info!.lamports);
+                        const { amount: stagedTokenBalance } = await splToken.getAccount(
+                            connection,
+                            stagedInboundCustody,
+                        );
+                        const expectedCustodyTokenLamports = await connection
+                            .getAccountInfo(stagedInboundCustody)
+                            .then((info) => info!.lamports);
+
+                        // Consume the staged inbound account.
+                        const consumeIx = await swapLayer.releaseInboundIx({
+                            recipient: recipient.publicKey,
+                            beneficiary: beneficiary.publicKey,
+                            stagedInbound,
+                            dstToken: dstToken,
+                        });
+
+                        await expectIxOk(connection, [consumeIx], [recipient]);
+
+                        // Verify that accounts were closed.
+                        {
+                            const accInfo = await connection.getAccountInfo(stagedInbound);
+                            assert.isNull(accInfo);
+                        }
+                        {
+                            const accInfo = await connection.getAccountInfo(stagedInboundCustody);
+                            assert.isNull(accInfo);
+                        }
+
+                        // Verify balance changes.
+                        const { amount: dstTokenBalance } = await splToken.getAccount(
+                            connection,
+                            dstToken,
+                        );
+                        assert.equal(dstTokenBalance, stagedTokenBalance);
+
+                        const beneficiaryBalance = await connection.getBalance(
+                            beneficiary.publicKey,
+                        );
+                        assert.equal(
+                            beneficiaryBalance,
+                            expectedLamports + expectedCustodyTokenLamports,
+                        );
+                    });
                 });
             });
         });
@@ -3048,19 +3246,73 @@ describe("Swap Layer", () => {
 
         return { stagedOutbound, stagedCustodyToken, custodyBalance };
     }
-});
 
-async function addPeerForTest(
-    swapLayer: SwapLayerProgram,
-    ownerOrAssistant: Keypair,
-    addPeerArgs: AddPeerArgs,
-) {
-    const ix = await swapLayer.addPeerIx(
-        {
-            ownerOrAssistant: ownerOrAssistant.publicKey,
+    async function stageInboundForTest(
+        validSwapMessage: Buffer | Uint8Array,
+        accounts: {
+            payer: PublicKey;
+            beneficiary?: PublicKey;
         },
-        addPeerArgs,
-    );
+    ) {
+        const result = await createAndRedeemCctpFillForTest(
+            testCctpNonce++,
+            foreignChain,
+            foreignTokenRouterAddress,
+            foreignSwapLayerAddress,
+            wormholeSequence,
+            validSwapMessage,
+        );
+        const { vaa } = result!;
 
-    await expectIxOk(swapLayer.program.provider.connection, [ix], [ownerOrAssistant]);
-}
+        const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+        const transferIx = await swapLayer.completeTransferPayloadIx(
+            {
+                ...accounts,
+                preparedFill,
+            },
+            foreignChain,
+        );
+
+        await expectIxOk(connection, [transferIx], [payer]);
+
+        // Balance check.
+        const stagedInbound = swapLayer.stagedInboundAddress(preparedFill);
+        const stagedInboundCustody = swapLayer.stagedCustodyTokenAddress(stagedInbound);
+
+        return { stagedInbound, stagedInboundCustody };
+    }
+
+    async function createTokenAccountForTest() {
+        const tokenOwner = Keypair.generate();
+        const token = splToken.getAssociatedTokenAddressSync(
+            USDC_MINT_ADDRESS,
+            tokenOwner.publicKey,
+        );
+        await expectIxOk(
+            connection,
+            [
+                splToken.createAssociatedTokenAccountInstruction(
+                    payer.publicKey,
+                    token,
+                    tokenOwner.publicKey,
+                    USDC_MINT_ADDRESS,
+                ),
+            ],
+            [payer],
+        );
+
+        return token;
+    }
+
+    async function addPeerForTest(ownerOrAssistant: Keypair, addPeerArgs: AddPeerArgs) {
+        const ix = await swapLayer.addPeerIx(
+            {
+                ownerOrAssistant: ownerOrAssistant.publicKey,
+            },
+            addPeerArgs,
+        );
+
+        await expectIxOk(swapLayer.program.provider.connection, [ix], [ownerOrAssistant]);
+    }
+});
