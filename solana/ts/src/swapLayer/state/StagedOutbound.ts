@@ -15,7 +15,7 @@ export type RedeemOption =
 export type StagedRedeem =
     | { direct: {} }
     | { relay: { gasDropoff: number; relayingFee: BN } }
-    | { payload: [Buffer] };
+    | { payload: { 0: Buffer } };
 
 export type StagedOutboundInfo = {
     custodyTokenBump: number;
