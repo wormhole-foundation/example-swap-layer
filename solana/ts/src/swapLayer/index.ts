@@ -12,7 +12,7 @@ import {
     uint64ToBigInt,
 } from "@wormhole-foundation/example-liquidity-layer-solana/common";
 import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter";
-import { ChainId, toChain } from "@wormhole-foundation/sdk-base";
+import { ChainId } from "@wormhole-foundation/sdk-base";
 import { keccak256 } from "@wormhole-foundation/sdk-definitions";
 import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
@@ -227,7 +227,6 @@ export class SwapLayerProgram {
     }
 
     async fetchStagedOutbound(addr: PublicKey): Promise<StagedOutbound> {
-        // @ts-ignore: This works.
         return this.program.account.stagedOutbound.fetch(addr);
     }
 
