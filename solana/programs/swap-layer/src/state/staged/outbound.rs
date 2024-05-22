@@ -1,7 +1,7 @@
 use crate::error::SwapLayerError;
 use anchor_lang::prelude::*;
 use common::wormhole_io::Readable;
-use swap_layer_messages::types::OutputToken;
+use swap_layer_messages::{messages::SwapMessageV1, types::OutputToken};
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
 pub enum RedeemOption {
@@ -84,6 +84,30 @@ impl StagedOutbound {
                 }
                 None => 5, // len + OutputToken::Usdc,
             }))
+    }
+
+    pub fn to_swap_message_v1(&mut self) -> Result<SwapMessageV1> {
+        let Self {
+            info,
+            staged_redeem,
+            encoded_output_token,
+        } = self;
+
+        let staged_redeem = std::mem::take(staged_redeem);
+
+        Ok(SwapMessageV1 {
+            recipient: info.recipient,
+            redeem_mode: match staged_redeem {
+                StagedRedeem::Direct => Default::default(),
+                StagedRedeem::Payload(payload) => payload.into(),
+                StagedRedeem::Relay {
+                    gas_dropoff,
+                    relaying_fee,
+                } => (gas_dropoff, relaying_fee).try_into().unwrap(),
+            },
+            output_token: Readable::read(&mut &encoded_output_token[..])
+                .map_err(|_| SwapLayerError::InvalidOutputToken)?,
+        })
     }
 }
 
