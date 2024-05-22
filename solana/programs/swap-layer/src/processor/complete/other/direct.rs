@@ -1,4 +1,4 @@
-use crate::{composite::*, error::SwapLayerError, utils};
+use crate::{composite::*, error::SwapLayerError};
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token, token};
 use swap_layer_messages::{
@@ -120,106 +120,90 @@ where
         &[ctx.bumps.complete_swap.authority],
     ];
 
-    // Handle Jupiter V6 swap.
-    let limit_amount = {
-        let (shared_accounts_route, mut swap_args, cpi_remaining_accounts) =
-            JupiterV6SharedAccountsRoute::set_up(ctx.remaining_accounts, &ix_data[..])?;
+    let (shared_accounts_route, mut swap_args, cpi_remaining_accounts) =
+        JupiterV6SharedAccountsRoute::set_up(ctx.remaining_accounts, &ix_data[..])?;
 
-        // Verify remaining accounts.
-        {
-            require_keys_eq!(
-                shared_accounts_route.transfer_authority.key(),
-                swap_authority.key(),
-                SwapLayerError::InvalidSwapAuthority
-            );
-            require_keys_eq!(
-                shared_accounts_route.src_custody_token.key(),
-                ctx.accounts.complete_swap.src_swap_token.key(),
-                SwapLayerError::InvalidSourceSwapToken
-            );
-            require_keys_eq!(
-                shared_accounts_route.dst_custody_token.key(),
-                ctx.accounts.complete_swap.dst_swap_token.key(),
-                SwapLayerError::InvalidDestinationSwapToken
-            );
-            require_keys_eq!(
-                shared_accounts_route.src_mint.key(),
-                common::USDC_MINT,
-                SwapLayerError::InvalidSourceMint
-            );
-            require_keys_eq!(
-                shared_accounts_route.dst_mint.key(),
-                ctx.accounts.complete_swap.dst_mint.key(),
-                SwapLayerError::InvalidDestinationMint
-            );
-        }
+    // Verify remaining accounts.
+    {
+        require_keys_eq!(
+            shared_accounts_route.transfer_authority.key(),
+            swap_authority.key(),
+            SwapLayerError::InvalidSwapAuthority
+        );
+        require_keys_eq!(
+            shared_accounts_route.src_custody_token.key(),
+            ctx.accounts.complete_swap.src_swap_token.key(),
+            SwapLayerError::InvalidSourceSwapToken
+        );
+        require_keys_eq!(
+            shared_accounts_route.dst_custody_token.key(),
+            ctx.accounts.complete_swap.dst_swap_token.key(),
+            SwapLayerError::InvalidDestinationSwapToken
+        );
+        require_keys_eq!(
+            shared_accounts_route.src_mint.key(),
+            common::USDC_MINT,
+            SwapLayerError::InvalidSourceMint
+        );
+        require_keys_eq!(
+            shared_accounts_route.dst_mint.key(),
+            ctx.accounts.complete_swap.dst_mint.key(),
+            SwapLayerError::InvalidDestinationMint
+        );
+    }
 
-        let limit_amount = match limit_and_params {
-            // If the limit amount is some value (meaning that the OutputToken is Gas or Other), we
-            // will override the instruction arguments with the limit amount and slippage == 0 bps.
-            // Otherwise we will compute the limit amount using the given swap args.
-            Some((limit_amount, swap_params)) => {
-                msg!(
-                    "Override in_amount: {}, quoted_out_amount: {}, slippage_bps: {}",
-                    swap_args.in_amount,
-                    swap_args.quoted_out_amount,
-                    swap_args.slippage_bps
-                );
-                swap_args.in_amount = in_amount;
-                swap_args.quoted_out_amount = limit_amount;
-                swap_args.slippage_bps = 0;
+    let limit_amount = match limit_and_params {
+        // If the limit amount is some value (meaning that the OutputToken is Gas or Other), we
+        // will override the instruction arguments with the limit amount and slippage == 0 bps.
+        // Otherwise we will compute the limit amount using the given swap args.
+        Some((limit_amount, swap_params)) => {
+            msg!(
+                "Override in_amount: {}, quoted_out_amount: {}, slippage_bps: {}",
+                swap_args.in_amount,
+                swap_args.quoted_out_amount,
+                swap_args.slippage_bps
+            );
+            swap_args.in_amount = in_amount;
+            swap_args.quoted_out_amount = limit_amount;
+            swap_args.slippage_bps = 0;
 
-                // Peek into the head of remaining accounts. This account will be the dex program that Jupiter
-                // V6 interacts with. If the swap params specify a specific dex program, we need to ensure that
-                // the one passed into this instruction handler is that.
-                if let Some(dex_program_id) = swap_params.dex_program_id {
-                    require_eq!(
-                        swap_args.route_plan.len(),
-                        1,
-                        SwapLayerError::NotJupiterV6DirectRoute
-                    );
-                    require_keys_eq!(
-                        cpi_remaining_accounts[0].key(),
-                        Pubkey::from(dex_program_id),
-                        SwapLayerError::JupiterV6DexProgramMismatch
-                    );
-                }
-
-                limit_amount
-            }
-            None => {
-                // Fetched swap args should have the same in amount as the prepared (fast) fill.
+            // Peek into the head of remaining accounts. This account will be the dex program that Jupiter
+            // V6 interacts with. If the swap params specify a specific dex program, we need to ensure that
+            // the one passed into this instruction handler is that.
+            if let Some(dex_program_id) = swap_params.dex_program_id {
                 require_eq!(
-                    swap_args.in_amount,
-                    in_amount,
-                    SwapLayerError::InvalidSwapInAmount
+                    swap_args.route_plan.len(),
+                    1,
+                    SwapLayerError::NotJupiterV6DirectRoute
                 );
-
-                utils::jupiter_v6::compute_min_amount_out(&swap_args)
+                require_keys_eq!(
+                    cpi_remaining_accounts[0].key(),
+                    Pubkey::from(dex_program_id),
+                    SwapLayerError::JupiterV6DexProgramMismatch
+                );
             }
-        };
 
-        // Execute swap.
-        shared_accounts_route.invoke_cpi(
-            swap_args,
-            swap_authority_seeds,
-            cpi_remaining_accounts,
-        )?;
+            limit_amount.into()
+        }
+        None => {
+            // Fetched swap args should have the same in amount as the prepared (fast) fill.
+            require_eq!(
+                swap_args.in_amount,
+                in_amount,
+                SwapLayerError::InvalidSwapInAmount
+            );
 
-        limit_amount
+            None
+        }
     };
 
-    // After the swap, we reload the destination token account to get the correct amount.
-    ctx.accounts.complete_swap.dst_swap_token.reload()?;
-    let dst_swap_token = &ctx.accounts.complete_swap.dst_swap_token;
-
-    // Rarely do I use the gte macro, but this is a good use case for it. I want to display the
-    // amounts if the limit amount is not met.
-    require_gte!(
-        dst_swap_token.amount,
+    // Execute swap.
+    let amount_out = shared_accounts_route.swap_exact_in(
+        swap_args,
+        swap_authority_seeds,
+        cpi_remaining_accounts,
         limit_amount,
-        SwapLayerError::SwapFailed
-    );
+    )?;
 
     let recipient = &ctx.accounts.recipient;
 
@@ -243,13 +227,13 @@ where
             CpiContext::new_with_signer(
                 ctx.accounts.complete_swap.token_program.to_account_info(),
                 token::Transfer {
-                    from: dst_swap_token.to_account_info(),
+                    from: ctx.accounts.complete_swap.dst_swap_token.to_account_info(),
                     to: ctx.accounts.recipient_token.to_account_info(),
                     authority: swap_authority.to_account_info(),
                 },
                 &[swap_authority_seeds],
             ),
-            dst_swap_token.amount,
+            amount_out,
         )?;
     }
 

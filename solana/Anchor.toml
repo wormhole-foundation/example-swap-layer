@@ -197,7 +197,12 @@ filename = "ts/tests/accounts/jupiter/jupiter_usdt_custody_token.json"
 ### Jupiter V6 -- LUT #1
 [[test.validator.account]]
 address = "GxS6FiQ3mNnAar9HGQ6mxP7t6FcwmHkU7peSeQDUHmpN"
-filename = "ts/tests/accounts/jupiter/jupiter_lut1.json"
+filename = "ts/tests/accounts/jupiter/jupiter_v6_lut_1.json"
+
+### Jupiter V6 -- LUT #1
+[[test.validator.account]]
+address = "HsLPzBjqK3SUKQZwHdd2QHVc9cioPrsHNw9GcUDs7WL7"
+filename = "ts/tests/accounts/jupiter/jupiter_v6_lut_2.json"
 
 ### Whirlpool Program
 [[test.genesis]]
