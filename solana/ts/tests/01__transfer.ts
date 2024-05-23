@@ -3291,8 +3291,7 @@ describe("Swap Layer", () => {
                                     bump: stagedInboundData.seeds.bump,
                                 },
                                 {
-                                    stagedCustodyTokenBump:
-                                        stagedInboundData.info.stagedCustodyTokenBump,
+                                    custodyToken: stagedInboundTokenAddress,
                                     stagedBy: payer.publicKey,
                                     sourceChain: foreignChain,
                                     recipient: recipient.publicKey,

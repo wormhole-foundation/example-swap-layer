@@ -34,7 +34,10 @@ pub struct CompleteTransferPayload<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = try_compute_staged_inbound_size(&consume_swap_layer_fill.read_message_unchecked())?,
+        space = StagedInbound::try_compute_size_if_needed(
+            staged_inbound,
+            consume_swap_layer_fill.read_message_unchecked()
+        )?,
         seeds = [
             StagedInbound::SEED_PREFIX,
             consume_swap_layer_fill.prepared_fill_key().as_ref(),
@@ -69,8 +72,8 @@ pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Resul
     if staged_inbound.staged_by == Pubkey::default() {
         // Consume the prepared fill, and send the tokens to the staged custody account.
         ctx.accounts.consume_swap_layer_fill.consume_prepared_fill(
-            ctx.accounts.staged_custody_token.to_account_info(),
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.staged_custody_token.as_ref().as_ref(),
+            &ctx.accounts.token_program,
         )?;
 
         let swap_msg = ctx
@@ -84,7 +87,7 @@ pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Resul
                 bump: ctx.bumps.staged_inbound,
             },
             info: StagedInboundInfo {
-                staged_custody_token_bump: ctx.bumps.staged_custody_token,
+                custody_token: ctx.accounts.staged_custody_token.key(),
                 staged_by: ctx.accounts.payer.key(),
                 source_chain: ctx.accounts.consume_swap_layer_fill.fill.source_chain,
                 recipient: Pubkey::from(swap_msg.recipient),
@@ -95,18 +98,6 @@ pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Resul
     }
 
     Ok(())
-}
-
-fn try_compute_staged_inbound_size(swap_msg: &SwapMessageV1) -> Result<usize> {
-    // Match on Payload redeem type.
-    match &swap_msg.redeem_mode {
-        RedeemMode::Payload(payload) => {
-            let payload_size = payload.len();
-            StagedInbound::checked_compute_size(payload_size)
-                .ok_or(error!(SwapLayerError::PayloadTooLarge))
-        }
-        _ => Err(SwapLayerError::InvalidRedeemMode.into()),
-    }
 }
 
 fn get_swap_message_payload(swap_msg: &SwapMessageV1) -> Result<&[u8]> {
