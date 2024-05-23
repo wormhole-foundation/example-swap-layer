@@ -17,15 +17,6 @@ const GAS_DROPOFF_SCALAR = 1_000n;
 export const U32_MAX = 4294967295;
 const MAX_BPS = 1_000_000n;
 
-// TODO: Need to implement serde for the following types. For now, we will use a dummy
-// type to represent the swap type.
-export type DestinationSwapType = {
-    none?: {};
-    uniswapV3?: {};
-    traderJoe?: {};
-    jupiterV6?: {};
-};
-
 export function denormalizeGasDropOff(gasDropOff: number): bigint {
     return BigInt(gasDropOff) * GAS_DROPOFF_SCALAR;
 }
