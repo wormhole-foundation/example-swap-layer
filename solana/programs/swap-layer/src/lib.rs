@@ -157,4 +157,14 @@ pub mod swap_layer {
     {
         processor::complete_swap_relay(ctx, instruction_data)
     }
+
+    pub fn complete_swap_payload<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, CompleteSwapPayload<'info>>,
+        instruction_data: Vec<u8>,
+    ) -> Result<()>
+    where
+        'c: 'info,
+    {
+        processor::complete_swap_payload(ctx, instruction_data)
+    }
 }

@@ -52,7 +52,7 @@ incremental = false
 codegen-units = 1
 
 [workspace.lints.clippy]
-correctness = { level = "warn"}
+correctness = { level = "warn", priority = -1 }
 
 arithmetic_side_effects = "deny"
 as_conversions = "deny"

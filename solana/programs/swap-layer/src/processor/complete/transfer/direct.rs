@@ -56,8 +56,8 @@ pub fn complete_transfer_direct(ctx: Context<CompleteTransferDirect>) -> Result<
             .accounts
             .consume_swap_layer_fill
             .consume_prepared_fill(
-                ctx.accounts.recipient_token_account.to_account_info(),
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.recipient_token_account.as_ref().as_ref(),
+                &ctx.accounts.token_program,
             )
             .map(|_| ()),
         _ => err!(SwapLayerError::InvalidRedeemMode),

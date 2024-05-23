@@ -132,10 +132,10 @@ fn handle_complete_transfer_relay(
     let token_program = &ctx.accounts.token_program;
 
     // CPI Call token router.
-    let fill_amount = ctx.accounts.consume_swap_layer_fill.consume_prepared_fill(
-        complete_token.to_account_info(),
-        token_program.to_account_info(),
-    )?;
+    let fill_amount = ctx
+        .accounts
+        .consume_swap_layer_fill
+        .consume_prepared_fill(complete_token.as_ref(), token_program)?;
 
     let custodian = &ctx.accounts.consume_swap_layer_fill.custodian;
     let payer = &ctx.accounts.payer;
