@@ -88,7 +88,8 @@ pub struct InitiateSwapExactIn<'info> {
         init_if_needed,
         payer = payer,
         associated_token::mint = src_mint,
-        associated_token::authority = swap_authority
+        associated_token::authority = swap_authority,
+        associated_token::token_program = src_token_program
     )]
     src_swap_token: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 

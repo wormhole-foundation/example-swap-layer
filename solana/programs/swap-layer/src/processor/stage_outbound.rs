@@ -38,8 +38,9 @@ pub struct StageOutbound<'info> {
     #[account(
         mut,
         token::mint = src_mint,
+        token::token_program = src_token_program,
     )]
-    sender_token: Option<Account<'info, token::TokenAccount>>,
+    sender_token: Option<InterfaceAccount<'info, token_interface::TokenAccount>>,
 
     /// Peer used to determine whether assets are sent to a valid destination. The registered peer
     /// will also act as the authority over the staged custody token account.
@@ -82,6 +83,7 @@ pub struct StageOutbound<'info> {
         payer = payer,
         token::mint = src_mint,
         token::authority = target_peer,
+        token::token_program = src_token_program,
         seeds = [
             crate::STAGED_CUSTODY_TOKEN_SEED_PREFIX,
             staged_outbound.key().as_ref(),
@@ -92,15 +94,16 @@ pub struct StageOutbound<'info> {
 
     #[account(
         mut,
-        token::mint = common::USDC_MINT,
+        token::mint = common::USDC_MINT
     )]
     usdc_refund_token: Box<Account<'info, token::TokenAccount>>,
 
     /// Mint can either be USDC or whichever mint is used to swap into USDC.
+    #[account(token::token_program = src_token_program)]
     src_mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
 
-    token_program: Program<'info, token::Token>,
     src_token_program: Interface<'info, token_interface::TokenInterface>,
+    token_program: Program<'info, token::Token>,
     system_program: Program<'info, System>,
 }
 
@@ -186,8 +189,9 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
         None => (amount_in, StagedRedeem::Direct),
     };
 
-    let src_token_program = &ctx.accounts.token_program;
+    let src_token_program = &ctx.accounts.src_token_program;
     let custody_token = &ctx.accounts.staged_custody_token;
+    let src_mint = &ctx.accounts.src_mint;
 
     let sender = match &ctx.accounts.sender_token {
         Some(sender_token) => match (
@@ -195,8 +199,6 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
             &ctx.accounts.program_transfer_authority,
         ) {
             (Some(sender), None) => {
-                let src_mint = &ctx.accounts.src_mint;
-
                 token_interface::transfer_checked(
                     CpiContext::new(
                         src_token_program.to_account_info(),
@@ -224,13 +226,14 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
 
                 let (hashed_args, authority_bump) = last_transfer_authority_signer_seeds.unwrap();
 
-                token::transfer(
+                token_interface::transfer_checked(
                     CpiContext::new_with_signer(
-                        ctx.accounts.token_program.to_account_info(),
-                        token::Transfer {
+                        src_token_program.to_account_info(),
+                        token_interface::TransferChecked {
                             from: sender_token.to_account_info(),
                             to: custody_token.to_account_info(),
                             authority: program_transfer_authority.to_account_info(),
+                            mint: src_mint.to_account_info(),
                         },
                         &[&[
                             crate::TRANSFER_AUTHORITY_SEED_PREFIX,
@@ -239,6 +242,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
                         ]],
                     ),
                     transfer_amount,
+                    src_mint.decimals,
                 )?;
 
                 sender_token.owner
