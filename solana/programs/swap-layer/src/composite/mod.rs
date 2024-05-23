@@ -316,7 +316,7 @@ pub struct CompleteSwap<'info> {
             true
         }
     )]
-    consume_swap_layer_fill: ConsumeSwapLayerFill<'info>,
+    pub consume_swap_layer_fill: ConsumeSwapLayerFill<'info>,
 
     /// CHECK: Seeds must be \["swap-authority", prepared_fill.key()\].
     #[account(
@@ -358,7 +358,7 @@ pub struct CompleteSwap<'info> {
     pub token_program: Program<'info, token::Token>,
     pub dst_token_program: Interface<'info, token_interface::TokenInterface>,
     associated_token_program: Program<'info, associated_token::AssociatedToken>,
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 impl<'info> CompleteSwap<'info> {
