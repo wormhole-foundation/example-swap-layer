@@ -74,7 +74,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       mos.output.size + MODE_SIZE
     );
 
-    bytes memory swapMessage = encodeSwapMessage(recipient, redeemPayload, outputSwap);
+    bytes memory swapMessage = encodeSwapMessage(recipient, msg.sender, redeemPayload, outputSwap);
     bytes memory ret;
     if (mos.transfer.mode == TransferMode.LiquidityLayerFast) {
       (uint64 sequence, uint64 fastSequence, uint256 protocolSequence) =

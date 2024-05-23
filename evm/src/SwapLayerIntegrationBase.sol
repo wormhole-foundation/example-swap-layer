@@ -917,14 +917,23 @@ abstract contract SwapLayerIntegrationBase {
 
   function _swapLayerDecodeRedeem(
     bytes memory successData
-  ) internal pure returns (address outputToken, uint256 outputAmount) {
-    return abi.decode(successData, (address, uint256));
+  ) internal pure returns (
+    address outputToken,
+    uint256 outputAmount,
+    bytes32 sender
+  ) {
+    return abi.decode(successData, (address, uint256, bytes32));
   }
 
   function _swapLayerDecodeRedeemWithPayload(
     bytes memory successData
-  ) internal pure returns (address outputToken, uint256 outputAmount, bytes memory payload) {
-    return abi.decode(successData, (address, uint256, bytes));
+  ) internal pure returns (
+    address outputToken,
+    uint256 outputAmount,
+    bytes32 sender,
+    bytes memory payload
+  ) {
+    return abi.decode(successData, (address, uint256, bytes32, bytes));
   }
 
   struct ComposedRedeemParams {
@@ -971,13 +980,22 @@ abstract contract SwapLayerIntegrationBase {
 
   function _swapLayerRedeem(
     Redeem memory params
-  ) internal returns (address outputToken, uint256 outputAmount) {
+  ) internal returns (
+    address outputToken,
+    uint256 outputAmount,
+    bytes32 sender
+  ) {
     return _swapLayerDecodeRedeem(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
   }
 
   function _swapLayerRedeemWithPayload(
     Redeem memory params
-  ) internal returns (address outputToken, uint256 outputAmount, bytes memory payload) {
+  ) internal returns (
+    address outputToken,
+    uint256 outputAmount,
+    bytes32 sender,
+    bytes memory payload
+  ) {
     return _swapLayerDecodeRedeemWithPayload(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
   }
 
@@ -998,13 +1016,22 @@ abstract contract SwapLayerIntegrationBase {
 
   function _swapLayerRedeem(
     RedeemOverride memory params
-  ) internal returns (address outputToken, uint256 outputAmount) {
+  ) internal returns (
+    address outputToken,
+    uint256 outputAmount,
+    bytes32 sender
+  ) {
     return _swapLayerDecodeRedeem(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
   }
 
   function _swapLayerRedeemWithPayload(
     RedeemOverride memory params
-  ) internal returns (address outputToken, uint256 outputAmount, bytes memory payload) {
+  ) internal returns (
+    address outputToken,
+    uint256 outputAmount,
+    bytes32 sender,
+    bytes memory payload
+  ) {
     return _swapLayerDecodeRedeemWithPayload(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
   }
 

@@ -84,6 +84,10 @@ contract SLTSwapBase is SLTBase {
     return amount * numerator / denominator;
   }
 
+  function _maxRedeemPayloadLen() internal view returns (uint) {
+    return liquidityLayer.getMaxPayloadSize() / 2;
+  }
+
   function _validDeadline() internal view returns (uint) {
     return block.timestamp + 1800;
   }

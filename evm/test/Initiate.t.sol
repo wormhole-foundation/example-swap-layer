@@ -343,7 +343,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     }
     else {
       vars.redeemMode = RedeemMode.Payload;
-      uint payloadLen = nextRn(rngSeed) % 10000;
+      uint payloadLen = nextRn(rngSeed) % (_maxRedeemPayloadLen() + 1);
       uint[] memory pl = new uint[](payloadLen/32 + 1);
       for (uint i = 0; i < pl.length; ++i)
         pl[i] = nextRn(rngSeed);
@@ -492,13 +492,6 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       return;
     }
 
-    if (vars.expectedRelayingFee > vars.maxRelayingFee) {
-      assertFalse(success, "maxRelayingFee exceeded");
-      assertEq(returnData.length, 4+32+32);
-      assertEq(maybeErrorSelector, ExceedsMaxRelayingFee.selector);
-      return;
-    }
-
     if (vars.redeemMode == RedeemMode.Relay && vars.outputSwapType > 0 && (
         (vars.targetChain == SOLANA_CHAIN_ID &&
           vars.outputSwapType != SWAP_TYPE_GENERIC_SOLANA) ||
@@ -507,6 +500,13 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     )) {
       assertFalse(success, "outputSwapType and chain mismatch");
       assertEq(maybeErrorSelector, InvalidSwapTypeForChain.selector);
+      return;
+    }
+
+    if (vars.expectedRelayingFee > vars.maxRelayingFee) {
+      assertFalse(success, "maxRelayingFee exceeded");
+      assertEq(returnData.length, 4+32+32);
+      assertEq(maybeErrorSelector, ExceedsMaxRelayingFee.selector);
       return;
     }
 
@@ -673,6 +673,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     SwapMessageStructure memory sms = parseSwapMessageStructure(swapMessage);
     assertEq(sms.recipient, user, "recipient");
+    assertEq(sms.sender, user.toUniversalAddress(), "sender");
 
     assertEq(uint8(sms.redeemMode), uint8(vars.redeemMode));
     if (vars.redeemMode == RedeemMode.Relay) {

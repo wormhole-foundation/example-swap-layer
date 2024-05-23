@@ -144,7 +144,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
     }
 
     return sms.redeemMode == RedeemMode.Payload
-      ? abi.encode(address(outputToken), outputAmount, sms.payload)
-      : abi.encode(address(outputToken), outputAmount);
+      ? abi.encode(address(outputToken), outputAmount, sms.sender, sms.payload)
+      : abi.encode(address(outputToken), outputAmount, sms.sender);
   }
 }

@@ -3,12 +3,13 @@
 pragma solidity ^0.8.24;
 
 import "wormhole-sdk/libraries/BytesParsing.sol";
-import { fromUniversalAddress } from "wormhole-sdk/Utils.sol";
+import { toUniversalAddress, fromUniversalAddress } from "wormhole-sdk/Utils.sol";
 
 import "./Params.sol";
 
 using BytesParsing for bytes;
 using { fromUniversalAddress } for bytes32;
+using { toUniversalAddress } for address;
 
 uint8 constant VERSION = 1;
 
@@ -16,10 +17,17 @@ error InvalidVersion(uint8 version, uint8 expected);
 
 function encodeSwapMessage(
   bytes32 recipient,
+  address sender,
   bytes memory redeemPayload,
   bytes memory outputSwap
 ) pure returns (bytes memory) {
-  return abi.encodePacked(VERSION, recipient, redeemPayload, outputSwap);
+  return abi.encodePacked(
+    VERSION,
+    recipient,
+    sender.toUniversalAddress(),
+    redeemPayload,
+    outputSwap
+  );
 }
 
 function encodeSwapMessageRelayParams(
@@ -31,6 +39,7 @@ function encodeSwapMessageRelayParams(
 
 struct SwapMessageStructure {
   address recipient;
+  bytes32 sender;
   RedeemMode redeemMode;
   bytes payload;
   uint redeemOffset;
@@ -49,6 +58,7 @@ function parseSwapMessageStructure(
   bytes32 recipient_;
   (recipient_, offset) = message.asBytes32Unchecked(offset);
   sms.recipient = recipient_.fromUniversalAddress();
+  (sms.sender, offset) = message.asBytes32Unchecked(offset);
 
   (sms.redeemMode, offset) = parseRedeemMode(message, offset);
   sms.redeemOffset = offset;
