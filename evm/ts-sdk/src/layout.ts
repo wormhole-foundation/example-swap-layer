@@ -301,6 +301,7 @@ export const initiateArgsLayout = [
 export const swapMessageLayout = [
   { name: "version", binary: "uint", size: 1, custom: 1, omit: true },
   { name: "recipient", ...layoutItems.universalAddressItem },
+  { name: "sender", ...layoutItems.universalAddressItem },
   redeemModeItem,
   outputTokenItem,
 ] as const satisfies Layout;
