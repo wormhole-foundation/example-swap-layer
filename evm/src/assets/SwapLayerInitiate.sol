@@ -14,6 +14,7 @@ import "./SwapLayerRelayingFees.sol";
 import "./InitiateParams.sol";
 import { encodeSwapMessage, encodeSwapMessageRelayParams } from "./Message.sol";
 
+error PayloadNotYetSupportedOnSolana();
 error InsufficientInputAmount(uint256 input, uint256 minimum);
 error InvalidLength(uint256 received, uint256 expected);
 error ExceedsMaxRelayingFee(uint256 fee, uint256 maximum);
@@ -30,6 +31,9 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
   ) external payable returns (bytes memory) { unchecked {
     checkAddr(targetChain, recipient);
     ModesOffsetsSizes memory mos = parseParamBaseStructure(targetChain, params);
+
+    if (targetChain == SOLANA_CHAIN_ID && mos.redeem.mode == RedeemMode.Payload)
+      revert PayloadNotYetSupportedOnSolana();
 
     uint64 maxFastFee = 0;
     uint32 fastTransferDeadline = 0;

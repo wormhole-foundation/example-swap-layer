@@ -16,7 +16,11 @@ import {
   RelayingDisabledForChain,
   InvalidSwapTypeForChain
 } from "swap-layer/assets/SwapLayerRelayingFees.sol";
-import { ExceedsMaxRelayingFee, ChainNotSupported } from "swap-layer/assets/SwapLayerInitiate.sol";
+import {
+  ExceedsMaxRelayingFee,
+  ChainNotSupported,
+  PayloadNotYetSupportedOnSolana
+} from "swap-layer/assets/SwapLayerInitiate.sol";
 
 import "swap-layer/SwapLayerIntegrationBase.sol";
 
@@ -485,6 +489,13 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     (bytes4 maybeErrorSelector, ) = returnData.asBytes4Unchecked(0);
 
+    if (vars.targetChain == SOLANA_CHAIN_ID && vars.redeemMode == RedeemMode.Payload) {
+      assertFalse(success, "payload not supported on Solana");
+      assertEq(returnData.length, 4);
+      assertEq(maybeErrorSelector, PayloadNotYetSupportedOnSolana.selector);
+      return;
+    }
+
     if (vars.exceedMaxDropoff || (vars.targetChain == type(uint16).max && vars.gasDropoff > 0)) {
       assertFalse(success, "maxDropoff exceeded");
       assertEq(returnData.length, 4+32+32);
@@ -503,7 +514,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       return;
     }
 
-    if (vars.expectedRelayingFee > vars.maxRelayingFee) {
+    if (vars.expectedRelayingFee > vars.maxRelayingFee && vars.targetChain != type(uint16).max) {
       assertFalse(success, "maxRelayingFee exceeded");
       assertEq(returnData.length, 4+32+32);
       assertEq(maybeErrorSelector, ExceedsMaxRelayingFee.selector);
@@ -529,12 +540,6 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     }
 
     if (vars.transferMode == TransferMode.LiquidityLayerFast) {
-      if (vars.expectedSentAmount < liquidityLayer.getMinFastTransferAmount()) {
-        assertFalse(success, "sent amount too low for fast transfers");
-        assertEq(maybeErrorSelector, bytes4(keccak256("ErrInsufficientAmount(uint64,uint64)")));
-        return;
-      }
-
       if (vars.expectedSentAmount > FAST_TRANSFER_MAX_AMOUNT) {
         assertFalse(success, "fastTransferMaxAmount exceeded");
         assertEq(maybeErrorSelector, bytes4(keccak256("ErrAmountTooLarge(uint64,uint64)")));
@@ -544,6 +549,12 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       if (vars.fastTransferMaxFee <= FAST_FEE_MINIMUM) {
         assertFalse(success, "max fast fee too low");
         assertEq(maybeErrorSelector, bytes4(keccak256("ErrInvalidMaxFee(uint64,uint64)")));
+        return;
+      }
+
+      if (vars.expectedSentAmount < liquidityLayer.getMinFastTransferAmount()) {
+        assertFalse(success, "sent amount too low for fast transfers");
+        assertEq(maybeErrorSelector, bytes4(keccak256("ErrInsufficientAmount(uint64,uint64)")));
         return;
       }
     }
