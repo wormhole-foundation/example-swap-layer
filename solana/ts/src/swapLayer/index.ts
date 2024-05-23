@@ -956,6 +956,65 @@ export class SwapLayerProgram {
             .instruction();
     }
 
+    async completeSwapRelayIx(
+        accounts: {
+            payer: PublicKey;
+            preparedFill: PublicKey;
+            recipient: PublicKey;
+            dstMint?: PublicKey;
+            beneficiary?: PublicKey;
+            dstTokenProgram?: PublicKey;
+            feeRecipientToken?: PublicKey;
+        },
+        args: {
+            cpiInstruction: TransactionInstruction;
+        },
+    ): Promise<TransactionInstruction> {
+        const { payer, preparedFill, recipient } = accounts;
+        const { cpiInstruction } = args;
+
+        let { beneficiary, dstMint, dstTokenProgram, feeRecipientToken } = accounts;
+        beneficiary ??= payer;
+        dstMint ??= splToken.NATIVE_MINT;
+        feeRecipientToken ??= await this.fetchCustodian().then((c) => c.feeRecipientToken);
+
+        const swapAccounts = await this.swapAccounts({
+            preparedSource: preparedFill,
+            sourceMint: this.usdcMint,
+            destinationMint: dstMint,
+            srcTokenProgram: splToken.TOKEN_PROGRAM_ID,
+            dstTokenProgram,
+        });
+        const { swapAuthority, srcSwapToken, dstSwapToken } = swapAccounts;
+        dstTokenProgram ??= swapAccounts.dstTokenProgram;
+
+        return this.program.methods
+            .completeSwapRelay(cpiInstruction.data)
+            .accounts({
+                completeSwap: {
+                    payer,
+                    consumeSwapLayerFill: await this.consumeSwapLayerFillComposite({
+                        preparedFill,
+                        beneficiary,
+                    }),
+                    authority: swapAuthority,
+                    srcSwapToken,
+                    dstSwapToken,
+                    usdc: this.usdcComposite(),
+                    dstMint,
+                    associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+                    tokenProgram: splToken.TOKEN_PROGRAM_ID,
+                    dstTokenProgram,
+                    systemProgram: SystemProgram.programId,
+                },
+                recipientToken: splToken.getAssociatedTokenAddressSync(dstMint, recipient),
+                recipient,
+                feeRecipientToken,
+            })
+            .remainingAccounts(cpiInstruction.keys)
+            .instruction();
+    }
+
     tokenRouterProgram(): tokenRouterSdk.TokenRouterProgram {
         switch (this._programId) {
             case localnet(): {
