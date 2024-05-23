@@ -41,7 +41,6 @@ import {
     Custodian,
     OutputToken,
     Peer,
-    RedeemOption,
     RelayParams,
     StagedInbound,
     StagedOutbound,
@@ -96,6 +95,10 @@ describe("Swap Layer", () => {
                 gasPrice: 100000,
                 gasPriceMargin: 10000,
             },
+        },
+        swapTimeLimit: {
+            fastLimit: 2,
+            finalizedLimit: 2,
         },
     };
 
@@ -205,6 +208,10 @@ describe("Swap Layer", () => {
                         gasPrice: 500000,
                         gasPriceMargin: 50000,
                     },
+                },
+                swapTimeLimit: {
+                    fastLimit: 420,
+                    finalizedLimit: 690,
                 },
             };
 
@@ -928,6 +935,10 @@ describe("Swap Layer", () => {
                         gasPrice: 500000,
                         gasPriceMargin: 50000,
                     },
+                },
+                swapTimeLimit: {
+                    fastLimit: 2,
+                    finalizedLimit: 69,
                 },
             };
 
@@ -2241,7 +2252,8 @@ describe("Swap Layer", () => {
                     await expectIxErr(connection, [transferIx], [payer], "InvalidPeer");
                 });
 
-                it("Cannot Complete Transfer (Invalid Output Token)", async function () {
+                it("Cannot Complete Transfer (Swap Time Limit Not Exceeded)", async function () {
+                    const currTime = await connection.getBlockTime(await connection.getSlot());
                     const result = await createAndRedeemCctpFillForTest(
                         testCctpNonce++,
                         foreignChain,
@@ -2267,6 +2279,10 @@ describe("Swap Layer", () => {
                                 },
                             },
                         }),
+                        {
+                            vaaTimestamp:
+                                currTime - relayParamsForTest.swapTimeLimit.finalizedLimit + 5,
+                        },
                     );
                     const { vaa } = result!;
                     const preparedFill = tokenRouter.preparedFillAddress(vaa);
@@ -2280,7 +2296,12 @@ describe("Swap Layer", () => {
                         foreignChain,
                     );
 
-                    await expectIxErr(connection, [transferIx], [payer], "InvalidOutputToken");
+                    await expectIxErr(
+                        connection,
+                        [transferIx],
+                        [payer],
+                        "SwapTimeLimitNotExceeded",
+                    );
                 });
 
                 it("Cannot Complete Transfer (Invalid Recipient)", async function () {
@@ -2517,6 +2538,85 @@ describe("Swap Layer", () => {
                     );
                     assert.equal(recipientLamportAfter - recipientLamportBefore, gasAmount);
                     assert.isBelow(payerLamportAfter, payerLamportBefore - gasAmount);
+                    assert.equal(feeRecipientAfter, feeRecipientBefore + relayerFee);
+                });
+
+                it("Complete Transfer With Gas Dropoff (Failed Encoded Swap)", async function () {
+                    const relayerFee = 1000000n;
+                    const gasAmountDenorm = 690000000;
+                    const currTime = await connection.getBlockTime(await connection.getSlot());
+
+                    const result = await createAndRedeemCctpFillForTest(
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: gasAmountDenorm / 1000,
+                                relayingFee: relayerFee,
+                            },
+                            outputToken: {
+                                type: "Gas",
+                                swap: {
+                                    deadline: 0,
+                                    limitAmount: 0n,
+                                    type: {
+                                        id: "JupiterV6",
+                                        dexProgramId: { isSome: false },
+                                    },
+                                },
+                            },
+                        }),
+                        {
+                            vaaTimestamp:
+                                currTime - relayParamsForTest.swapTimeLimit.finalizedLimit - 1,
+                        },
+                    );
+                    const { vaa, message } = result!;
+
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                    const beneficiary = Keypair.generate();
+
+                    // Balance check.
+                    const recipientBefore = await getUsdcAtaBalance(
+                        connection,
+                        recipient.publicKey,
+                    );
+                    const recipientLamportBefore = await connection.getBalance(recipient.publicKey);
+                    const payerLamportBefore = await connection.getBalance(payer.publicKey);
+                    const feeRecipientBefore = await getUsdcAtaBalance(connection, feeRecipient);
+
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            beneficiary: beneficiary.publicKey,
+                            preparedFill,
+                            recipient: recipient.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxOk(connection, [transferIx], [payer]);
+
+                    // Balance check.
+                    const recipientAfter = await getUsdcAtaBalance(connection, recipient.publicKey);
+                    const recipientLamportAfter = await connection.getBalance(recipient.publicKey);
+                    const payerLamportAfter = await connection.getBalance(payer.publicKey);
+                    const feeRecipientAfter = await getUsdcAtaBalance(connection, feeRecipient);
+
+                    assert.equal(
+                        recipientAfter - recipientBefore,
+                        message.deposit!.message.amount - relayerFee,
+                    );
+                    assert.equal(recipientLamportAfter - recipientLamportBefore, gasAmountDenorm);
+                    assert.isBelow(payerLamportAfter, payerLamportBefore - gasAmountDenorm);
                     assert.equal(feeRecipientAfter, feeRecipientBefore + relayerFee);
                 });
             });
@@ -3287,6 +3387,7 @@ describe("Swap Layer", () => {
         orderSender: number[],
         wormholeSequence: bigint,
         redeemerMessage: Buffer | Uint8Array,
+        args?: { vaaTimestamp?: number },
     ): Promise<null | { vaa: PublicKey; message: LiquidityLayerMessage }> {
         const encodedMintRecipient = Array.from(tokenRouter.cctpMintRecipientAddress().toBuffer());
         const sourceCctpDomain = 0;
@@ -3330,7 +3431,7 @@ describe("Swap Layer", () => {
             foreignEndpointAddress,
             wormholeSequence++,
             message,
-            { sourceChain: "Ethereum" },
+            { sourceChain: "Ethereum", timestamp: args?.vaaTimestamp },
         );
 
         const ix = await tokenRouter.redeemCctpFillIx(

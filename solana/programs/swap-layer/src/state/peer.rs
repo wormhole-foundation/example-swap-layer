@@ -12,6 +12,14 @@ pub enum ExecutionParams {
     },
 }
 
+#[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, InitSpace)]
+pub struct SwapTimeLimit {
+    // Limit in seconds for fast fills.
+    pub fast_limit: u16,
+    // Limit in seconds for finalized fills.
+    pub finalized_limit: u16,
+}
+
 #[derive(Debug, Clone, InitSpace, AnchorSerialize, AnchorDeserialize)]
 pub struct RelayParams {
     // Atomic usdc (i.e. 6 decimals -> 1e6 = 1 usdc), max=disabled
@@ -25,6 +33,10 @@ pub struct RelayParams {
     pub gas_dropoff_margin: u32,
     // Execution parameters specific to the target chain's execution environment.
     pub execution_params: ExecutionParams,
+    // Time limits for fast and finalized fills. If this timer is exceeded, the
+    // relayer will be allowed to execute the `complete_transfer_relay` for a
+    // message that is inteded to perform a swap.
+    pub swap_time_limit: SwapTimeLimit,
 }
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize, InitSpace)]
