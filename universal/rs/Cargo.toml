@@ -23,7 +23,7 @@ anchor-lang = "0.30.0"
 solana-program = "1.18.11"
 
 [workspace.lints.clippy]
-correctness = { level = "warn"}
+correctness = { level = "warn", priority = -1 }
 
 arithmetic_side_effects = "deny"
 as_conversions = "deny"
