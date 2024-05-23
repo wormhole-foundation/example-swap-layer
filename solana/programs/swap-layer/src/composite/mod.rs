@@ -196,7 +196,7 @@ pub struct ConsumeSwapLayerFill<'info> {
     #[account(mut)]
     fill_custody_token: Box<Account<'info, token::TokenAccount>>,
 
-    associated_peer: RegisteredPeer<'info>,
+    pub associated_peer: RegisteredPeer<'info>,
 
     /// CHECK: Recipient of lamports from closing the prepared_fill account.
     #[account(mut)]
