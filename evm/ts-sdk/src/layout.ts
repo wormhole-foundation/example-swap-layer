@@ -219,6 +219,20 @@ const sharedUniswapTraderJoeLayout = [
   ]}
 ] as const satisfies Layout;
 
+//TODO replace with option item from ts sdk once it's been released
+const jupiterV6SwapParametersLayout = [
+  {
+      name: "dexProgramId",
+      binary: "switch",
+      idSize: 1,
+      idTag: "isSome",
+      layouts: [
+          [[0, false], []],
+          [[1, true], [{ name: "address", ...layoutItems.universalAddressItem }]],
+      ],
+  },
+] as const satisfies Layout;
+
 const swapTypesEvm = [
   [1, "UniswapV3"],
   [2, "TraderJoe"],
@@ -234,7 +248,7 @@ const [swapTypes, swapItemLayouts] = [[
   ], [
     sharedUniswapTraderJoeLayout,
     sharedUniswapTraderJoeLayout,
-    [],
+    jupiterV6SwapParametersLayout,
   ]
 ] as const;
 

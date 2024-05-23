@@ -41,7 +41,7 @@ uint8 constant SWAP_TYPE_INVALID = 0; //special, internal only value
 uint8 constant SWAP_TYPE_UNISWAPV3 = 1;
 uint8 constant SWAP_TYPE_TRADERJOE = 2;
 //group solana swap types starting at 16
-uint8 constant SWAP_TYPE_GENERIC_SOLANA = 16;
+uint8 constant SWAP_TYPE_JUPITERV6 = 16;
 
 enum IoToken {
   Usdc,
@@ -62,12 +62,14 @@ error InvalidAddress(bytes32 addr);
 //16 bytes  outputAmount
 // 1 byte   swapType
 //followed by depending on swapType:
-// * uniswap or traderjoe:
+// * uniswap or traderjoe (evm):
 //   3 bytes  firstPoolId
 //   1 byte   pathLength
 //   n bytes  swap path (n = pathLength * (20+3) (token address + uni fee))
-// * solana:
-//   0 bytes
+// * jupiterv6 (solana):
+//   1 byte   isSome
+//    0: -
+//    1: 32 bytes jupiter dex
 
 function parseEvmSwapParams(
   address inputToken,
@@ -112,7 +114,11 @@ function parseSwapTypeAndCountAndSkipParams(
     swapCount = pathLength + 1;
     offset += pathLength * SHARED_PATH_ELEMENT_SIZE;
   }
-  else if (swapType == SWAP_TYPE_GENERIC_SOLANA) {
+  else if (swapType == SWAP_TYPE_JUPITERV6) {
+    bool withDex;
+    (withDex, offset) = params.asBoolUnchecked(offset);
+    if (withDex)
+      offset += UNIVERSAL_ADDRESS_SIZE;
     //The following line is somewhat hacky because Solana is a mess:
     //On non-relayed transfers, the swap layer does not actually execute the swap itself, but
     //  instead relies on a separate, arbitrary instruction that has to be determined by the

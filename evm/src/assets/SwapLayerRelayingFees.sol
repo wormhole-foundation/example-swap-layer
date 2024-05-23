@@ -14,9 +14,8 @@ import {
   UNIVERSAL_ADDRESS_SIZE,
   SWAP_TYPE_UNISWAPV3,
   SWAP_TYPE_TRADERJOE,
-  SWAP_TYPE_GENERIC_SOLANA,
-  IoToken,
-  parseSwapTypeAndCountAndSkipParams
+  SWAP_TYPE_JUPITERV6,
+  IoToken
 } from "./Params.sol";
 
 struct FeeParamsState {
@@ -152,7 +151,7 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
 
     if (targetChain == SOLANA_CHAIN_ID) {
       //TODO figure out what other (dynamic) fees might go into Solana fee calculations
-      if (swapCount != 0 && swapType != SWAP_TYPE_GENERIC_SOLANA)
+      if (swapCount != 0 && swapType != SWAP_TYPE_JUPITERV6)
         revert InvalidSwapTypeForChain(targetChain, swapType);
 
       //add the cost of ATA rent (since any swap can fail, we might have to spawn a usdc ATA)

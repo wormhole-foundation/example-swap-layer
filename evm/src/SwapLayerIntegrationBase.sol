@@ -17,7 +17,7 @@ import {
   SHARED_PATH_ELEMENT_SIZE,
   SWAP_TYPE_TRADERJOE,
   SWAP_TYPE_UNISWAPV3,
-  SWAP_TYPE_GENERIC_SOLANA,
+  SWAP_TYPE_JUPITERV6,
   SWAP_TYPE_INVALID
 } from "./assets/Params.sol";
 import { GasDropoff, GasDropoffLib } from "./assets/GasDropoff.sol";
@@ -83,6 +83,8 @@ abstract contract SwapLayerIntegrationBase {
   struct SolanaSwapParams {
     uint256 swapDeadline;
     uint256 outputAmount;
+    bool    withDex;
+    bytes32 dex;
   }
 
   function _swapLayer() internal virtual view returns (ISwapLayer);
@@ -132,23 +134,14 @@ abstract contract SwapLayerIntegrationBase {
   function _swapLayerEncodeOutputParamsNative(
     SolanaSwapParams memory params
   ) internal pure returns (bytes memory) {
-    return abi.encodePacked(
-      IoToken.Gas,
-      _encodeSharedSwapParams(params.swapDeadline, params.outputAmount),
-      SWAP_TYPE_GENERIC_SOLANA
-    );
+    return abi.encodePacked(IoToken.Gas, _encodeSwapParams(params));
   }
 
   function _swapLayerEncodeOutputParamsToken(
     bytes32 outputTokenMint,
     SolanaSwapParams memory params
   ) internal pure returns (bytes memory) {
-    return abi.encodePacked(
-      IoToken.Other,
-      outputTokenMint,
-      _encodeSharedSwapParams(params.swapDeadline, params.outputAmount),
-      SWAP_TYPE_GENERIC_SOLANA
-    );
+    return abi.encodePacked(IoToken.Other, outputTokenMint, _encodeSwapParams(params));
   }
 
   // -----------------------------------------------------------------------------------------------
@@ -276,7 +269,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         TransferMode.LiquidityLayer,
         RedeemMode.Direct,
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         IoToken.Gas,
         _encodeSwapParams(params.evmSwapParams, true, _swapLayerWrappedNative(), _swapLayerUsdc()),
         params.outputParams
@@ -305,7 +298,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         TransferMode.LiquidityLayer,
         RedeemMode.Direct,
-        _encodeBool(false), //isExactIn - irrelevant
+        uint8(0), //isExactIn - irrelevant
         _encodeUsdcIn(params.amount),
         params.outputParams
       )
@@ -337,7 +330,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         TransferMode.LiquidityLayer,
         RedeemMode.Direct,
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
@@ -372,7 +365,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         TransferMode.LiquidityLayer,
         _encodeRelayParams(params.relayParams),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         IoToken.Gas,
         _encodeSwapParams(params.evmSwapParams, true, _swapLayerWrappedNative(), _swapLayerUsdc()),
         params.outputParams
@@ -408,7 +401,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         TransferMode.LiquidityLayer,
         _encodeRelayParams(params.relayParams),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeUsdcIn(params.amount),
         params.outputParams
       )
@@ -446,7 +439,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         TransferMode.LiquidityLayer,
         _encodeRelayParams(params.relayParams),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
@@ -486,7 +479,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         TransferMode.LiquidityLayer,
         _encodePayloadParams(params.payload),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         IoToken.Gas,
         _encodeSwapParams(params.evmSwapParams, true, _swapLayerWrappedNative(), _swapLayerUsdc()),
         params.outputParams
@@ -516,7 +509,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         TransferMode.LiquidityLayer,
         _encodePayloadParams(params.payload),
-        _encodeBool(false), //isExactIn - irrelevant
+        uint8(0), //isExactIn - irrelevant
         _encodeUsdcIn(params.amount),
         params.outputParams
       )
@@ -549,7 +542,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         TransferMode.LiquidityLayer,
         _encodePayloadParams(params.payload),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
@@ -588,7 +581,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         RedeemMode.Direct,
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         IoToken.Gas,
         _encodeSwapParams(params.evmSwapParams, true, _swapLayerWrappedNative(), _swapLayerUsdc()),
         params.outputParams
@@ -624,7 +617,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         RedeemMode.Direct,
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeUsdcIn(params.amount),
         params.outputParams
       )
@@ -662,7 +655,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         RedeemMode.Direct,
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
@@ -703,7 +696,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodeRelayParams(params.relayParams),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         IoToken.Gas,
         _encodeSwapParams(params.evmSwapParams, true, _swapLayerWrappedNative(), _swapLayerUsdc()),
         params.outputParams
@@ -741,7 +734,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodeRelayParams(params.relayParams),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeUsdcIn(params.amount),
         params.outputParams
       )
@@ -781,7 +774,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodeRelayParams(params.relayParams),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
@@ -823,7 +816,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodePayloadParams(params.payload),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         IoToken.Gas,
         _encodeSwapParams(params.evmSwapParams, true, _swapLayerWrappedNative(), _swapLayerUsdc()),
         params.outputParams
@@ -860,7 +853,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodePayloadParams(params.payload),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeUsdcIn(params.amount),
         params.outputParams
       )
@@ -899,7 +892,7 @@ abstract contract SwapLayerIntegrationBase {
       abi.encodePacked(
         _encodeFastTransferParams(params.fastTransferParams),
         _encodePayloadParams(params.payload),
-        _encodeBool(params.isExactIn),
+        params.isExactIn,
         _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
@@ -1102,7 +1095,7 @@ abstract contract SwapLayerIntegrationBase {
       gasDropoffLamports * 10**9,
       outputTokenType,
       1, //same result for all values > 0
-      SWAP_TYPE_GENERIC_SOLANA
+      SWAP_TYPE_JUPITERV6
     );
   }
 
@@ -1230,10 +1223,6 @@ abstract contract SwapLayerIntegrationBase {
   // ------------------------------------------- Private -------------------------------------------
   // -----------------------------------------------------------------------------------------------
 
-  function _toSwapType(EvmSwapType swapType) private pure returns (uint8) {
-    return swapType == EvmSwapType.UniswapV3 ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE;
-  }
-
   function _encodeFastTransferParams(
     FastTransferParams memory params
   ) private pure returns (uint88) {
@@ -1274,7 +1263,7 @@ abstract contract SwapLayerIntegrationBase {
   function _encodeTokenIn(address inputToken, bool approveCheck) private pure returns (uint176) {
     return uint176(((
       uint(IoToken.Other)
-      <<    BOOL_SIZE * 8) + _encodeBool(approveCheck)
+      <<    BOOL_SIZE * 8) + uint8(approveCheck ? 1 : 0)
       << ADDRESS_SIZE * 8) + uint(uint160(inputToken))
     );
   }
@@ -1314,6 +1303,21 @@ abstract contract SwapLayerIntegrationBase {
     );
   }}
 
+  function _toSwapType(EvmSwapType swapType) private pure returns (uint8) {
+    return swapType == EvmSwapType.UniswapV3 ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE;
+  }
+
+  function _encodeSwapParams(
+    SolanaSwapParams memory params
+  ) private pure returns (bytes memory) {
+    return abi.encodePacked(
+      _encodeSharedSwapParams(params.swapDeadline, params.outputAmount),
+      SWAP_TYPE_JUPITERV6,
+      params.withDex,
+      params.withDex ? abi.encodePacked(params.dex) : new bytes(0)
+    );
+  }
+
   function _encodeSharedSwapParams(
     uint swapDeadline,
     uint outputAmount
@@ -1352,10 +1356,6 @@ abstract contract SwapLayerIntegrationBase {
     _checkMax(amount, type(uint128).max);
 
     return uint128(amount);
-  }
-
-  function _encodeBool(bool isExactIn) private pure returns (uint8) {
-    return isExactIn ? 1 : 0;
   }
 
   function _getImmutable(ImmutableType immutabl) private view returns (address) {

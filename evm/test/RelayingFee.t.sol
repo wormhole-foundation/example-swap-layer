@@ -113,7 +113,7 @@ contract RelayingFeeTest is SLTBase, SwapLayerIntegrationBase {
    ) {
     targetChain = xPercentOfTheTime(75, rngSeed) ? FOREIGN_CHAIN_ID : SOLANA_CHAIN_ID;
     swapType = targetChain == SOLANA_CHAIN_ID
-      ? SWAP_TYPE_GENERIC_SOLANA
+      ? SWAP_TYPE_JUPITERV6
       : xPercentOfTheTime(50, rngSeed) ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE;
     swapCount = uint8(nextRn(rngSeed) % 3);
   }

@@ -265,13 +265,16 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       else {
         vars.outputSwapCount = uint8(nextRn(rngSeed) % 3);
         if (vars.outputToken != IoToken.Usdc) {
-          vars.outputSwapType = SWAP_TYPE_GENERIC_SOLANA;
+          vars.outputSwapType = SWAP_TYPE_JUPITERV6;
           uint32 deadline = uint32(nextRn(rngSeed));
           uint128 minOutputAmount = uint128(nextRn(rngSeed));
+          bool withDex = xPercentOfTheTime(50, rngSeed);
           vars.outputParams = abi.encodePacked(
             deadline,
             minOutputAmount,
-            vars.outputSwapType
+            vars.outputSwapType,
+            withDex,
+            withDex ? abi.encodePacked(bytes32(nextRn(rngSeed))) : new bytes(0)
           );
           if (vars.outputToken == IoToken.Other) {
             vars.outputParams = abi.encodePacked(
@@ -503,9 +506,9 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     if (vars.redeemMode == RedeemMode.Relay && vars.outputSwapType > 0 && (
         (vars.targetChain == SOLANA_CHAIN_ID &&
-          vars.outputSwapType != SWAP_TYPE_GENERIC_SOLANA) ||
+          vars.outputSwapType != SWAP_TYPE_JUPITERV6) ||
         (vars.targetChain != SOLANA_CHAIN_ID &&
-          vars.outputSwapType == SWAP_TYPE_GENERIC_SOLANA)
+          vars.outputSwapType == SWAP_TYPE_JUPITERV6)
     )) {
       assertFalse(success, "outputSwapType and chain mismatch");
       assertEq(maybeErrorSelector, InvalidSwapTypeForChain.selector);
