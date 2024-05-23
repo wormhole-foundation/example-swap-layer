@@ -6,7 +6,7 @@ export type StagedInboundSeeds = {
 };
 
 export type StagedInboundInfo = {
-    stagedCustodyTokenBump: number;
+    custodyToken: PublicKey;
     stagedBy: PublicKey;
     sourceChain: number;
     recipient: PublicKey;
