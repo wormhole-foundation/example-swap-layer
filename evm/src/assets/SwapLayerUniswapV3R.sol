@@ -18,12 +18,11 @@ interface IUniswapV3SwapRouter {
 }
 
 abstract contract SwapLayerUniswapV3R is SwapLayerBase {
-  function _uniswapInitialApprove() internal override {
+  function _uniswapMaxApprove(IERC20 token) internal override {
     if (_uniswapRouter == address(0))
       return;
 
-    _maxApprove(_usdc, _uniswapRouter);
-    _maxApprove(IERC20(address(_wnative)), _uniswapRouter);
+    _maxApprove(token, _uniswapRouter);
   }
 
   function _uniswapSwap(

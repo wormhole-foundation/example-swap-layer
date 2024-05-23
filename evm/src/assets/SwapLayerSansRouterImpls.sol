@@ -79,8 +79,10 @@ abstract contract SwapLayerSansRouterImpls is SwapLayerQuery, SwapLayerInitiate,
     args.checkLength(offset);
 
     _maxApprove(_usdc, address(_liquidityLayer));
-    _uniswapInitialApprove();
-    _traderJoeInitialApprove();
+    _uniswapMaxApprove(_usdc);
+    _uniswapMaxApprove(IERC20(address(_wnative)));
+    _traderJoeMaxApprove(_usdc);
+    _traderJoeMaxApprove(IERC20(address(_wnative)));
   }
 
   //to support wnative.withdraw

@@ -24,18 +24,12 @@ interface IUniversalRouter {
 }
 
 abstract contract SwapLayerUniswapUR is SwapLayerBase {
-  function _permit2MaxApprove(IERC20 token) internal {
-    _maxApprove(token, address(_permit2));
-    _permit2.approve(address(token), _uniswapRouter, type(uint160).max, type(uint48).max);
-  }
-
-  function _uniswapInitialApprove() internal override {
-    //if any of the addresses are null, return
-    if (address(_permit2) == address(0) || _uniswapRouter == address(0))
+  function _uniswapMaxApprove(IERC20 token) internal override {
+    if (_uniswapRouter == address(0))
       return;
 
-    _permit2MaxApprove(_usdc);
-    _permit2MaxApprove(IERC20(address(_wnative)));
+    _maxApprove(token, address(_permit2));
+    _permit2.approve(address(token), _uniswapRouter, type(uint160).max, type(uint48).max);
   }
 
   function _uniswapSwap(
@@ -55,7 +49,7 @@ abstract contract SwapLayerUniswapUR is SwapLayerBase {
       (uint allowance,, ) =
         _permit2.allowance(address(this), address(inputToken), _uniswapRouter);
       if (allowance < inputAmount)
-        _permit2MaxApprove(inputToken);
+        _uniswapMaxApprove(inputToken);
     }
 
     if (isExactIn) {

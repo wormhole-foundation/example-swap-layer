@@ -11,7 +11,7 @@ import "wormhole-sdk/interfaces/token/IPermit2.sol";
 import {IWETH} from "wormhole-sdk/interfaces/token/IWETH.sol";
 import "wormhole-sdk/libraries/BytesParsing.sol";
 import {ITokenRouter} from "liquidity-layer/interfaces/ITokenRouter.sol";
-import {SWAP_TYPE_UNISWAPV3, SWAP_TYPE_TRADERJOE} from "./Params.sol";
+import {SWAP_TYPE_UNISWAPV3, SWAP_TYPE_TRADERJOE, parseIERC20} from "./Params.sol";
 
 struct SwapLayerPeersState {
   // chainId => wormhole address mapping of swap contracts on other chains
@@ -63,6 +63,30 @@ abstract contract SwapLayerBase {
     _traderJoeRouter = traderJoeRouter;
   }
 
+  function batchMaxApprove(bytes calldata approvals) external {
+    uint offset = 0;
+    while (offset < approvals.length) {
+      IERC20 token;
+      uint8 swapType;
+      (token,    offset) = parseIERC20(approvals, offset);
+      (swapType, offset) = approvals.asUint8Unchecked(offset);
+      function(IERC20) internal approveFunc;
+      if (swapType == SWAP_TYPE_UNISWAPV3)
+        approveFunc = _uniswapMaxApprove;
+      else if (swapType == SWAP_TYPE_TRADERJOE)
+        approveFunc = _traderJoeMaxApprove;
+      else
+        revert InvalidSwapType(swapType);
+
+      approveFunc(token);
+    }
+    approvals.checkLength(offset);
+  }
+
+  function _maxApprove(IERC20 token, address spender) internal {
+    SafeERC20.forceApprove(token, spender, type(uint256).max);
+  }
+
   //the semantic equivalent of a `default: assert(false)` case in a switch statement
   //  used in if/else cascades that model switch statements that must be exhaustive
   //  uses assert() because it can only be reached if there's a bug in the code
@@ -85,10 +109,6 @@ abstract contract SwapLayerBase {
     (bool success, ) = to.call{value: amount}(new bytes(0));
     if (!success)
       revert EthTransferFailed();
-  }
-
-  function _maxApprove(IERC20 token, address spender) internal {
-    SafeERC20.forceApprove(token, spender, type(uint256).max);
   }
 
   //returns the consumed input amount on exact out swaps and the output amount on exact in swaps
@@ -136,7 +156,7 @@ abstract contract SwapLayerBase {
     );
   }
 
-  function _uniswapInitialApprove() internal virtual;
+  function _uniswapMaxApprove(IERC20 token) internal virtual;
 
   function _uniswapSwap(
     bool isExactIn,
@@ -149,7 +169,7 @@ abstract contract SwapLayerBase {
     bytes memory path
   ) virtual internal returns (uint /*inOutAmount*/);
 
-  function _traderJoeInitialApprove() internal virtual;
+  function _traderJoeMaxApprove(IERC20 token) internal virtual;
 
   function _traderJoeSwap(
     bool isExactIn,
