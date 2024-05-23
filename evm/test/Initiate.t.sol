@@ -747,7 +747,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     assertEq(errorSelector, RelayingDisabledForChain.selector);
   }
 
-  function testPreapproval(bool uniswapOrTraderJoe) public {
+  function _testPreapproval(EvmSwapType swapType) internal {
     uint amount = USER_AMOUNT * 10 ** MOCK_TOKEN_DECIMALS;
     _dealOverride(address(mockToken), user, amount);
     vm.startPrank(user);
@@ -755,9 +755,11 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     uint deadline = 0;
     uint minOut = 0;
-    EvmSwapType swapType = uniswapOrTraderJoe ? EvmSwapType.UniswapV3 : EvmSwapType.TraderJoe;
     bytes memory path = abi.encodePacked(
-      _evmSwapTypeToPoolId(uniswapOrTraderJoe ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE)
+      _evmSwapTypeToPoolId(swapType == EvmSwapType.UniswapV3
+        ? SWAP_TYPE_UNISWAPV3
+        : SWAP_TYPE_TRADERJOE
+      )
     );
 
     InitiateToken memory params = InitiateToken({
@@ -778,7 +780,15 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     _swapLayerInitiate(params);
   }
 
-  function testManualMaxApproval(bool uniswapOrTraderJoe) public {
+  function testPreapprovalUniswap() public {
+    _testPreapproval(EvmSwapType.UniswapV3);
+  }
+
+  function testPreapprovalTraderJoe() public {
+    _testPreapproval(EvmSwapType.TraderJoe);
+  }
+
+  function _testManualMaxApproval(EvmSwapType swapType) internal {
     uint amount = USER_AMOUNT * 10 ** MOCK_TOKEN_DECIMALS;
     _dealOverride(address(mockToken), user, amount);
     vm.startPrank(user);
@@ -786,9 +796,11 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     uint deadline = 0;
     uint minOut = 0;
-    EvmSwapType swapType = uniswapOrTraderJoe ? EvmSwapType.UniswapV3 : EvmSwapType.TraderJoe;
     bytes memory path = abi.encodePacked(
-      _evmSwapTypeToPoolId(uniswapOrTraderJoe ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE)
+      _evmSwapTypeToPoolId(swapType == EvmSwapType.UniswapV3
+        ? SWAP_TYPE_UNISWAPV3
+        : SWAP_TYPE_TRADERJOE
+      )
     );
 
     ComposedInitiateParams memory params = _swapLayerComposeInitiate(InitiateToken({
@@ -807,5 +819,13 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     _swapLayerMaxApprove(address(mockToken));
 
     _swapLayerInitiateSlow(params);
+  }
+
+  function testManualMaxApprovalUniswap() public {
+    _testManualMaxApproval(EvmSwapType.UniswapV3);
+  }
+
+  function testManualMaxApprovalTraderJoe() public {
+    _testManualMaxApproval(EvmSwapType.TraderJoe);
   }
 }
