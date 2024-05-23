@@ -120,21 +120,40 @@ contract GovernanceTest is SLTBase {
     assertEq(feeRecipient_, newFeeRecipient);
   }
 
-  // function testRegisterPeer() public {
-  //   bytes32 peer = bytes32(uint256(1));
-  //   uint16 chain = type(uint16).max;
+  function testUpdatePeer() public {
+    bytes32 peer = bytes32(uint256(1));
+    uint16 chain = type(uint16).max;
 
-  //   vm.prank(owner);
-  //   swapLayer.batchGovernanceCommands(abi.encodePacked(
-  //     GovernanceCommand.RegisterPeer, chain, peer
-  //   ));
+    vm.prank(assistant);
+    swapLayer.batchGovernanceCommands(abi.encodePacked(
+      GovernanceCommand.UpdatePeer, chain, peer, uint256(0)
+    ));
 
-  //   (bytes32 peer_, ) = swapLayer.batchQueries(abi.encodePacked(
-  //     QueryType.Peer, chain
-  //   )).asBytes32Unchecked(0);
+    (bytes32 peer_, ) = swapLayer.batchQueries(abi.encodePacked(
+      QueryType.Peer, chain
+    )).asBytes32Unchecked(0);
 
-  //   assertEq(peer_, peer);
-  // }
+    assertEq(peer_, peer);
+
+    bytes32 newPeer = bytes32(uint256(2));
+
+    vm.expectRevert(NotAuthorized.selector);
+    vm.prank(assistant);
+    swapLayer.batchGovernanceCommands(abi.encodePacked(
+      GovernanceCommand.UpdatePeer, chain, newPeer, uint256(0)
+    ));
+
+    vm.prank(owner);
+    swapLayer.batchGovernanceCommands(abi.encodePacked(
+      GovernanceCommand.UpdatePeer, chain, newPeer, uint256(0)
+    ));
+
+    (peer_, ) = swapLayer.batchQueries(abi.encodePacked(
+      QueryType.Peer, chain
+    )).asBytes32Unchecked(0);
+
+    assertEq(peer_, newPeer);
+  }
 
   function testSweepTokens() public {
     uint usdcAmount = 1e6;
