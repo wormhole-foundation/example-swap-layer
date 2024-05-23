@@ -67,18 +67,9 @@ abstract contract SwapLayerBase {
     uint offset = 0;
     while (offset < approvals.length) {
       IERC20 token;
-      uint8 swapType;
       (token,    offset) = parseIERC20(approvals, offset);
-      (swapType, offset) = approvals.asUint8Unchecked(offset);
-      function(IERC20) internal approveFunc;
-      if (swapType == SWAP_TYPE_UNISWAPV3)
-        approveFunc = _uniswapMaxApprove;
-      else if (swapType == SWAP_TYPE_TRADERJOE)
-        approveFunc = _traderJoeMaxApprove;
-      else
-        revert InvalidSwapType(swapType);
-
-      approveFunc(token);
+      _uniswapMaxApprove(token);
+      _traderJoeMaxApprove(token);
     }
     approvals.checkLength(offset);
   }

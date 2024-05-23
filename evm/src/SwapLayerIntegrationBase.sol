@@ -7,6 +7,7 @@ import { IWormhole } from "wormhole-sdk/interfaces/IWormhole.sol";
 import { toUniversalAddress } from "wormhole-sdk/Utils.sol";
 
 import {
+  SOLANA_CHAIN_ID,
   BOOL_SIZE,
   ADDRESS_SIZE,
   MODE_SIZE,
@@ -16,7 +17,8 @@ import {
   SHARED_PATH_ELEMENT_SIZE,
   SWAP_TYPE_TRADERJOE,
   SWAP_TYPE_UNISWAPV3,
-  SWAP_TYPE_GENERIC_SOLANA
+  SWAP_TYPE_GENERIC_SOLANA,
+  SWAP_TYPE_INVALID
 } from "./assets/Params.sol";
 import { GasDropoff, GasDropoffLib } from "./assets/GasDropoff.sol";
 import { FeeParams } from "./assets/FeeParams.sol";
@@ -321,6 +323,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256       amount;
     bool          isExactIn;
     address       inputToken;
+    bool          approveCheck;
     EvmSwapParams evmSwapParams;
     bytes         outputParams;
   }
@@ -335,7 +338,7 @@ abstract contract SwapLayerIntegrationBase {
         TransferMode.LiquidityLayer,
         RedeemMode.Direct,
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(params.inputToken),
+        _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
@@ -429,6 +432,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256       amount;
     bool          isExactIn;
     address       inputToken;
+    bool          approveCheck;
     EvmSwapParams evmSwapParams;
     bytes         outputParams;
   }
@@ -443,7 +447,7 @@ abstract contract SwapLayerIntegrationBase {
         TransferMode.LiquidityLayer,
         _encodeRelayParams(params.relayParams),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(params.inputToken),
+        _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
@@ -531,6 +535,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256       amount;
     bool          isExactIn;
     address       inputToken;
+    bool          approveCheck;
     EvmSwapParams evmSwapParams;
     bytes         outputParams;
   }
@@ -545,7 +550,7 @@ abstract contract SwapLayerIntegrationBase {
         TransferMode.LiquidityLayer,
         _encodePayloadParams(params.payload),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(params.inputToken),
+        _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
@@ -643,6 +648,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256            amount;
     bool               isExactIn;
     address            inputToken;
+    bool               approveCheck;
     EvmSwapParams      evmSwapParams;
     bytes              outputParams;
   }
@@ -657,7 +663,7 @@ abstract contract SwapLayerIntegrationBase {
         _encodeFastTransferParams(params.fastTransferParams),
         RedeemMode.Direct,
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(params.inputToken),
+        _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
@@ -761,6 +767,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256            amount;
     bool               isExactIn;
     address            inputToken;
+    bool               approveCheck;
     EvmSwapParams      evmSwapParams;
     bytes              outputParams;
   }
@@ -775,7 +782,7 @@ abstract contract SwapLayerIntegrationBase {
         _encodeFastTransferParams(params.fastTransferParams),
         _encodeRelayParams(params.relayParams),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(params.inputToken),
+        _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
@@ -878,6 +885,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256            amount;
     bool               isExactIn;
     address            inputToken;
+    bool               approveCheck;
     EvmSwapParams      evmSwapParams;
     bytes              outputParams;
   }
@@ -892,7 +900,7 @@ abstract contract SwapLayerIntegrationBase {
         _encodeFastTransferParams(params.fastTransferParams),
         _encodePayloadParams(params.payload),
         _encodeBool(params.isExactIn),
-        _encodeTokenIn(params.inputToken),
+        _encodeTokenIn(params.inputToken, params.approveCheck),
         _encodeAmountPreapproved(params.amount),
         _encodeSwapParams(params.evmSwapParams, true, params.inputToken, _swapLayerUsdc()),
         params.outputParams
@@ -1039,12 +1047,63 @@ abstract contract SwapLayerIntegrationBase {
   // --------------------------------------- Getters & Utils ---------------------------------------
   // -----------------------------------------------------------------------------------------------
 
-  function _swapLayerRelayingFeeUsdc(
+  function _swapLayerRelayingFeeEvmUsdc(
     uint16 targetChain,
-    uint256 gasDropoffWei //always 18 decimals, also for Solana, i.e. 1e18 = 1 SOL
+    uint256 gasDropoffWei
   ) internal view returns (uint48 relayingFeeUsdc) {
-    uint8 ignored;
-    return _swapLayerRelayingFee(targetChain, gasDropoffWei, IoToken.Usdc, ignored, ignored);
+    //assert(targetChain != SOLANA_CHAIN_ID);
+    uint8 noSwap;
+    return _swapLayerRelayingFee(
+      targetChain,
+      gasDropoffWei,
+      IoToken.Usdc,
+      noSwap,
+      SWAP_TYPE_INVALID
+    );
+  }
+
+  function _swapLayerRelayingFeeSolanaUsdc(
+    uint64 gasDropoffLamports
+  ) internal view returns (uint48 relayingFeeUsdc) {
+    uint8 noSwap;
+    return _swapLayerRelayingFee(
+      SOLANA_CHAIN_ID,
+      gasDropoffLamports * 10**9,
+      IoToken.Usdc,
+      noSwap,
+      SWAP_TYPE_INVALID
+    );
+  }
+
+  function _swapLayerRelayingFeeEvmSwap(
+    uint16 targetChain,
+    uint256 gasDropoffWei,
+    IoToken outputTokenType, //use _swapLayerRelayingFeeEvmUsdc() for IoToken.Usdc
+    uint256 swapCount,
+    EvmSwapType swapType
+  ) internal view returns (uint48 relayingFeeUsdc) {
+    //assert(outputTokenType != IoToken.Usdc);
+    return _swapLayerRelayingFee(
+      targetChain,
+      gasDropoffWei,
+      outputTokenType,
+      swapCount,
+      _toSwapType(swapType)
+    );
+  }
+
+  function _swapLayerRelayingFeeSolanaSwap(
+    uint64 gasDropoffLamports,
+    IoToken outputTokenType //use _swapLayerRelayingFeeSolanaUsdc() for IoToken.Usdc
+  ) internal view returns (uint48 relayingFeeUsdc) {
+    //assert(outputTokenType != IoToken.Usdc);
+    return _swapLayerRelayingFee(
+      SOLANA_CHAIN_ID,
+      gasDropoffLamports * 10**9,
+      outputTokenType,
+      1, //same result for all values > 0
+      SWAP_TYPE_GENERIC_SOLANA
+    );
   }
 
   function _swapLayerRelayingFee(
@@ -1052,7 +1111,7 @@ abstract contract SwapLayerIntegrationBase {
     uint256 gasDropoffWei, //always 18 decimals, also for Solana, i.e. 1e18 = 1 SOL
     IoToken outputTokenType,
     uint256 swapCount,
-    uint8 swapType //TODO replace with enum
+    uint8 swapType
   ) internal view returns (uint48 relayingFeeUsdc) {
     bytes memory query;
     if (outputTokenType == IoToken.Usdc) {
@@ -1150,6 +1209,14 @@ abstract contract SwapLayerIntegrationBase {
 
   // ---- Utils ----
 
+  function _swapLayerMaxApprove(address token) internal {
+    _swapLayer().batchMaxApprove(abi.encodePacked(token));
+  }
+
+  function _swapLayerMaxApprove(address[] memory token) internal {
+    _swapLayer().batchMaxApprove(abi.encodePacked(token));
+  }
+
   function _wormholeMsgFee() internal virtual view returns (uint256) {
     return IWormhole(_swapLayerWormhole()).messageFee();
   }
@@ -1162,6 +1229,10 @@ abstract contract SwapLayerIntegrationBase {
   // -----------------------------------------------------------------------------------------------
   // ------------------------------------------- Private -------------------------------------------
   // -----------------------------------------------------------------------------------------------
+
+  function _toSwapType(EvmSwapType swapType) private pure returns (uint8) {
+    return swapType == EvmSwapType.UniswapV3 ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE;
+  }
 
   function _encodeFastTransferParams(
     FastTransferParams memory params
@@ -1200,10 +1271,10 @@ abstract contract SwapLayerIntegrationBase {
     );
   }
 
-  function _encodeTokenIn(address inputToken) private pure returns (uint176) {
+  function _encodeTokenIn(address inputToken, bool approveCheck) private pure returns (uint176) {
     return uint176(((
       uint(IoToken.Other)
-      <<    BOOL_SIZE * 8) + _encodeBool(true) //approveCheck
+      <<    BOOL_SIZE * 8) + _encodeBool(approveCheck)
       << ADDRESS_SIZE * 8) + uint(uint160(inputToken))
     );
   }
@@ -1236,7 +1307,7 @@ abstract contract SwapLayerIntegrationBase {
 
     return abi.encodePacked(
       _encodeSharedSwapParams(params.deadline, params.outputAmount),
-      params.swapType == EvmSwapType.UniswapV3 ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE,
+      _toSwapType(params.swapType),
       firstPoolId,
       uint8(pathLength),
       finalPath

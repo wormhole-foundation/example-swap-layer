@@ -59,8 +59,6 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
   function _setUp2() internal override {
     _wormholeMsgFee_ = IWormhole(_swapLayerWormhole()).messageFee();
-    vm.prank(user);
-    usdc.approve(address(swapLayer), type(uint256).max);
   }
 
   function _composeInputParams(
@@ -749,5 +747,65 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     assertEq(errorSelector, RelayingDisabledForChain.selector);
   }
 
-  //approveCheck test
+  function testPreapproval(bool uniswapOrTraderJoe) public {
+    uint amount = USER_AMOUNT * 10 ** MOCK_TOKEN_DECIMALS;
+    _dealOverride(address(mockToken), user, amount);
+    vm.startPrank(user);
+    mockToken.approve(address(swapLayer), amount);
+
+    uint deadline = 0;
+    uint minOut = 0;
+    EvmSwapType swapType = uniswapOrTraderJoe ? EvmSwapType.UniswapV3 : EvmSwapType.TraderJoe;
+    bytes memory path = abi.encodePacked(
+      _evmSwapTypeToPoolId(uniswapOrTraderJoe ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE)
+    );
+
+    InitiateToken memory params = InitiateToken({
+      targetParams: TargetParams(FOREIGN_CHAIN_ID, recipient.toUniversalAddress()),
+      inputToken: address(mockToken),
+      amount: amount,
+      isExactIn: true,
+      approveCheck: false,
+      evmSwapParams: EvmSwapParams(deadline, minOut, swapType, path),
+      outputParams: _swapLayerEncodeOutputParamsUsdc()
+    });
+
+    (bool success, ) = _swapLayerInitiateRaw(_swapLayerComposeInitiate(params));
+    assertFalse(success);
+
+    params.approveCheck = true;
+
+    _swapLayerInitiate(params);
+  }
+
+  function testManualMaxApproval(bool uniswapOrTraderJoe) public {
+    uint amount = USER_AMOUNT * 10 ** MOCK_TOKEN_DECIMALS;
+    _dealOverride(address(mockToken), user, amount);
+    vm.startPrank(user);
+    mockToken.approve(address(swapLayer), amount);
+
+    uint deadline = 0;
+    uint minOut = 0;
+    EvmSwapType swapType = uniswapOrTraderJoe ? EvmSwapType.UniswapV3 : EvmSwapType.TraderJoe;
+    bytes memory path = abi.encodePacked(
+      _evmSwapTypeToPoolId(uniswapOrTraderJoe ? SWAP_TYPE_UNISWAPV3 : SWAP_TYPE_TRADERJOE)
+    );
+
+    ComposedInitiateParams memory params = _swapLayerComposeInitiate(InitiateToken({
+      targetParams: TargetParams(FOREIGN_CHAIN_ID, recipient.toUniversalAddress()),
+      inputToken: address(mockToken),
+      amount: amount,
+      isExactIn: true,
+      approveCheck: false,
+      evmSwapParams: EvmSwapParams(deadline, minOut, swapType, path),
+      outputParams: _swapLayerEncodeOutputParamsUsdc()
+    }));
+
+    (bool success, ) = _swapLayerInitiateRaw(params);
+    assertFalse(success);
+
+    _swapLayerMaxApprove(address(mockToken));
+
+    _swapLayerInitiateSlow(params);
+  }
 }

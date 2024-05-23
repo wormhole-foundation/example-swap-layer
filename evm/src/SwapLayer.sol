@@ -30,11 +30,11 @@ contract SwapLayer is SwapLayerSansRouterImpls
   //uncomment and comment out inheritance to disable support for a given router
   // error NotSupported();
   //
-  // function _uniswapInitialApprove() internal override pure {}
+  // function _uniswapMaxApprove(IERC20 token) internal override pure {}
   // function _uniswapSwap(bool, uint, uint, IERC20, IERC20, bool, bool, bytes memory)
   //   internal override pure returns (uint) { revert NotSupported(); }
   //
-  // function _traderJoeInitialApprove() internal override pure {}
+  // function _traderJoeMaxApprove(IERC20 token) internal override pure {}
   // function _traderJoeSwap(bool, uint, uint, IERC20, IERC20, bool, bool, bytes memory)
   //   internal override pure returns (uint) { revert NotSupported(); }
 }
