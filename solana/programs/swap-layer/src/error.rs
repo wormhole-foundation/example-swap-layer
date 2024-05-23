@@ -29,6 +29,8 @@ pub enum SwapLayerError {
     InvalidPreparedOrder = 0x112,
     InvalidFeeRecipient = 0x113,
     PayloadTooLarge = 0x114,
+    UnsupportedFillType = 0x115,
+    SwapTimeLimitNotExceeded = 0x116,
 
     // EVM Execution Param errors
     InvalidBaseFee = 0x200,

@@ -15,6 +15,12 @@ export type RelayParams = {
     maxGasDropoff: number;
     gasDropoffMargin: number;
     executionParams: ExecutionParams;
+    swapTimeLimit: SwapTimeLimit;
+};
+
+export type SwapTimeLimit = {
+    fastLimit: number;
+    finalizedLimit: number;
 };
 
 export type PeerSeeds = {
