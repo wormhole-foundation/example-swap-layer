@@ -376,6 +376,49 @@ describe("Jupiter V6 Testing", () => {
                 }
             });
 
+            it("Cannot Redeem USDC (Swap Time Limit Not Exceeded)", async function () {
+                const dstMint = USDT_MINT_ADDRESS;
+                const { outputToken } = newQuotedSwapOutputToken({
+                    quotedAmountOut: 198_800_000n,
+                    dstMint,
+                    slippageBps: 100,
+                });
+
+                const amountIn = 200_000_000n;
+                const { preparedFill, recipient } = await redeemSwapLayerFastFillForTest(
+                    { payer: payer.publicKey },
+                    emittedEvents,
+                    {
+                        dstMint,
+                        outputToken,
+                        redeemMode: {
+                            mode: "Relay",
+                            gasDropoff: 0,
+                            relayingFee: 0n,
+                        },
+                        amountIn,
+                    },
+                );
+
+                await splToken.getOrCreateAssociatedTokenAccount(
+                    connection,
+                    payer,
+                    USDC_MINT_ADDRESS,
+                    recipient,
+                );
+
+                const transferIx = await swapLayer.completeTransferRelayIx(
+                    {
+                        payer: payer.publicKey,
+                        preparedFill,
+                        recipient: recipient,
+                    },
+                    toChainId("Ethereum"),
+                );
+
+                await expectIxErr(connection, [transferIx], [payer], "SwapTimeLimitNotExceeded");
+            });
+
             it("Other (USDT) via Whirlpool", async function () {
                 const dstMint = USDT_MINT_ADDRESS;
                 const { limitAmount, outputToken } = newQuotedSwapOutputToken({
@@ -626,6 +669,67 @@ describe("Jupiter V6 Testing", () => {
                     },
                     { signers: [testRecipient] },
                 );
+            });
+
+            it("Redeem USDC (Failed Swap)", async function () {
+                // NOTE: This test assumes that the relayParams swapTimeLimit.fastLimit is set to
+                // 2 seconds. If that value changes for any reason, make sure to update this test.
+
+                const dstMint = USDT_MINT_ADDRESS;
+                const { outputToken } = newQuotedSwapOutputToken({
+                    quotedAmountOut: 198_800_000n,
+                    dstMint,
+                    slippageBps: 100,
+                });
+
+                const amountIn = 200_000_000n;
+                const { preparedFill, recipient } = await redeemSwapLayerFastFillForTest(
+                    { payer: payer.publicKey },
+                    emittedEvents,
+                    {
+                        dstMint,
+                        outputToken,
+                        redeemMode: {
+                            mode: "Relay",
+                            gasDropoff: 0,
+                            relayingFee: 0n,
+                        },
+                        amountIn,
+                        initAuctionFee: 0n,
+                        baseFee: 0n,
+                    },
+                );
+
+                // Sleep for 3 seconds.
+                await new Promise((resolve) => setTimeout(resolve, 3000));
+
+                await splToken.getOrCreateAssociatedTokenAccount(
+                    connection,
+                    payer,
+                    USDC_MINT_ADDRESS,
+                    recipient,
+                );
+
+                const beneficiary = Keypair.generate();
+
+                // Balance check.
+                const recipientBefore = await getUsdcAtaBalance(connection, recipient);
+
+                const transferIx = await swapLayer.completeTransferRelayIx(
+                    {
+                        payer: payer.publicKey,
+                        beneficiary: beneficiary.publicKey,
+                        preparedFill,
+                        recipient: recipient,
+                    },
+                    toChainId("Ethereum"),
+                );
+
+                await expectIxOk(connection, [transferIx], [payer]);
+
+                // Balance check.
+                const recipientAfter = await getUsdcAtaBalance(connection, recipient);
+                assert.equal(recipientAfter - recipientBefore, amountIn);
             });
         });
     });
@@ -1668,6 +1772,8 @@ describe("Jupiter V6 Testing", () => {
 
     type ObserveCctpOrderVaasOpts = {
         amountIn: bigint;
+        baseFee?: bigint;
+        initAuctionFee?: bigint;
         redeemerMessage?: Uint8Array;
         sourceChain?: Chain;
         emitter?: Array<number>;
@@ -1686,6 +1792,7 @@ describe("Jupiter V6 Testing", () => {
         finalized?: FinalizedObservedResult;
     }> {
         let {
+            baseFee,
             sourceChain,
             emitter,
             vaaTimestamp,
@@ -1702,7 +1809,7 @@ describe("Jupiter V6 Testing", () => {
         vaaTimestamp ??= await getBlockTime(connection);
         fastMarketOrder ??= newFastMarketOrder(opts);
         finalized ??= true;
-        slowOrderResponse ??= newSlowOrderResponse();
+        slowOrderResponse ??= newSlowOrderResponse({ baseFee });
         finalizedSourceChain ??= sourceChain;
         finalizedEmitter ??= emitter;
         finalizedSequence ??= finalized ? wormholeSequence++ : 0n;

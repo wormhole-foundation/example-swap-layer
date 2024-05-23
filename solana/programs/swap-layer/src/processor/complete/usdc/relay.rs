@@ -7,6 +7,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_spl::token;
 use swap_layer_messages::types::{OutputToken, RedeemMode};
+use token_router::state::FillType;
 
 #[derive(Accounts)]
 pub struct CompleteTransferRelay<'info> {
@@ -24,13 +25,37 @@ pub struct CompleteTransferRelay<'info> {
                 SwapLayerError::InvalidRecipient
             );
 
-            require!(
-                matches!(
-                    swap_msg.output_token,
-                    OutputToken::Usdc
-                ),
-                SwapLayerError::InvalidOutputToken
-            );
+            match swap_msg.output_token {
+                OutputToken::Usdc => {}
+                OutputToken::Gas(_) | OutputToken::Other {
+                    address: _,
+                    swap: _,
+                } => {
+                    let time_diff = Clock::get()?
+                        .unix_timestamp
+                        .saturating_sub(consume_swap_layer_fill.fill.timestamp);
+                    let swap_time_limit = &consume_swap_layer_fill
+                        .associated_peer
+                        .relay_params
+                        .swap_time_limit;
+
+                    match consume_swap_layer_fill.fill.fill_type {
+                        FillType::FastFill => {
+                            require!(
+                                time_diff > i64::from(swap_time_limit.fast_limit),
+                                SwapLayerError::SwapTimeLimitNotExceeded
+                            );
+                        }
+                        FillType::WormholeCctpDeposit => {
+                            require!(
+                                time_diff > i64::from(swap_time_limit.finalized_limit),
+                                SwapLayerError::SwapTimeLimitNotExceeded
+                            );
+                        }
+                        FillType::Unset => return Err(SwapLayerError::UnsupportedFillType.into()),
+                    }
+                }
+            }
 
             true
         }

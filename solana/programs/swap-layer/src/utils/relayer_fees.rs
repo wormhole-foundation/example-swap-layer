@@ -182,7 +182,7 @@ mod test {
         UniswapSwapParameters, UniswapSwapPath,
     };
 
-    use crate::state::{ExecutionParams, RelayParams};
+    use crate::state::{ExecutionParams, RelayParams, SwapTimeLimit};
 
     use super::*;
 
@@ -354,6 +354,10 @@ mod test {
             execution_params: ExecutionParams::Evm {
                 gas_price: 10_000,         // 10 GWEI
                 gas_price_margin: 250_000, // 25%
+            },
+            swap_time_limit: SwapTimeLimit {
+                fast_limit: 10,
+                finalized_limit: 30,
             },
         }
     }
