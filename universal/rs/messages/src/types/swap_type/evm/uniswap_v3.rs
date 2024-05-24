@@ -3,11 +3,7 @@ use std::io::{self, ErrorKind};
 use crate::types::Uint24;
 use crate::wormhole_io::{Readable, Writeable};
 
-#[cfg(feature = "anchor")]
-use anchor_lang::prelude::{borsh, AnchorDeserialize, AnchorSerialize};
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub struct UniswapSwapParameters {
     pub first_leg_fee: Uint24,
     pub path: Vec<UniswapSwapPath>,
@@ -62,7 +58,6 @@ impl Writeable for UniswapSwapParameters {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub struct UniswapSwapPath {
     pub evm_address: [u8; 20],
     pub fee: Uint24,

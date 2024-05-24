@@ -2,13 +2,9 @@ use std::io;
 
 use crate::wormhole_io::{Readable, Writeable};
 
-#[cfg(feature = "anchor")]
-use anchor_lang::prelude::{borsh, AnchorDeserialize, AnchorSerialize};
-
 use super::SwapType;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub enum OutputToken {
     Usdc,
     Gas(OutputSwap),
@@ -74,7 +70,6 @@ impl Writeable for OutputToken {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "anchor", derive(AnchorSerialize, AnchorDeserialize))]
 pub struct OutputSwap {
     pub deadline: u32,
     pub limit_amount: u128,

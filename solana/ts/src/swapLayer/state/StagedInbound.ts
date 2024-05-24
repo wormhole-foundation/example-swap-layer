@@ -9,6 +9,7 @@ export type StagedInboundInfo = {
     custodyToken: PublicKey;
     stagedBy: PublicKey;
     sourceChain: number;
+    sender: Array<number>;
     recipient: PublicKey;
     isNative: boolean;
 };
