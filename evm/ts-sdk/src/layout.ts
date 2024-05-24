@@ -175,7 +175,10 @@ const redeemModeItem = {
   idTag: "mode",
   layouts: [
     [[0, "Direct" ], []],
-    [[1, "Payload"], [{ name: "payload", binary: "bytes", lengthSize: 4 }]],
+    [[1, "Payload"], [
+      { name: "sender", ...layoutItems.universalAddressItem },
+      { name: "payload", binary: "bytes", lengthSize: 2 }
+    ]],
     [[2, "Relay"  ], [
       { name: "gasDropoff", ...gasDropoffItem },
       { name: "maxRelayingFee", binary: "uint", size: 6, ...forceBigIntConversion },
@@ -315,7 +318,6 @@ export const initiateArgsLayout = [
 export const swapMessageLayout = [
   { name: "version", binary: "uint", size: 1, custom: 1, omit: true },
   { name: "recipient", ...layoutItems.universalAddressItem },
-  { name: "sender", ...layoutItems.universalAddressItem },
   redeemModeItem,
   outputTokenItem,
 ] as const satisfies Layout;
