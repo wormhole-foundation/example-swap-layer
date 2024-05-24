@@ -21,7 +21,6 @@ integration-test = ["localnet"]
 idl-build = [
     "localnet",
     "token-router/idl-build",
-    "swap-layer-messages/idl-build",
     "anchor-lang/idl-build",
     "anchor-spl/idl-build"
 ]

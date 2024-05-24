@@ -13,18 +13,19 @@ pub struct StagedInboundSeeds {
 pub struct StagedInboundInfo {
     pub custody_token: Pubkey,
 
-    // Payer that created this StagedInbound.
+    /// Payer that created this StagedInbound.
     pub staged_by: Pubkey,
 
-    // Exposed out of convenience for the receiving program.
+    /// Exposed out of convenience for the receiving program.
     pub source_chain: u16,
 
-    // pub payload_sender: [u8; 32],
+    /// The sender of the swap message.
+    pub sender: [u8; 32],
 
-    // The encoded recipient must be the caller.
+    /// The encoded recipient must be the caller.
     pub recipient: Pubkey,
 
-    // Indicates whether the output token type is Gas.
+    /// Indicates whether the output token type is Gas.
     pub is_native: bool,
 }
 
@@ -43,11 +44,12 @@ impl StagedInbound {
         const FIXED: usize = 8 // DISCRIMINATOR
             + StagedInboundSeeds::INIT_SPACE
             + StagedInboundInfo::INIT_SPACE
+            + 32 // sender
             + 4 // payload len
         ;
 
         match swap_msg.redeem_mode {
-            RedeemMode::Payload(payload) => payload
+            RedeemMode::Payload { sender: _, buf } => buf
                 .len()
                 .checked_add(FIXED)
                 .ok_or(error!(SwapLayerError::PayloadTooLarge)),

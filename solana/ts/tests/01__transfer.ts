@@ -34,7 +34,7 @@ import {
 } from "@wormhole-foundation/example-liquidity-layer-solana/testing";
 import { PreparedOrder } from "@wormhole-foundation/example-liquidity-layer-solana/tokenRouter/state";
 import { ChainId, toChain, toChainId } from "@wormhole-foundation/sdk-base";
-import { UniversalAddress } from "@wormhole-foundation/sdk-definitions";
+import { UniversalAddress, toUniversal } from "@wormhole-foundation/sdk-definitions";
 import { assert } from "chai";
 import {
     AddPeerArgs,
@@ -2052,9 +2052,8 @@ describe("Swap Layer", () => {
                             await expectIxOk(connection, [ix], [payer]);
 
                             // Verify the relevant information in the prepared order.
-                            const preparedOrderData = await tokenRouter.fetchPreparedOrder(
-                                preparedOrder,
-                            );
+                            const preparedOrderData =
+                                await tokenRouter.fetchPreparedOrder(preparedOrder);
 
                             const {
                                 info: { preparedCustodyTokenBump },
@@ -3024,7 +3023,11 @@ describe("Swap Layer", () => {
                                     recipient: new UniversalAddress(
                                         Uint8Array.from(foreignRecipientAddress),
                                     ),
-                                    redeemMode: { mode: "Payload", payload },
+                                    redeemMode: {
+                                        mode: "Payload",
+                                        sender: toUniversal("Solana", payer.publicKey.toBytes()),
+                                        buf: payload,
+                                    },
                                     outputToken,
                                 }),
                             ),
@@ -3043,8 +3046,15 @@ describe("Swap Layer", () => {
             describe("Inbound", function () {
                 const payload = Buffer.from("Insert payload here");
                 const validSwapMessage = encodeSwapLayerMessage({
-                    recipient: new UniversalAddress(recipient.publicKey.toString(), "base58"),
-                    redeemMode: { mode: "Payload", payload },
+                    recipient: toUniversal("Solana", recipient.publicKey.toBytes()),
+                    redeemMode: {
+                        mode: "Payload",
+                        sender: toUniversal(
+                            "Ethereum",
+                            "0x000000000000000000000000000000000000d00d",
+                        ),
+                        buf: payload,
+                    },
                     outputToken: { type: "Usdc" },
                 });
 
@@ -3065,7 +3075,11 @@ describe("Swap Layer", () => {
                                 ),
                                 redeemMode: {
                                     mode: "Payload",
-                                    payload: Buffer.from("Insert payload here"),
+                                    sender: toUniversal(
+                                        "Ethereum",
+                                        "0x000000000000000000000000000000000000d00d",
+                                    ),
+                                    buf: Buffer.from("Insert payload here"),
                                 },
                                 outputToken: {
                                     type: "Gas",
@@ -3294,6 +3308,12 @@ describe("Swap Layer", () => {
                                     custodyToken: stagedInboundTokenAddress,
                                     stagedBy: payer.publicKey,
                                     sourceChain: foreignChain,
+                                    sender: Array.from(
+                                        toUniversal(
+                                            "Ethereum",
+                                            "0x000000000000000000000000000000000000d00d",
+                                        ).toUint8Array(),
+                                    ),
                                     recipient: recipient.publicKey,
                                     isNative: false,
                                 },
@@ -3448,9 +3468,8 @@ describe("Swap Layer", () => {
             units: 300_000,
         });
 
-        const { value: lookupTableAccount } = await connection.getAddressLookupTable(
-            tokenRouterLkupTable,
-        );
+        const { value: lookupTableAccount } =
+            await connection.getAddressLookupTable(tokenRouterLkupTable);
 
         await expectIxOk(connection, [computeIx, ix], [payer], {
             addressLookupTableAccounts: [lookupTableAccount!],

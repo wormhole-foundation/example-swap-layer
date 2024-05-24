@@ -1142,7 +1142,11 @@ describe("Jupiter V6 Testing", () => {
                         dstMint,
                         redeemMode: {
                             mode: "Payload",
-                            payload: Buffer.from("All your base are belong to us."),
+                            sender: toUniversal(
+                                "Ethereum",
+                                "0x000000000000000000000000000000000000d00d",
+                            ),
+                            buf: Buffer.from("All your base are belong to us."),
                         },
                         outputToken,
                         amountIn,
@@ -1487,10 +1491,16 @@ describe("Jupiter V6 Testing", () => {
                     custodyToken: destinationToken,
                     stagedBy: accounts.payer,
                     sourceChain: preparedFillInfo.sourceChain,
+                    sender: Array.from(
+                        toUniversal(
+                            "Ethereum",
+                            "0x000000000000000000000000000000000000d00d",
+                        ).toUint8Array(),
+                    ),
                     recipient: toNative("Solana", recipient).address,
                     isNative: outputToken.type === "Gas",
                 },
-                Buffer.from(redeemMode.payload),
+                Buffer.from(redeemMode.buf),
             ),
         );
 
@@ -2169,7 +2179,8 @@ describe("Jupiter V6 Testing", () => {
             } else if ("payload" in redeemOption) {
                 return {
                     mode: "Payload",
-                    payload: redeemOption.payload,
+                    sender: toUniversal("Solana", sender.toBytes()),
+                    buf: redeemOption.payload,
                 };
             } else {
                 throw new Error("Invalid redeem option");
