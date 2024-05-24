@@ -3,11 +3,6 @@ use std::{io, ops::Deref};
 use crate::wormhole_io::{Readable, Writeable};
 use ruint::{ToUintError, Uint};
 
-#[cfg(feature = "idl-build")]
-use anchor_lang::prelude::IdlBuild;
-#[cfg(feature = "anchor")]
-use anchor_lang::prelude::{AnchorDeserialize, AnchorSerialize};
-
 /// New type for a 3-byte unsigned integer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Uint24(Uint<24, 1>);
@@ -109,27 +104,6 @@ impl Writeable for Uint24 {
     }
 }
 
-#[cfg(feature = "anchor")]
-impl AnchorDeserialize for Uint24 {
-    fn deserialize_reader<R: io::Read>(reader: &mut R) -> io::Result<Self> {
-        let mut bytes = <[u8; Self::BYTES]>::default();
-        reader.read_exact(&mut bytes)?;
-        Ok(Self::from_le_bytes(bytes))
-    }
-}
-
-#[cfg(feature = "anchor")]
-impl AnchorSerialize for Uint24 {
-    fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_all(&self.to_le_bytes())
-    }
-}
-
-#[cfg(feature = "idl-build")]
-impl IdlBuild for Uint24 {
-    // TODO
-}
-
 /// New type for a 6-byte unsigned integer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Uint48(Uint<48, 1>);
@@ -229,27 +203,6 @@ impl Writeable for Uint48 {
     }
 }
 
-#[cfg(feature = "anchor")]
-impl AnchorDeserialize for Uint48 {
-    fn deserialize_reader<R: io::Read>(reader: &mut R) -> io::Result<Self> {
-        let mut bytes = <[u8; Self::BYTES]>::default();
-        reader.read_exact(&mut bytes)?;
-        Ok(Self::from_le_bytes(bytes))
-    }
-}
-
-#[cfg(feature = "anchor")]
-impl AnchorSerialize for Uint48 {
-    fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_all(&self.to_le_bytes())
-    }
-}
-
-#[cfg(feature = "idl-build")]
-impl IdlBuild for Uint48 {
-    // TODO
-}
-
 #[cfg(test)]
 mod test {
     use hex_literal::hex;
@@ -274,24 +227,6 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "anchor")]
-    fn test_uint24_small_le() {
-        const EXPECTED: u64 = 69;
-
-        let encoded = hex!("450000");
-        let value = Uint24::from_le_bytes(encoded);
-        assert_eq!(value.0, Uint::from(EXPECTED));
-        assert_eq!(value.to_le_bytes(), encoded);
-
-        let value = <Uint24 as AnchorDeserialize>::deserialize(&mut &encoded[..]).unwrap();
-        assert_eq!(value.0, Uint::from(EXPECTED));
-
-        let mut written = [0u8; 3];
-        value.serialize(&mut written.as_mut_slice()).unwrap();
-        assert_eq!(written, encoded);
-    }
-
-    #[test]
     fn test_uint24_large_be() {
         const EXPECTED: u64 = 4408389;
 
@@ -305,24 +240,6 @@ mod test {
 
         let mut written = [0u8; 3];
         value.write(&mut written.as_mut_slice()).unwrap();
-        assert_eq!(written, encoded);
-    }
-
-    #[test]
-    #[cfg(feature = "anchor")]
-    fn test_uint24_large_le() {
-        const EXPECTED: u64 = 4408389;
-
-        let encoded = hex!("454443");
-        let value = Uint24::from_le_bytes(encoded);
-        assert_eq!(value.0, Uint::from(EXPECTED));
-        assert_eq!(value.to_le_bytes(), encoded);
-
-        let value = <Uint24 as AnchorDeserialize>::deserialize(&mut &encoded[..]).unwrap();
-        assert_eq!(value.0, Uint::from(EXPECTED));
-
-        let mut written = [0u8; 3];
-        value.serialize(&mut written.as_mut_slice()).unwrap();
         assert_eq!(written, encoded);
     }
 
@@ -344,24 +261,6 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "anchor")]
-    fn test_uint48_small_le() {
-        const EXPECTED: u64 = 69;
-
-        let encoded = hex!("450000000000");
-        let value = Uint48::from_le_bytes(encoded);
-        assert_eq!(value.0, Uint::from(EXPECTED));
-        assert_eq!(value.to_le_bytes(), encoded);
-
-        let value = <Uint48 as AnchorDeserialize>::deserialize(&mut &encoded[..]).unwrap();
-        assert_eq!(value.0, Uint::from(EXPECTED));
-
-        let mut written = [0u8; 6];
-        value.serialize(&mut written.as_mut_slice()).unwrap();
-        assert_eq!(written, encoded);
-    }
-
-    #[test]
     fn test_uint48_large_be() {
         const EXPECTED: u64 = 70649028756549;
 
@@ -375,24 +274,6 @@ mod test {
 
         let mut written = [0u8; 6];
         value.write(&mut written.as_mut_slice()).unwrap();
-        assert_eq!(written, encoded);
-    }
-
-    #[test]
-    #[cfg(feature = "anchor")]
-    fn test_uint48_large_le() {
-        const EXPECTED: u64 = 70649028756549;
-
-        let encoded = hex!("454443424140");
-        let value = Uint48::from_le_bytes(encoded);
-        assert_eq!(value.0, Uint::from(EXPECTED));
-        assert_eq!(value.to_le_bytes(), encoded);
-
-        let value = <Uint48 as AnchorDeserialize>::deserialize(&mut &encoded[..]).unwrap();
-        assert_eq!(value.0, Uint::from(EXPECTED));
-
-        let mut written = [0u8; 6];
-        value.serialize(&mut written.as_mut_slice()).unwrap();
         assert_eq!(written, encoded);
     }
 }

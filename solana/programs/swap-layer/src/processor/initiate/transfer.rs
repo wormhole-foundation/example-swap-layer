@@ -1,15 +1,11 @@
 use crate::{
     composite::*,
     error::SwapLayerError,
-    state::{Custodian, Peer, StagedOutbound, StagedRedeem},
+    state::{Custodian, Peer, StagedOutbound},
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token;
-use common::wormhole_io::{Readable, TypePrefixedPayload};
-use swap_layer_messages::{
-    messages::SwapMessageV1,
-    types::{OutputToken, RedeemMode, Uint48},
-};
+use common::wormhole_io::TypePrefixedPayload;
 
 #[derive(Accounts)]
 pub struct InitiateTransfer<'info> {
@@ -91,41 +87,14 @@ pub struct InitiateTransfer<'info> {
 }
 
 pub fn initiate_transfer(ctx: Context<InitiateTransfer>) -> Result<()> {
-    // We perform this operation first so we can have an immutable reference to the staged outbound
-    // account.
-    let staged_redeem = std::mem::take(&mut ctx.accounts.staged_outbound.staged_redeem);
+    let redeemer_message = ctx
+        .accounts
+        .staged_outbound
+        .to_swap_message_v1()
+        .map(|msg| msg.to_vec())?;
 
     let staged_outbound = &ctx.accounts.staged_outbound;
     let custody_token = &ctx.accounts.staged_custody_token;
-
-    // Decode the output token to verify that it's valid.
-    let output_token = OutputToken::read(&mut &staged_outbound.encoded_output_token[..])
-        .map_err(|_| SwapLayerError::InvalidOutputToken)?;
-
-    let swap_message = match staged_redeem {
-        StagedRedeem::Direct => SwapMessageV1 {
-            recipient: staged_outbound.info.recipient,
-            redeem_mode: RedeemMode::Direct,
-            output_token,
-        },
-        StagedRedeem::Relay {
-            gas_dropoff,
-            relaying_fee,
-        } => SwapMessageV1 {
-            recipient: staged_outbound.info.recipient,
-            redeem_mode: RedeemMode::Relay {
-                gas_dropoff,
-                relaying_fee: Uint48::try_from(relaying_fee).unwrap(),
-            },
-            output_token,
-        },
-        StagedRedeem::Payload(payload) => SwapMessageV1 {
-            recipient: staged_outbound.info.recipient,
-            redeem_mode: RedeemMode::Payload(payload),
-            output_token,
-        },
-    };
-
     let token_program = &ctx.accounts.token_program;
     let custodian = &ctx.accounts.custodian;
 
@@ -183,7 +152,7 @@ pub fn initiate_transfer(ctx: Context<InitiateTransfer>) -> Result<()> {
             min_amount_out: None,
             target_chain: staged_outbound.target_chain,
             redeemer: ctx.accounts.target_peer.address,
-            redeemer_message: swap_message.to_vec(),
+            redeemer_message,
         },
     )?;
 

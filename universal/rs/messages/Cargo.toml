@@ -9,15 +9,11 @@ repository.workspace = true
 
 [features]
 default = []
-anchor = ["dep:anchor-lang"]
-idl-build = ["anchor", "anchor-lang/idl-build"]
 
 [dependencies]
 liquidity-layer-messages.workspace = true
 wormhole-io.workspace = true
 ruint.workspace = true
-
-anchor-lang = { workspace = true, optional = true }
 
 [dev-dependencies]
 hex-literal.workspace = true
