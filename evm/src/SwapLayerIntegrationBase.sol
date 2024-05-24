@@ -920,10 +920,9 @@ abstract contract SwapLayerIntegrationBase {
     bytes memory successData
   ) internal pure returns (
     address outputToken,
-    uint256 outputAmount,
-    bytes32 sender
+    uint256 outputAmount
   ) {
-    return abi.decode(successData, (address, uint256, bytes32));
+    return abi.decode(successData, (address, uint256));
   }
 
   function _swapLayerDecodeRedeemWithPayload(
@@ -983,8 +982,7 @@ abstract contract SwapLayerIntegrationBase {
     Redeem memory params
   ) internal returns (
     address outputToken,
-    uint256 outputAmount,
-    bytes32 sender
+    uint256 outputAmount
   ) {
     return _swapLayerDecodeRedeem(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
   }
@@ -1019,8 +1017,7 @@ abstract contract SwapLayerIntegrationBase {
     RedeemOverride memory params
   ) internal returns (
     address outputToken,
-    uint256 outputAmount,
-    bytes32 sender
+    uint256 outputAmount
   ) {
     return _swapLayerDecodeRedeem(_swapLayerRedeem(_swapLayerComposeRedeem(params)));
   }

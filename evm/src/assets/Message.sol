@@ -17,14 +17,14 @@ error InvalidVersion(uint8 version, uint8 expected);
 
 function encodeSwapMessage(
   bytes32 recipient,
-  address sender,
+  RedeemMode redeemMode,
   bytes memory redeemPayload,
   bytes memory outputSwap
 ) pure returns (bytes memory) {
   return abi.encodePacked(
     VERSION,
     recipient,
-    sender.toUniversalAddress(),
+    redeemMode,
     redeemPayload,
     outputSwap
   );
@@ -34,13 +34,20 @@ function encodeSwapMessageRelayParams(
   GasDropoff gasDropoff,
   uint relayingFee
 ) pure returns (bytes memory) {
-  return abi.encodePacked(uint8(RedeemMode.Relay), gasDropoff, uint48(relayingFee));
+  return abi.encodePacked(gasDropoff, uint48(relayingFee));
+}
+
+function encodeSwapMessagePayloadParams(
+  address sender,
+  bytes memory payload
+) pure returns (bytes memory) {
+  return abi.encodePacked(sender.toUniversalAddress(), payload);
 }
 
 struct SwapMessageStructure {
   address recipient;
-  bytes32 sender;
   RedeemMode redeemMode;
+  bytes32 sender;
   bytes payload;
   uint redeemOffset;
   uint swapOffset;
@@ -58,11 +65,11 @@ function parseSwapMessageStructure(
   bytes32 recipient_;
   (recipient_, offset) = message.asBytes32Unchecked(offset);
   sms.recipient = recipient_.fromUniversalAddress();
-  (sms.sender, offset) = message.asBytes32Unchecked(offset);
 
   (sms.redeemMode, offset) = parseRedeemMode(message, offset);
   sms.redeemOffset = offset;
   if (sms.redeemMode == RedeemMode.Payload) {
+    (sms.sender, offset) = message.asBytes32Unchecked(offset);
     uint payloadLen;
     (payloadLen, offset) = message.asUint16Unchecked(offset);
     (sms.payload, offset) = message.sliceUnchecked(offset, payloadLen);

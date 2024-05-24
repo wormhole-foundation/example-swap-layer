@@ -22,6 +22,13 @@ error SenderNotRecipient(address sender, address recipient);
 error InvalidMsgValue(uint256 value, uint256 expected);
 error NoExtraParamsAllowed();
 
+event Redeemed(
+  address indexed recipient,
+  address outputToken,
+  uint256 outputAmount,
+  uint256 relayingFee
+);
+
 abstract contract SwapLayerRedeem is SwapLayerGovernance {
   using BytesParsing for bytes;
   using SafeERC20 for IERC20;
@@ -52,9 +59,10 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
     bool overrideMsg = false;
     uint gasDropoff = 0;
     uint usdcAmount;
+    uint relayingFee = 0;
     if (sms.redeemMode == RedeemMode.Relay && !senderIsRecipient) {
-      (GasDropoff gasDropoff_, uint relayingFee, ) =
-        parseRelayParams(fill.message, sms.redeemOffset);
+      GasDropoff gasDropoff_;
+      (gasDropoff_, relayingFee, ) = parseRelayParams(fill.message, sms.redeemOffset);
       _usdc.safeTransfer(_getFeeRecipient(), relayingFee);
       gasDropoff = gasDropoff_.from();
       usdcAmount = fill.amount - relayingFee;
@@ -143,8 +151,10 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       outputToken.safeTransfer(sms.recipient, outputAmount);
     }
 
+    emit Redeemed(sms.recipient, address(outputToken), outputAmount, relayingFee);
+
     return sms.redeemMode == RedeemMode.Payload
       ? abi.encode(address(outputToken), outputAmount, sms.sender, sms.payload)
-      : abi.encode(address(outputToken), outputAmount, sms.sender);
+      : abi.encode(address(outputToken), outputAmount);
   }
 }

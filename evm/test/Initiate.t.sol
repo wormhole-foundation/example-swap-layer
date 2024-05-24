@@ -16,11 +16,7 @@ import {
   RelayingDisabledForChain,
   InvalidSwapTypeForChain
 } from "swap-layer/assets/SwapLayerRelayingFees.sol";
-import {
-  ExceedsMaxRelayingFee,
-  ChainNotSupported,
-  PayloadNotYetSupportedOnSolana
-} from "swap-layer/assets/SwapLayerInitiate.sol";
+import { ExceedsMaxRelayingFee, ChainNotSupported } from "swap-layer/assets/SwapLayerInitiate.sol";
 
 import "swap-layer/SwapLayerIntegrationBase.sol";
 
@@ -490,13 +486,6 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     (bytes4 maybeErrorSelector, ) = returnData.asBytes4Unchecked(0);
 
-    if (vars.targetChain == SOLANA_CHAIN_ID && vars.redeemMode == RedeemMode.Payload) {
-      assertFalse(success, "payload not supported on Solana");
-      assertEq(returnData.length, 4);
-      assertEq(maybeErrorSelector, PayloadNotYetSupportedOnSolana.selector);
-      return;
-    }
-
     if (vars.exceedMaxDropoff || (vars.targetChain == type(uint16).max && vars.gasDropoff > 0)) {
       assertFalse(success, "maxDropoff exceeded");
       assertEq(returnData.length, 4+32+32);
@@ -685,7 +674,6 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     SwapMessageStructure memory sms = parseSwapMessageStructure(swapMessage);
     assertEq(sms.recipient, user, "recipient");
-    assertEq(sms.sender, user.toUniversalAddress(), "sender");
 
     assertEq(uint8(sms.redeemMode), uint8(vars.redeemMode));
     if (vars.redeemMode == RedeemMode.Relay) {
@@ -704,7 +692,11 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       assertEq(sms.payload.length, 0);
     }
     else if (vars.redeemMode == RedeemMode.Payload) {
-      (uint payloadLenMsg, uint offset) = swapMessage.asUint16Unchecked(sms.redeemOffset);
+      (bytes32 senderMsg, uint offset) = swapMessage.asBytes32Unchecked(sms.redeemOffset);
+      assertEq(senderMsg, sms.sender, "parsed sender");
+      assertEq(sms.sender, user.toUniversalAddress(), "sender");
+      uint payloadLenMsg;
+      (payloadLenMsg, offset) = swapMessage.asUint16Unchecked(offset);
       assertEq(payloadLenMsg, vars.redeemPayload.length, "redeem payload length");
       (bytes memory payload, ) = swapMessage.slice(offset, vars.redeemPayload.length);
       assertEq(payload, vars.redeemPayload, "redeem payload");

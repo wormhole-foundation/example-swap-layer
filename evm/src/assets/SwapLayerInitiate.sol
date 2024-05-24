@@ -12,9 +12,12 @@ import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
 import { checkAddr } from "./Params.sol";
 import "./SwapLayerRelayingFees.sol";
 import "./InitiateParams.sol";
-import { encodeSwapMessage, encodeSwapMessageRelayParams } from "./Message.sol";
+import {
+  encodeSwapMessage,
+  encodeSwapMessageRelayParams,
+  encodeSwapMessagePayloadParams
+} from "./Message.sol";
 
-error PayloadNotYetSupportedOnSolana();
 error InsufficientInputAmount(uint256 input, uint256 minimum);
 error InvalidLength(uint256 received, uint256 expected);
 error ExceedsMaxRelayingFee(uint256 fee, uint256 maximum);
@@ -32,9 +35,6 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     checkAddr(targetChain, recipient);
     ModesOffsetsSizes memory mos = parseParamBaseStructure(targetChain, params);
 
-    if (targetChain == SOLANA_CHAIN_ID && mos.redeem.mode == RedeemMode.Payload)
-      revert PayloadNotYetSupportedOnSolana();
-
     uint64 maxFastFee = 0;
     uint32 fastTransferDeadline = 0;
     if (mos.transfer.mode == TransferMode.LiquidityLayerFast) {
@@ -44,7 +44,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     }
 
     uint relayingFee = 0;
-    bytes memory redeemPayload;
+    bytes memory redeemPayload = new bytes(0);
     if (mos.redeem.mode == RedeemMode.Relay) {
       (GasDropoff gasDropoff, uint maxRelayingFee, ) = parseRelayParams(params, mos.redeem.offset);
       uint swapCount = 0;
@@ -62,9 +62,10 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
       redeemPayload = encodeSwapMessageRelayParams(gasDropoff, relayingFee);
     }
-    else
-      (redeemPayload, ) =
-        params.sliceUnchecked(mos.redeem.offset - MODE_SIZE, mos.redeem.size + MODE_SIZE);
+    else if (mos.redeem.mode == RedeemMode.Payload) {
+      (bytes memory senderPayload, ) = params.sliceUnchecked(mos.redeem.offset, mos.redeem.size);
+      redeemPayload = encodeSwapMessagePayloadParams(msg.sender, senderPayload);
+    }
 
     (uint64 usdcAmount, uint wormholeFee) =
       _acquireUsdc(uint(maxFastFee) + relayingFee, mos, params);
@@ -78,7 +79,9 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       mos.output.size + MODE_SIZE
     );
 
-    bytes memory swapMessage = encodeSwapMessage(recipient, msg.sender, redeemPayload, outputSwap);
+    bytes memory swapMessage =
+      encodeSwapMessage(recipient, mos.redeem.mode, redeemPayload, outputSwap);
+
     bytes memory ret;
     if (mos.transfer.mode == TransferMode.LiquidityLayerFast) {
       (uint64 sequence, uint64 fastSequence, uint256 protocolSequence) =

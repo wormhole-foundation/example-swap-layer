@@ -90,13 +90,17 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
         pl[i] = nextRn(rngSeed);
 
       (vars.redeemPayload,) = abi.encodePacked(pl).sliceUnchecked(0, payloadLen);
-      vars.redeemParams = abi.encodePacked(uint16(vars.redeemPayload.length), vars.redeemPayload);
+      vars.redeemParams = abi.encodePacked(
+        user.toUniversalAddress(),
+        uint16(vars.redeemPayload.length),
+        vars.redeemPayload
+      );
     }
 
     vars.swapMessage = encodeSwapMessage(
       user.toUniversalAddress(),
-      user,
-      abi.encodePacked(vars.redeemMode, vars.redeemParams),
+      vars.redeemMode,
+      vars.redeemParams,
       vars.swap
     );
 
@@ -203,17 +207,17 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
         "fee recipient balance"
       );
 
-    bytes32 sender;
     if (vars.redeemMode == RedeemMode.Payload) {
+      bytes32 sender;
       bytes memory returnedPayload;
       (vars.outputToken, vars.outputAmount, sender, returnedPayload) =
         _swapLayerDecodeRedeemWithPayload(returnData);
+
+      assertEq(sender, user.toUniversalAddress(), "sender");
       assertEq(returnedPayload, vars.redeemPayload, "redeemPayload");
     }
     else
-      (vars.outputToken, vars.outputAmount, sender) = _swapLayerDecodeRedeem(returnData);
-
-    assertEq(sender, user.toUniversalAddress(), "sender");
+      (vars.outputToken, vars.outputAmount) = _swapLayerDecodeRedeem(returnData);
 
     uint expectedUserBalanceAfterEthMin = vars.userBalanceBeforeEth + vars.msgValue;
     if (vars.swapCount == 0 ||
