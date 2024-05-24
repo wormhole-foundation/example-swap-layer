@@ -32,10 +32,7 @@ impl JupiterV6SwapExactIn for cpi::SharedAccountsRouteArgs {
     }
 }
 
-pub fn compute_min_amount_out<T>(swap_args: &T) -> u64
-where
-    T: JupiterV6SwapExactIn,
-{
+pub fn compute_min_amount_out(swap_args: &impl JupiterV6SwapExactIn) -> u64 {
     let quoted_out_amount = swap_args.quoted_out_amount();
 
     // In case the slippage bps is configured to be greater than the max, we will set it to the max
@@ -45,12 +42,6 @@ where
 
     // Only upcast to u128 if the quoted out amount * 10_000 will overflow u64.
     if quoted_out_amount > MAX_QUOTED_OUT_AMOUNT {
-        // There are no side effects here because MAX_SLIPPAGE_BPS is not zero.
-        #[allow(clippy::arithmetic_side_effects)]
-        quoted_out_amount
-            .saturating_mul(after_slippage_bps.into())
-            .saturating_div(MAX_SLIPPAGE_BPS.into())
-    } else {
         // There will be no side effects with this operation. And because MAX_SLIPPAGE_BPS is
         // greater than slippage_bps, the result will always be less than or equal to u64::MAX.
         #[allow(clippy::arithmetic_side_effects)]
@@ -61,5 +52,12 @@ where
             .saturating_div(MAX_SLIPPAGE_BPS.into()) as u64;
 
         limit_amount
+    } else {
+        // There are no side effects here because MAX_SLIPPAGE_BPS is not zero.
+        #[allow(clippy::arithmetic_side_effects)]
+        quoted_out_amount
+            .checked_mul(after_slippage_bps.into())
+            .unwrap() // Panic here in case of overflow (which should be impossible).
+            .saturating_div(MAX_SLIPPAGE_BPS.into())
     }
 }
