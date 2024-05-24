@@ -68,7 +68,13 @@ const redeemModeItem = {
     idTag: "mode",
     layouts: [
         [[0, "Direct"], []],
-        [[1, "Payload"], [{ name: "payload", binary: "bytes", lengthSize: 4 }]],
+        [
+            [1, "Payload"],
+            [
+                { name: "sender", ...layoutItems.universalAddressItem },
+                { name: "buf", binary: "bytes", lengthSize: 2 },
+            ],
+        ],
         [
             [2, "Relay"],
             [

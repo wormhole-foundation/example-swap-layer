@@ -58,7 +58,7 @@ jobs:
       - uses: metadaoproject/setup-anchor@v2
         with:
           node-version: "20.11.0"
-          solana-cli-version: "1.18.11"
+          solana-cli-version: "1.18.14"
           anchor-version: "0.30.0"
       - name: Set default Rust toolchain
         run: rustup default stable

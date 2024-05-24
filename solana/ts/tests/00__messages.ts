@@ -66,13 +66,17 @@ describe("Swap Layer Messages", () => {
 
     it("USDC Payload", function () {
         const encoded = encoding.hex.decode(
-            "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d0100000004deadbeef00",
+            "010000000000000000000000006ca6d1e2d5347bfab1d91e883f1915560e09129d0100000000000000000000000000000000000000000000000000000000000ba5ed0004deadbeef00",
         );
 
         const decoded = decodeSwapLayerMessage(encoded);
         expect(decoded).to.eql({
             recipient: toUniversal("Ethereum", "0x6ca6d1e2d5347bfab1d91e883f1915560e09129d"),
-            redeemMode: { mode: "Payload", payload: Buffer.from("deadbeef", "hex") },
+            redeemMode: {
+                mode: "Payload",
+                sender: toUniversal("Ethereum", "0x00000000000000000000000000000000000ba5ed"),
+                buf: Buffer.from("deadbeef", "hex"),
+            },
             outputToken: { type: "Usdc" },
         } as SwapLayerMessage);
         expect(encodeSwapLayerMessage(decoded)).to.eql(encoded);

@@ -1,7 +1,10 @@
 use crate::error::SwapLayerError;
 use anchor_lang::prelude::*;
 use common::wormhole_io::Readable;
-use swap_layer_messages::{messages::SwapMessageV1, types::OutputToken};
+use swap_layer_messages::{
+    messages::SwapMessageV1,
+    types::{OutputToken, RedeemMode},
+};
 
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
 pub enum RedeemOption {
@@ -99,11 +102,19 @@ impl StagedOutbound {
             recipient: info.recipient,
             redeem_mode: match staged_redeem {
                 StagedRedeem::Direct => Default::default(),
-                StagedRedeem::Payload(payload) => payload.into(),
+                StagedRedeem::Payload(buf) => RedeemMode::Payload {
+                    sender: info.sender.to_bytes(),
+                    buf: buf
+                        .try_into()
+                        .map_err(|_| SwapLayerError::PayloadTooLarge)?,
+                },
                 StagedRedeem::Relay {
                     gas_dropoff,
                     relaying_fee,
-                } => (gas_dropoff, relaying_fee).try_into().unwrap(),
+                } => RedeemMode::Relay {
+                    gas_dropoff,
+                    relaying_fee: relaying_fee.try_into().unwrap(),
+                },
             },
             output_token: Readable::read(&mut &encoded_output_token[..])
                 .map_err(|_| SwapLayerError::InvalidOutputToken)?,

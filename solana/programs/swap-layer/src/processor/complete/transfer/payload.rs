@@ -5,7 +5,6 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token;
-use swap_layer_messages::messages::SwapMessageV1;
 use swap_layer_messages::types::{OutputToken, RedeemMode};
 
 #[derive(Accounts)]
@@ -81,28 +80,25 @@ pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Resul
             .consume_swap_layer_fill
             .read_message_unchecked();
 
-        staged_inbound.set_inner(StagedInbound {
-            seeds: StagedInboundSeeds {
-                prepared_fill: ctx.accounts.consume_swap_layer_fill.prepared_fill_key(),
-                bump: ctx.bumps.staged_inbound,
-            },
-            info: StagedInboundInfo {
-                custody_token: ctx.accounts.staged_custody_token.key(),
-                staged_by: ctx.accounts.payer.key(),
-                source_chain: ctx.accounts.consume_swap_layer_fill.fill.source_chain,
-                recipient: Pubkey::from(swap_msg.recipient),
-                is_native: false,
-            },
-            recipient_payload: get_swap_message_payload(&swap_msg)?.to_vec(),
-        });
+        match swap_msg.redeem_mode {
+            RedeemMode::Payload { sender, buf } => staged_inbound.set_inner(StagedInbound {
+                seeds: StagedInboundSeeds {
+                    prepared_fill: ctx.accounts.consume_swap_layer_fill.prepared_fill_key(),
+                    bump: ctx.bumps.staged_inbound,
+                },
+                info: StagedInboundInfo {
+                    custody_token: ctx.accounts.staged_custody_token.key(),
+                    staged_by: ctx.accounts.payer.key(),
+                    source_chain: ctx.accounts.consume_swap_layer_fill.fill.source_chain,
+                    sender,
+                    recipient: Pubkey::from(swap_msg.recipient),
+                    is_native: false,
+                },
+                recipient_payload: buf.into(),
+            }),
+            _ => return err!(SwapLayerError::InvalidRedeemMode),
+        };
     }
 
     Ok(())
-}
-
-fn get_swap_message_payload(swap_msg: &SwapMessageV1) -> Result<&[u8]> {
-    match &swap_msg.redeem_mode {
-        RedeemMode::Payload(payload) => Ok(payload),
-        _ => Err(SwapLayerError::InvalidRedeemMode.into()),
-    }
 }
