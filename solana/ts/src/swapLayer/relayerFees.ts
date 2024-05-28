@@ -1,12 +1,12 @@
 import { OutputToken, RelayParams } from ".";
 
 // Gas overheads for EVM.
-const EVM_GAS_OVERHEAD = 100_000n;
-const DROPOFF_GAS_OVERHEAD = 10_000n;
-const UNISWAP_GAS_OVERHEAD = 100_000n;
-const UNISWAP_GAS_PER_SWAP = 100_000n;
-const TRADERJOE_GAS_OVERHEAD = 100_000n;
-const TRADERJOE_GAS_PER_SWAP = 100_000n;
+const EVM_GAS_OVERHEAD = 280_000n;
+const DROPOFF_GAS_OVERHEAD = 32_000n;
+const UNISWAP_GAS_OVERHEAD = 10_000n;
+const UNISWAP_GAS_PER_SWAP = 120_000n;
+const TRADERJOE_GAS_OVERHEAD = 30_000n;
+const TRADERJOE_GAS_PER_SWAP = 80_000n;
 const ONE_ETHER = 1_000_000_000_000_000_000n;
 
 // Solana specific constants.

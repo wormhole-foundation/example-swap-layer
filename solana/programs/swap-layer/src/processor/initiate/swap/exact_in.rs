@@ -7,6 +7,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token, token, token_interface};
 use common::wormhole_io::TypePrefixedPayload;
+use swap_layer_messages::types::RedeemMode;
 
 #[derive(Accounts)]
 pub struct InitiateSwapExactIn<'info> {
@@ -202,11 +203,7 @@ where
         );
     }
 
-    let redeemer_message = ctx
-        .accounts
-        .staged_outbound
-        .to_swap_message_v1()
-        .map(|msg| msg.to_vec())?;
+    let swap_msg = ctx.accounts.staged_outbound.to_swap_message_v1()?;
 
     let staged_outbound = &ctx.accounts.staged_outbound;
     let prepared_order = &ctx.accounts.prepared_order;
@@ -225,6 +222,19 @@ where
         cpi_remaining_accounts,
         Default::default(),
     )?;
+
+    // Verify that the usdc_amount_out is larger than the encoded relaying fee
+    // if the staged outbound is a relay.
+    if let RedeemMode::Relay {
+        gas_dropoff: _,
+        relaying_fee,
+    } = swap_msg.redeem_mode
+    {
+        require!(
+            usdc_amount_out > relaying_fee.into(),
+            SwapLayerError::AmountOutTooSmall
+        );
+    }
 
     let payer = &ctx.accounts.payer;
 
@@ -291,7 +301,7 @@ where
             min_amount_out: Default::default(),
             target_chain: staged_outbound.target_chain,
             redeemer: ctx.accounts.target_peer.address,
-            redeemer_message,
+            redeemer_message: swap_msg.to_vec(),
         },
     )?;
 
