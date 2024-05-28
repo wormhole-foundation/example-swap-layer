@@ -42,13 +42,13 @@ pub struct CompleteTransferRelay<'info> {
                     match consume_swap_layer_fill.fill.fill_type {
                         FillType::FastFill => {
                             require!(
-                                time_diff > i64::from(swap_time_limit.fast_limit),
+                                time_diff >= i64::from(swap_time_limit.fast_limit),
                                 SwapLayerError::SwapTimeLimitNotExceeded
                             );
                         }
                         FillType::WormholeCctpDeposit => {
                             require!(
-                                time_diff > i64::from(swap_time_limit.finalized_limit),
+                                time_diff >= i64::from(swap_time_limit.finalized_limit),
                                 SwapLayerError::SwapTimeLimitNotExceeded
                             );
                         }

@@ -77,25 +77,26 @@ where
 
     // Handle the relayer fee and gas dropoff. Override the relaying fee to zero
     // if the payer is the recipient (self redemption).
-    let (in_amount, gas_dropoff) = if payer.key() != recipient.key() && relaying_fee > 0 {
+    let (in_amount, gas_dropoff) = if payer.key() != recipient.key() {
         // Transfer eligible USDC to the fee recipient.
-        anchor_spl::token::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.complete_swap.token_program.to_account_info(),
-                anchor_spl::token::Transfer {
-                    from: ctx.accounts.complete_swap.src_swap_token.to_account_info(),
-                    to: ctx.accounts.fee_recipient_token.to_account_info(),
-                    authority: ctx.accounts.complete_swap.authority.to_account_info(),
-                },
-                &[&[
-                    crate::SWAP_AUTHORITY_SEED_PREFIX,
-                    ctx.accounts.complete_swap.prepared_fill_key().as_ref(),
-                    &[ctx.bumps.complete_swap.authority],
-                ]],
-            ),
-            relaying_fee,
-        )?;
-
+        if relaying_fee > 0 {
+            anchor_spl::token::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.complete_swap.token_program.to_account_info(),
+                    anchor_spl::token::Transfer {
+                        from: ctx.accounts.complete_swap.src_swap_token.to_account_info(),
+                        to: ctx.accounts.fee_recipient_token.to_account_info(),
+                        authority: ctx.accounts.complete_swap.authority.to_account_info(),
+                    },
+                    &[&[
+                        crate::SWAP_AUTHORITY_SEED_PREFIX,
+                        ctx.accounts.complete_swap.prepared_fill_key().as_ref(),
+                        &[ctx.bumps.complete_swap.authority],
+                    ]],
+                ),
+                relaying_fee,
+            )?;
+        }
         (
             fill_amount
                 .checked_sub(relaying_fee)

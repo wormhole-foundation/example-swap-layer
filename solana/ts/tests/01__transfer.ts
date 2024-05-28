@@ -52,6 +52,7 @@ import {
     encodeOutputToken,
     encodeSwapLayerMessage,
     localnet,
+    TEST_RELAY_PARAMS,
 } from "../src/swapLayer";
 import { FEE_UPDATER_KEYPAIR, REGISTERED_PEERS, createLut, tryNativeToUint8Array } from "./helpers";
 
@@ -84,23 +85,6 @@ describe("Swap Layer", () => {
     const tokenRouter = swapLayer.tokenRouterProgram();
 
     let tokenRouterLkupTable: PublicKey;
-
-    const relayParamsForTest: RelayParams = {
-        baseFee: 100000,
-        nativeTokenPrice: uint64ToBN(1000000),
-        maxGasDropoff: 500000,
-        gasDropoffMargin: 10000,
-        executionParams: {
-            evm: {
-                gasPrice: 100000,
-                gasPriceMargin: 10000,
-            },
-        },
-        swapTimeLimit: {
-            fastLimit: 2,
-            finalizedLimit: 2,
-        },
-    };
 
     let testCctpNonce = 2n ** 64n - 20n * 6400n;
 
@@ -411,7 +395,7 @@ describe("Swap Layer", () => {
                         opts?.args ?? {
                             chain: foreignChain,
                             address: foreignSwapLayerAddress,
-                            relayParams: relayParamsForTest,
+                            relayParams: TEST_RELAY_PARAMS,
                         },
                     );
 
@@ -449,7 +433,7 @@ describe("Swap Layer", () => {
                                 args: {
                                     chain: foreignChain,
                                     address: foreignSwapLayerAddress,
-                                    relayParams: { ...relayParamsForTest, baseFee: 0 },
+                                    relayParams: { ...TEST_RELAY_PARAMS, baseFee: 0 },
                                 },
                             }),
                         ],
@@ -467,7 +451,7 @@ describe("Swap Layer", () => {
                                     chain: foreignChain,
                                     address: foreignSwapLayerAddress,
                                     relayParams: {
-                                        ...relayParamsForTest,
+                                        ...TEST_RELAY_PARAMS,
                                         nativeTokenPrice: new BN(0),
                                     },
                                 },
@@ -487,7 +471,7 @@ describe("Swap Layer", () => {
                                     chain: foreignChain,
                                     address: foreignSwapLayerAddress,
                                     relayParams: {
-                                        ...relayParamsForTest,
+                                        ...TEST_RELAY_PARAMS,
                                         gasDropoffMargin: 4294967295,
                                     },
                                 },
@@ -507,7 +491,7 @@ describe("Swap Layer", () => {
                                     chain: foreignChain,
                                     address: foreignSwapLayerAddress,
                                     relayParams: {
-                                        ...relayParamsForTest,
+                                        ...TEST_RELAY_PARAMS,
                                         executionParams: {
                                             evm: { gasPrice: 0, gasPriceMargin: 69 },
                                         },
@@ -529,7 +513,7 @@ describe("Swap Layer", () => {
                                     chain: foreignChain,
                                     address: foreignSwapLayerAddress,
                                     relayParams: {
-                                        ...relayParamsForTest,
+                                        ...TEST_RELAY_PARAMS,
                                         executionParams: {
                                             evm: { gasPrice: 10000, gasPriceMargin: 4294967295 },
                                         },
@@ -552,7 +536,7 @@ describe("Swap Layer", () => {
                         new Peer(
                             { chain: foreignChain, bump: seeds.bump },
                             foreignSwapLayerAddress,
-                            relayParamsForTest,
+                            TEST_RELAY_PARAMS,
                         ),
                     );
                 });
@@ -1055,7 +1039,7 @@ describe("Swap Layer", () => {
 
             it("Update Relay Parameters as Owner", async () => {
                 let relayParams = {
-                    ...relayParamsForTest,
+                    ...TEST_RELAY_PARAMS,
                     baseFee: 69,
                 };
                 await expectIxOk(
@@ -1078,7 +1062,7 @@ describe("Swap Layer", () => {
 
             it("Update Relay Parameters as Owner Assistant", async () => {
                 let relayParams = {
-                    ...relayParamsForTest,
+                    ...TEST_RELAY_PARAMS,
                     baseFee: 690,
                 };
                 await expectIxOk(
@@ -1101,7 +1085,7 @@ describe("Swap Layer", () => {
 
             it("Update Relay Parameters as Fee Updater", async () => {
                 let relayParams = {
-                    ...relayParamsForTest,
+                    ...TEST_RELAY_PARAMS,
                 };
                 await expectIxOk(
                     connection,
@@ -1429,7 +1413,7 @@ describe("Swap Layer", () => {
                     await addPeerForTest(owner, {
                         chain: baseChain,
                         address: foreignSwapLayerAddress,
-                        relayParams: relayParamsForTest,
+                        relayParams: TEST_RELAY_PARAMS,
                     });
 
                     const amountIn = 690000n;
@@ -1543,7 +1527,7 @@ describe("Swap Layer", () => {
                         swapLayer,
                         foreignChain,
                         {
-                            ...relayParamsForTest,
+                            ...TEST_RELAY_PARAMS,
                             baseFee: U32_MAX,
                         },
                         feeUpdater,
@@ -1582,7 +1566,7 @@ describe("Swap Layer", () => {
                     await updateRelayParamsForTest(
                         swapLayer,
                         foreignChain,
-                        relayParamsForTest,
+                        TEST_RELAY_PARAMS,
                         feeUpdater,
                     );
                 });
@@ -1592,7 +1576,7 @@ describe("Swap Layer", () => {
                     const stagedOutbound = stagedOutboundSigner.publicKey;
 
                     const amountIn = 6900000000n;
-                    const gasDropoff = relayParamsForTest.maxGasDropoff + 1;
+                    const gasDropoff = TEST_RELAY_PARAMS.maxGasDropoff + 1;
                     const maxRelayerFee = 9999999999999;
                     const senderToken = splToken.getAssociatedTokenAddressSync(
                         swapLayer.usdcMint,
@@ -1964,7 +1948,7 @@ describe("Swap Layer", () => {
                     await addPeerForTest(owner, {
                         chain: holeskyChain,
                         address: foreignSwapLayerAddress,
-                        relayParams: relayParamsForTest,
+                        relayParams: TEST_RELAY_PARAMS,
                     });
 
                     const ix = await swapLayer.initiateTransferIx(
@@ -2280,7 +2264,7 @@ describe("Swap Layer", () => {
                         }),
                         {
                             vaaTimestamp:
-                                currTime - relayParamsForTest.swapTimeLimit.finalizedLimit + 5,
+                                currTime - TEST_RELAY_PARAMS.swapTimeLimit.finalizedLimit + 5,
                         },
                     );
                     const { vaa } = result!;
@@ -2575,7 +2559,7 @@ describe("Swap Layer", () => {
                         }),
                         {
                             vaaTimestamp:
-                                currTime - relayParamsForTest.swapTimeLimit.finalizedLimit - 1,
+                                currTime - TEST_RELAY_PARAMS.swapTimeLimit.finalizedLimit - 1,
                         },
                     );
                     const { vaa, message } = result!;
