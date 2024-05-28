@@ -67,21 +67,20 @@ pub struct CompleteTransferPayload<'info> {
 pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Result<()> {
     let staged_inbound = &mut ctx.accounts.staged_inbound;
 
-    // Set the staged transfer if it hasn't been set yet.
-    if staged_inbound.staged_by == Pubkey::default() {
-        // Consume the prepared fill, and send the tokens to the staged custody account.
-        ctx.accounts.consume_swap_layer_fill.consume_prepared_fill(
-            ctx.accounts.staged_custody_token.as_ref().as_ref(),
-            &ctx.accounts.token_program,
-        )?;
+    // Consume the prepared fill, and send the tokens to the staged custody account.
+    ctx.accounts.consume_swap_layer_fill.consume_prepared_fill(
+        ctx.accounts.staged_custody_token.as_ref().as_ref(),
+        &ctx.accounts.token_program,
+    )?;
 
-        let swap_msg = ctx
-            .accounts
-            .consume_swap_layer_fill
-            .read_message_unchecked();
+    let swap_msg = ctx
+        .accounts
+        .consume_swap_layer_fill
+        .read_message_unchecked();
 
-        match swap_msg.redeem_mode {
-            RedeemMode::Payload { sender, buf } => staged_inbound.set_inner(StagedInbound {
+    match swap_msg.redeem_mode {
+        RedeemMode::Payload { sender, buf } => {
+            staged_inbound.set_inner(StagedInbound {
                 seeds: StagedInboundSeeds {
                     prepared_fill: ctx.accounts.consume_swap_layer_fill.prepared_fill_key(),
                     bump: ctx.bumps.staged_inbound,
@@ -95,10 +94,11 @@ pub fn complete_transfer_payload(ctx: Context<CompleteTransferPayload>) -> Resul
                     is_native: false,
                 },
                 recipient_payload: buf.into(),
-            }),
-            _ => return err!(SwapLayerError::InvalidRedeemMode),
-        };
-    }
+            });
 
-    Ok(())
+            // Done.
+            Ok(())
+        }
+        _ => err!(SwapLayerError::InvalidRedeemMode),
+    }
 }
