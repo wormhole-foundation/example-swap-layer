@@ -35,7 +35,7 @@ pub struct CompleteTransferRelay<'info> {
                         .unix_timestamp
                         .saturating_sub(consume_swap_layer_fill.fill.timestamp);
                     let swap_time_limit = &consume_swap_layer_fill
-                        .associated_peer
+                        .source_peer
                         .relay_params
                         .swap_time_limit;
 

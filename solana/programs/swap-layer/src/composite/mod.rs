@@ -174,13 +174,13 @@ pub struct ConsumeSwapLayerFill<'info> {
                 .map_err(|_| SwapLayerError::InvalidSwapMessage)?;
 
             require_eq!(
-                associated_peer.seeds.chain,
+                source_peer.seeds.chain,
                 fill.source_chain,
                 SwapLayerError::InvalidPeer,
             );
 
             require!(
-                fill.order_sender == associated_peer.address,
+                fill.order_sender == source_peer.address,
                 SwapLayerError::InvalidPeer
             );
 
@@ -194,9 +194,9 @@ pub struct ConsumeSwapLayerFill<'info> {
     ///
     /// CHECK: Mutable. Seeds must be \["custody"\, source_chain.to_be_bytes()].
     #[account(mut)]
-    fill_custody_token: Box<Account<'info, token::TokenAccount>>,
+    fill_custody_token: UncheckedAccount<'info>,
 
-    pub associated_peer: RegisteredPeer<'info>,
+    pub source_peer: RegisteredPeer<'info>,
 
     /// CHECK: Recipient of lamports from closing the prepared_fill account.
     #[account(mut)]
