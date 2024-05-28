@@ -5,7 +5,10 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token, token, token_interface};
-use swap_layer_messages::{messages::SwapMessageV1, types::RedeemMode};
+use swap_layer_messages::{
+    messages::SwapMessageV1,
+    types::{OutputToken, RedeemMode},
+};
 
 #[derive(Accounts)]
 pub struct CompleteSwapPayload<'info> {
@@ -74,68 +77,62 @@ where
 {
     let staged_inbound = &mut ctx.accounts.staged_inbound;
 
-    // Set the staged transfer if it hasn't been set yet.
-    if staged_inbound.staged_by == Pubkey::default() {
-        let in_amount = ctx.accounts.consume_swap_layer_fill.consume_prepared_fill(
-            ctx.accounts.src_swap_token.as_ref().as_ref(),
-            &ctx.accounts.token_program,
-        )?;
+    let in_amount = ctx.accounts.consume_swap_layer_fill.consume_prepared_fill(
+        ctx.accounts.src_swap_token.as_ref().as_ref(),
+        &ctx.accounts.token_program,
+    )?;
 
-        let SwapMessageV1 {
+    let SwapMessageV1 {
+        recipient,
+        redeem_mode,
+        output_token,
+    } = ctx
+        .accounts
+        .consume_swap_layer_fill
+        .read_message_unchecked();
+
+    match redeem_mode {
+        RedeemMode::Payload { sender, buf } => staged_inbound.set_inner(StagedInbound {
+            seeds: StagedInboundSeeds {
+                prepared_fill: ctx.accounts.consume_swap_layer_fill.prepared_fill_key(),
+                bump: ctx.bumps.staged_inbound,
+            },
+            info: StagedInboundInfo {
+                custody_token: ctx.accounts.dst_swap_token.key(),
+                staged_by: ctx.accounts.payer.key(),
+                source_chain: ctx.accounts.consume_swap_layer_fill.fill.source_chain,
+                sender,
+                recipient: Pubkey::from(recipient),
+                is_native: matches!(&output_token, OutputToken::Gas(_)),
+            },
+            recipient_payload: buf.into(),
+        }),
+        _ => return err!(SwapLayerError::InvalidRedeemMode),
+    };
+
+    handle_complete_swap_jup_v6(
+        HandleCompleteSwap {
+            payer: &ctx.accounts.payer,
+            consume_swap_layer_fill: &ctx.accounts.consume_swap_layer_fill,
+            authority: ctx.accounts.staged_inbound.as_ref().as_ref(),
+            src_swap_token: &ctx.accounts.src_swap_token,
+            dst_swap_token: &ctx.accounts.dst_swap_token,
+            dst_mint: &ctx.accounts.dst_mint,
+            token_program: &ctx.accounts.token_program,
+            system_program: &ctx.accounts.system_program,
+            dst_token_program: &ctx.accounts.dst_token_program,
+        },
+        StagedInbound::SEED_PREFIX,
+        ctx.bumps.staged_inbound,
+        ctx.remaining_accounts,
+        instruction_data,
+        in_amount,
+        SwapMessageV1 {
             recipient,
-            redeem_mode,
+            redeem_mode: Default::default(), // RedeemMode is not handled in this method.
             output_token,
-        } = ctx
-            .accounts
-            .consume_swap_layer_fill
-            .read_message_unchecked();
-
-        match redeem_mode {
-            RedeemMode::Payload { sender, buf } => staged_inbound.set_inner(StagedInbound {
-                seeds: StagedInboundSeeds {
-                    prepared_fill: ctx.accounts.consume_swap_layer_fill.prepared_fill_key(),
-                    bump: ctx.bumps.staged_inbound,
-                },
-                info: StagedInboundInfo {
-                    custody_token: ctx.accounts.dst_swap_token.key(),
-                    staged_by: ctx.accounts.payer.key(),
-                    source_chain: ctx.accounts.consume_swap_layer_fill.fill.source_chain,
-                    sender,
-                    recipient: Pubkey::from(recipient),
-                    is_native: false,
-                },
-                recipient_payload: buf.into(),
-            }),
-            _ => return err!(SwapLayerError::InvalidRedeemMode),
-        };
-
-        handle_complete_swap_jup_v6(
-            HandleCompleteSwap {
-                payer: &ctx.accounts.payer,
-                consume_swap_layer_fill: &ctx.accounts.consume_swap_layer_fill,
-                authority: ctx.accounts.staged_inbound.as_ref().as_ref(),
-                src_swap_token: &ctx.accounts.src_swap_token,
-                dst_swap_token: &ctx.accounts.dst_swap_token,
-                dst_mint: &ctx.accounts.dst_mint,
-                token_program: &ctx.accounts.token_program,
-                system_program: &ctx.accounts.system_program,
-                dst_token_program: &ctx.accounts.dst_token_program,
-            },
-            StagedInbound::SEED_PREFIX,
-            ctx.bumps.staged_inbound,
-            ctx.remaining_accounts,
-            instruction_data,
-            in_amount,
-            SwapMessageV1 {
-                recipient,
-                redeem_mode: Default::default(), // RedeemMode is not handled in this method.
-                output_token,
-            },
-            Default::default(),
-            Default::default(),
-        )?;
-    }
-
-    // Done.
-    Ok(())
+        },
+        Default::default(),
+        Default::default(),
+    )
 }
