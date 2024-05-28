@@ -9,12 +9,12 @@ use swap_layer_messages::types::{
 };
 
 // EVM gas overheads in gas units.
-const EVM_GAS_OVERHEAD: u64 = 100_000;
-const DROPOFF_GAS_OVERHEAD: u64 = 10_000;
-const UNISWAP_GAS_OVERHEAD: u64 = 100_000;
-const UNISWAP_GAS_PER_SWAP: u64 = 100_000;
-const TRADERJOE_GAS_OVERHEAD: u64 = 100_000;
-const TRADERJOE_GAS_PER_SWAP: u64 = 100_000;
+const EVM_GAS_OVERHEAD: u64 = 280_000;
+const DROPOFF_GAS_OVERHEAD: u64 = 32_000;
+const UNISWAP_GAS_OVERHEAD: u64 = 10_000;
+const UNISWAP_GAS_PER_SWAP: u64 = 120_000;
+const TRADERJOE_GAS_OVERHEAD: u64 = 30_000;
+const TRADERJOE_GAS_PER_SWAP: u64 = 80_000;
 
 const ONE_SOL: u64 = 1_000_000_000;
 const GAS_PRICE_SCALAR: u32 = 1_000_000;
@@ -229,7 +229,7 @@ mod test {
         });
         let gas_overhead = calculate_evm_swap_overhead(swap_type);
 
-        assert_eq!(gas_overhead, Some(200_000));
+        assert_eq!(gas_overhead, Some(130_000));
     }
 
     #[test]
@@ -243,7 +243,7 @@ mod test {
         });
         let gas_overhead = calculate_evm_swap_overhead(swap_type);
 
-        assert_eq!(gas_overhead, Some(200_000));
+        assert_eq!(gas_overhead, Some(110_000));
     }
 
     #[test]
@@ -279,7 +279,7 @@ mod test {
 
         let relayer_fee = calculate_relayer_fee(&relay_params, gas_dropoff, output_token);
 
-        assert_eq!(relayer_fee.unwrap(), 16775000);
+        assert_eq!(relayer_fee.unwrap(), 17280000);
     }
 
     #[test]
@@ -312,7 +312,7 @@ mod test {
 
         let relayer_fee = calculate_relayer_fee(&relay_params, gas_dropoff, &output_token);
 
-        assert_eq!(relayer_fee.unwrap(), 18025000);
+        assert_eq!(relayer_fee.unwrap(), 18505000);
     }
 
     #[test]
@@ -340,7 +340,7 @@ mod test {
 
         let relayer_fee = calculate_relayer_fee(&relay_params, gas_dropoff, &output_token);
 
-        assert_eq!(relayer_fee.unwrap(), 17525000);
+        assert_eq!(relayer_fee.unwrap(), 17755000);
     }
 
     // TODO: Add boundary tests.
