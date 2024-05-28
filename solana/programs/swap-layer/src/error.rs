@@ -53,6 +53,7 @@ pub enum SwapLayerError {
     SwapPastDeadline = 0x300,
     InvalidLimitAmount = 0x302,
     InvalidSwapType = 0x304,
+    AmountOutTooSmall = 0x306,
 
     // Jupiter V6
     #[msg("Jupiter V6 Authority ID must be >= 0 and < 8")]
