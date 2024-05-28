@@ -3,7 +3,7 @@ use swap_layer_messages::{messages::SwapMessageV1, types::RedeemMode};
 
 use crate::error::SwapLayerError;
 
-#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+#[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, Default, PartialEq, Eq, InitSpace)]
 pub struct StagedInboundSeeds {
     pub prepared_fill: Pubkey,
     pub bump: u8,

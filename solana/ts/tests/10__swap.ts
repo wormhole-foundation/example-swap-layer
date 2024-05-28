@@ -2206,8 +2206,6 @@ describe("Jupiter V6 Testing", () => {
             const emittedEvents: EmittedFilledLocalFastOrder[] = [];
             let listenerId: number | null;
 
-            const localVariables = new Map<string, any>();
-
             before("Start Event Listener", async function () {
                 listenerId = matchingEngine.onFilledLocalFastOrder((event, slot, signature) => {
                     emittedEvents.push({ event, slot, signature });
@@ -2258,9 +2256,82 @@ describe("Jupiter V6 Testing", () => {
                         swapResponseModifier: modifyUsdcToUsdtSwapResponseForTest,
                     },
                 );
+            });
 
-                // Save for later.
-                localVariables.set("preparedFill", preparedFill);
+            it("Other (WSOL) via Phoenix V1", async function () {
+                const dstMint = splToken.NATIVE_MINT;
+                const { limitAmount, outputToken } = newQuotedSwapOutputToken({
+                    quotedAmountOut: 2_000_000_000n,
+                    dstMint,
+                    slippageBps: 150,
+                });
+
+                const amountIn = 300_000_000n;
+                const { preparedFill } = await redeemSwapLayerFastFillForTest(
+                    { payer: payer.publicKey },
+                    emittedEvents,
+                    {
+                        dstMint,
+                        redeemMode: {
+                            mode: "Payload",
+                            sender: toUniversal(
+                                "Ethereum",
+                                "0x000000000000000000000000000000000000d00d",
+                            ),
+                            buf: Buffer.from("All your base are belong to us."),
+                        },
+                        outputToken,
+                        amountIn,
+                    },
+                );
+
+                await completeSwapPayloadForTest(
+                    {
+                        payer: payer.publicKey,
+                        preparedFill,
+                        dstMint,
+                    },
+                    {
+                        limitAmount,
+                        swapResponseModifier: modifyUsdcToWsolSwapResponseForTest,
+                    },
+                );
+            });
+
+            it("Gas via Phoenix V1", async function () {
+                const { limitAmount, outputToken } = newQuotedSwapOutputToken({
+                    quotedAmountOut: 2_000_000_000n,
+                    slippageBps: 150,
+                });
+
+                const amountIn = 300_000_000n;
+                const { preparedFill } = await redeemSwapLayerFastFillForTest(
+                    { payer: payer.publicKey },
+                    emittedEvents,
+                    {
+                        outputToken,
+                        redeemMode: {
+                            mode: "Payload",
+                            sender: toUniversal(
+                                "Ethereum",
+                                "0x000000000000000000000000000000000000d00d",
+                            ),
+                            buf: Buffer.from("All your base are belong to us."),
+                        },
+                        amountIn,
+                    },
+                );
+
+                await completeSwapPayloadForTest(
+                    {
+                        payer: payer.publicKey,
+                        preparedFill,
+                    },
+                    {
+                        limitAmount,
+                        swapResponseModifier: modifyUsdcToWsolSwapResponseForTest,
+                    },
+                );
             });
         });
     });
