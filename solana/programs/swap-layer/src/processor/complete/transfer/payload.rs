@@ -10,7 +10,6 @@ use swap_layer_messages::types::{OutputToken, RedeemMode};
 #[derive(Accounts)]
 pub struct CompleteTransferPayload<'info> {
     #[account(mut)]
-    /// The payer of the transaction.
     payer: Signer<'info>,
 
     #[account(
@@ -43,6 +42,9 @@ pub struct CompleteTransferPayload<'info> {
         ],
         bump
     )]
+    /// The staged inbound account that will be created to hold the arbitrary
+    /// payload that the recipient will receive. This account also warehouses
+    /// the seeds necessary to derive the staged custody token account.
     staged_inbound: Account<'info, StagedInbound>,
 
     #[account(
@@ -56,6 +58,9 @@ pub struct CompleteTransferPayload<'info> {
         ],
         bump,
     )]
+    /// The staged custody token account that will be created to hold the USDC
+    /// that the recipient will receive. This account is derived from the staged
+    /// inbound account.
     staged_custody_token: Box<Account<'info, token::TokenAccount>>,
 
     usdc: Usdc<'info>,
