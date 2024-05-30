@@ -124,6 +124,10 @@ pub mod swap_layer {
         processor::stage_outbound(ctx, args)
     }
 
+    pub fn close_staged_outbound(ctx: Context<CloseStagedOutbound>) -> Result<()> {
+        processor::close_staged_outbound(ctx)
+    }
+
     pub fn initiate_transfer(ctx: Context<InitiateTransfer>) -> Result<()> {
         processor::initiate_transfer(ctx)
     }

@@ -465,6 +465,54 @@ export class SwapLayerProgram {
             .instruction();
     }
 
+    async closeStagedOutboundIx(
+        accounts: {
+            stagedOutbound: PublicKey;
+            senderToken: PublicKey;
+            preparedBy?: PublicKey;
+            sender?: PublicKey;
+        },
+        targetChain: ChainId,
+    ): Promise<TransactionInstruction> {
+        const {
+            stagedOutbound,
+            preparedBy: inputPreparedBy,
+            sender: inputSender,
+            senderToken,
+        } = accounts;
+
+        const { preparedBy, sender } = await (async () => {
+            if (inputPreparedBy === undefined || inputSender === undefined) {
+                const {
+                    info: { preparedBy, sender },
+                } = await this.fetchStagedOutbound(stagedOutbound);
+                return {
+                    preparedBy: inputPreparedBy ?? preparedBy,
+                    sender: inputSender ?? sender,
+                };
+            } else {
+                return {
+                    preparedBy: inputPreparedBy,
+                    sender: inputSender,
+                };
+            }
+        })();
+
+        return this.program.methods
+            .closeStagedOutbound()
+            .accounts({
+                sender,
+                targetPeer: this.registeredPeerComposite({ chain: targetChain }),
+                preparedBy,
+                stagedOutbound,
+                stagedCustodyToken: this.stagedCustodyTokenAddress(stagedOutbound),
+                senderToken,
+                tokenProgram: splToken.TOKEN_PROGRAM_ID,
+                systemProgram: SystemProgram.programId,
+            })
+            .instruction();
+    }
+
     async stageOutboundIx(
         accounts: {
             payer: PublicKey;

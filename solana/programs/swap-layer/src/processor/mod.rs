@@ -12,3 +12,6 @@ pub use release_inbound::*;
 
 mod stage_outbound;
 pub use stage_outbound::*;
+
+mod close_staged_outbound;
+pub use close_staged_outbound::*;
