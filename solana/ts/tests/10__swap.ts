@@ -1564,6 +1564,170 @@ describe("Jupiter V6 Testing", () => {
     });
 
     describe("USDC Swap (Direct)", function () {
+        describe("Close Staged Outbound", function () {
+            it("USDT", async function () {
+                const amountIn = 690000n;
+                const srcMint = USDT_MINT_ADDRESS;
+                const senderToken = splToken.getAssociatedTokenAddressSync(
+                    srcMint,
+                    payer.publicKey,
+                );
+
+                // Stage outbound with sender.
+                const { stagedOutbound, stagedCustodyToken } = await stageOutboundForTest(
+                    {
+                        payer: payer.publicKey,
+                        senderToken,
+                        srcMint,
+                    },
+                    { amountIn },
+                );
+
+                const balanceBefore = await connection.getBalance(payer.publicKey).then(BigInt);
+                const { amount: tokenBalanceBefore } = await splToken.getAccount(
+                    connection,
+                    senderToken,
+                );
+
+                const ix = await swapLayer.closeStagedOutboundIx(
+                    { stagedOutbound, senderToken },
+                    toChainId("Ethereum"),
+                );
+                await expectIxOk(connection, [ix], [payer]);
+
+                const balanceAfter = await connection.getBalance(payer.publicKey).then(BigInt);
+                const { amount: tokenBalanceAfter } = await splToken.getAccount(
+                    connection,
+                    senderToken,
+                );
+
+                assert.isTrue(balanceAfter > balanceBefore);
+                assert.equal(tokenBalanceAfter, tokenBalanceBefore + amountIn);
+
+                // Confirm that the staged accounts have been deleted.
+                {
+                    const accInfo = await connection.getAccountInfo(stagedOutbound);
+                    assert.isNull(accInfo);
+                }
+                {
+                    const accInfo = await connection.getAccountInfo(stagedCustodyToken);
+                    assert.isNull(accInfo);
+                }
+            });
+
+            it("Gas (Sender == Prepared By)", async function () {
+                const amountIn = 690000n;
+
+                // Stage outbound with sender.
+                const { stagedOutbound, stagedCustodyToken } = await stageOutboundForTest(
+                    {
+                        payer: payer.publicKey,
+                        senderToken: null,
+                        sender: payer.publicKey,
+                        srcMint: splToken.NATIVE_MINT,
+                    },
+                    { amountIn, transferType: "native" },
+                );
+
+                const balanceBefore = await connection.getBalance(payer.publicKey).then(BigInt);
+
+                const ix = await swapLayer.closeStagedOutboundIx(
+                    { stagedOutbound, senderToken: null },
+                    toChainId("Ethereum"),
+                );
+                await expectIxOk(connection, [ix], [payer]);
+
+                // Confirm that the staged accounts have been deleted.
+                {
+                    const accInfo = await connection.getAccountInfo(stagedOutbound);
+                    assert.isNull(accInfo);
+                }
+                {
+                    const accInfo = await connection.getAccountInfo(stagedCustodyToken);
+                    assert.isNull(accInfo);
+                }
+
+                const balanceAfter = await connection.getBalance(payer.publicKey).then(BigInt);
+
+                assert.isTrue(balanceAfter - balanceBefore >= amountIn);
+            });
+
+            it("Gas (Sender != Prepared By)", async function () {
+                const amountIn = 690000n;
+                const stagedOutboundSigner = Keypair.generate();
+                const stagedOutbound = stagedOutboundSigner.publicKey;
+                const sender = feeUpdater;
+
+                const usdcRefundToken = splToken.getAssociatedTokenAddressSync(
+                    USDC_MINT_ADDRESS,
+                    sender.publicKey,
+                );
+                await expectIxOk(
+                    connection,
+                    [
+                        splToken.createAssociatedTokenAccountInstruction(
+                            sender.publicKey,
+                            usdcRefundToken,
+                            sender.publicKey,
+                            USDC_MINT_ADDRESS,
+                        ),
+                    ],
+                    [sender],
+                );
+                const [approveIx, stageIx] = await swapLayer.stageOutboundIx(
+                    {
+                        payer: payer.publicKey,
+                        senderToken: null,
+                        sender: sender.publicKey,
+                        stagedOutbound,
+                        usdcRefundToken,
+                    },
+                    {
+                        transferType: "native",
+                        amountIn,
+                        targetChain: toChainId("Ethereum"),
+                        recipient: Array.from(Buffer.alloc(32, "deadbeef")),
+                        redeemOption: null,
+                        outputToken: null,
+                    },
+                );
+                assert.isNull(approveIx);
+
+                await expectIxOk(connection, [stageIx], [payer, sender, stagedOutboundSigner]);
+
+                const senderBefore = await connection.getBalance(sender.publicKey).then(BigInt);
+                const preparedByBefore = await connection.getBalance(payer.publicKey).then(BigInt);
+
+                const ix = await swapLayer.closeStagedOutboundIx(
+                    { stagedOutbound, senderToken: null, sender: sender.publicKey },
+                    toChainId("Ethereum"),
+                );
+                const tx = await expectIxOk(connection, [ix], [sender]);
+                const txDetail = await connection.getParsedTransaction(tx, {
+                    maxSupportedTransactionVersion: 0,
+                    commitment: "confirmed",
+                });
+
+                // Confirm that the staged accounts have been deleted.
+                {
+                    const accInfo = await connection.getAccountInfo(stagedOutbound);
+                    assert.isNull(accInfo);
+                }
+                {
+                    const accInfo = await connection.getAccountInfo(
+                        swapLayer.stagedCustodyTokenAddress(stagedOutbound),
+                    );
+                    assert.isNull(accInfo);
+                }
+
+                const senderAfter = await connection.getBalance(sender.publicKey).then(BigInt);
+                const preparedByAfter = await connection.getBalance(payer.publicKey).then(BigInt);
+
+                assert.isTrue(senderAfter - senderBefore == amountIn - BigInt(txDetail.meta.fee));
+                assert.isTrue(preparedByAfter > preparedByBefore);
+            });
+        });
+
         describe("Outbound", function () {
             it("USDT via Whirlpool", async function () {
                 const srcMint = USDT_MINT_ADDRESS;
@@ -3273,6 +3437,7 @@ describe("Jupiter V6 Testing", () => {
             payer: PublicKey;
             senderToken: PublicKey;
             srcMint: PublicKey;
+            sender?: PublicKey;
         },
         opts: {
             amountIn?: bigint;
@@ -3282,6 +3447,7 @@ describe("Jupiter V6 Testing", () => {
                 | { payload: Uint8Array | Buffer }
                 | null;
             outputToken?: OutputToken | null;
+            transferType?: "sender" | "native";
         } = {},
     ): Promise<{
         amountIn: bigint;
@@ -3295,13 +3461,23 @@ describe("Jupiter V6 Testing", () => {
         const stagedOutboundSigner = Keypair.generate();
         const stagedOutbound = stagedOutboundSigner.publicKey;
 
-        let { amountIn, targetChain, redeemOption, outputToken } = opts;
+        let { amountIn, targetChain, redeemOption, outputToken, transferType } = opts;
         amountIn ??= 690000n;
         targetChain ??= toChainId("Ethereum");
         redeemOption ??= null;
         outputToken ??= null;
+        transferType ??= "sender";
 
-        const { owner: sender } = await splToken.getAccount(connection, accounts.senderToken);
+        let sender = accounts.sender;
+        if (sender === undefined) {
+            if (accounts.senderToken === undefined) {
+                throw new Error("Sender must be specified if senderToken is null");
+            }
+
+            const { owner } = await splToken.getAccount(connection, accounts.senderToken);
+            sender = owner;
+        }
+
         const usdcRefundToken = splToken.getAssociatedTokenAddressSync(
             swapLayer.usdcMint,
             sender,
@@ -3316,7 +3492,7 @@ describe("Jupiter V6 Testing", () => {
                 usdcRefundToken,
             },
             {
-                transferType: "sender",
+                transferType,
                 amountIn,
                 targetChain,
                 recipient: Array.from(Buffer.alloc(32, "deadbeef")),

@@ -54,7 +54,13 @@ import {
     localnet,
     TEST_RELAY_PARAMS,
 } from "../src/swapLayer";
-import { FEE_UPDATER_KEYPAIR, REGISTERED_PEERS, createLut, tryNativeToUint8Array } from "./helpers";
+import {
+    FEE_UPDATER_KEYPAIR,
+    REGISTERED_PEERS,
+    USDT_MINT_ADDRESS,
+    createLut,
+    tryNativeToUint8Array,
+} from "./helpers";
 
 const SOLANA_CHAIN_ID = toChainId("Solana");
 
@@ -1845,6 +1851,148 @@ describe("Swap Layer", () => {
                     );
                 });
             });
+
+            describe("Close", function () {
+                it("Cannot Close Staged Outbound (Invalid Sender)", async function () {
+                    const amountIn = 690000n;
+                    const senderToken = splToken.getAssociatedTokenAddressSync(
+                        swapLayer.usdcMint,
+                        payer.publicKey,
+                    );
+
+                    // Stage outbound with sender.
+                    const { stagedOutbound } = await stageOutboundForTest(
+                        {
+                            payer: payer.publicKey,
+                            senderToken,
+                        },
+                        { amountIn },
+                    );
+
+                    const ix = await swapLayer.closeStagedOutboundIx(
+                        { stagedOutbound, senderToken, sender: ownerAssistant.publicKey },
+                        foreignChain,
+                    );
+                    await expectIxErr(
+                        connection,
+                        [ix],
+                        [ownerAssistant],
+                        "sender. Error Code: ConstraintAddress",
+                    );
+                });
+
+                it("Cannot Close Staged Outbound (Invalid Peer)", async function () {
+                    const amountIn = 690000n;
+                    const senderToken = splToken.getAssociatedTokenAddressSync(
+                        swapLayer.usdcMint,
+                        payer.publicKey,
+                    );
+
+                    // Stage outbound with sender.
+                    const { stagedOutbound } = await stageOutboundForTest(
+                        {
+                            payer: payer.publicKey,
+                            senderToken,
+                        },
+                        { amountIn },
+                    );
+
+                    const sepoliaChain = toChainId("Sepolia");
+                    await addPeerForTest(owner, {
+                        chain: sepoliaChain,
+                        address: foreignSwapLayerAddress,
+                        relayParams: TEST_RELAY_PARAMS,
+                    });
+
+                    const ix = await swapLayer.closeStagedOutboundIx(
+                        { stagedOutbound, senderToken },
+                        sepoliaChain,
+                    );
+                    await expectIxErr(connection, [ix], [payer], "ConstraintTokenOwner");
+                });
+
+                it("Cannot Close Staged Outbound (Invalid PreparedBy)", async function () {
+                    const amountIn = 690000n;
+                    const senderToken = splToken.getAssociatedTokenAddressSync(
+                        swapLayer.usdcMint,
+                        payer.publicKey,
+                    );
+
+                    // Stage outbound with sender.
+                    const { stagedOutbound } = await stageOutboundForTest(
+                        {
+                            payer: payer.publicKey,
+                            senderToken,
+                        },
+                        { amountIn },
+                    );
+
+                    // Pass invalid preparedBy.
+                    const ix = await swapLayer.closeStagedOutboundIx(
+                        {
+                            stagedOutbound,
+                            sender: payer.publicKey,
+                            preparedBy: ownerAssistant.publicKey,
+                            senderToken,
+                        },
+                        foreignChain,
+                    );
+                    await expectIxErr(
+                        connection,
+                        [ix],
+                        [payer],
+                        "prepared_by. Error Code: ConstraintAddress",
+                    );
+                });
+
+                it("Close Staged Outbound (USDC)", async function () {
+                    const amountIn = 690000n;
+                    const senderToken = splToken.getAssociatedTokenAddressSync(
+                        swapLayer.usdcMint,
+                        payer.publicKey,
+                    );
+
+                    // Stage outbound with sender.
+                    const { stagedOutbound, stagedCustodyToken } = await stageOutboundForTest(
+                        {
+                            payer: payer.publicKey,
+                            senderToken,
+                        },
+                        { amountIn },
+                    );
+
+                    const balanceBefore = await connection.getBalance(payer.publicKey).then(BigInt);
+                    const { amount: tokenBalanceBefore } = await splToken.getAccount(
+                        connection,
+                        senderToken,
+                    );
+
+                    const ix = await swapLayer.closeStagedOutboundIx(
+                        { stagedOutbound, senderToken },
+                        foreignChain,
+                    );
+                    await expectIxOk(connection, [ix], [payer]);
+
+                    const balanceAfter = await connection.getBalance(payer.publicKey).then(BigInt);
+                    const { amount: tokenBalanceAfter } = await splToken.getAccount(
+                        connection,
+                        senderToken,
+                    );
+
+                    assert.isTrue(balanceAfter > balanceBefore);
+                    assert.equal(tokenBalanceAfter, tokenBalanceBefore + amountIn);
+
+                    // Confirm that the staged accounts have been deleted.
+                    {
+                        const accInfo = await connection.getAccountInfo(stagedOutbound);
+                        assert.isNull(accInfo);
+                    }
+                    {
+                        const accInfo = await connection.getAccountInfo(stagedCustodyToken);
+                        assert.isNull(accInfo);
+                    }
+                });
+            });
         });
 
         describe("USDC Transfer (Relay)", function () {
@@ -2036,8 +2184,9 @@ describe("Swap Layer", () => {
                             await expectIxOk(connection, [ix], [payer]);
 
                             // Verify the relevant information in the prepared order.
-                            const preparedOrderData =
-                                await tokenRouter.fetchPreparedOrder(preparedOrder);
+                            const preparedOrderData = await tokenRouter.fetchPreparedOrder(
+                                preparedOrder,
+                            );
 
                             const {
                                 info: { preparedCustodyTokenBump },
@@ -3452,8 +3601,9 @@ describe("Swap Layer", () => {
             units: 300_000,
         });
 
-        const { value: lookupTableAccount } =
-            await connection.getAddressLookupTable(tokenRouterLkupTable);
+        const { value: lookupTableAccount } = await connection.getAddressLookupTable(
+            tokenRouterLkupTable,
+        );
 
         await expectIxOk(connection, [computeIx, ix], [payer], {
             addressLookupTableAccounts: [lookupTableAccount!],
@@ -3536,6 +3686,7 @@ describe("Swap Layer", () => {
         accounts: {
             payer: PublicKey;
             senderToken: PublicKey;
+            sender?: PublicKey;
         },
         opts: {
             amountIn?: bigint;
