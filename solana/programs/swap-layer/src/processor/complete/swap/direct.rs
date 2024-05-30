@@ -9,9 +9,10 @@ pub struct CompleteSwapDirect<'info> {
 
     #[account(
         mut,
-        address = associated_token::get_associated_token_address(
+        address = associated_token::get_associated_token_address_with_program_id(
             &recipient.key(),
-            &complete_swap.dst_mint.key()
+            &complete_swap.dst_mint.key(),
+            &complete_swap.dst_token_program.key()
         )
     )]
     /// Recipient associated token account. The recipient authority check is necessary to ensure

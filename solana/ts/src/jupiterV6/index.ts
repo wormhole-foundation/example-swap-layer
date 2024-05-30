@@ -35,6 +35,8 @@ export type ModifiedSharedAccountsRoute = {
     sourceMint: PublicKey;
     destinationMint: PublicKey;
     minAmountOut: bigint;
+    sourceTokenProgram: PublicKey;
+    destinationTokenProgram: PublicKey;
 };
 
 export async function modifySharedAccountsRouteInstruction(
@@ -51,8 +53,13 @@ export async function modifySharedAccountsRouteInstruction(
 
     // Adjust accounts.
     const userTransferAuthorityIdx = 2;
-    ix.keys[userTransferAuthorityIdx].pubkey = tokenOwner;
-    ix.keys[userTransferAuthorityIdx].isSigner = !cpi;
+    const oldUserTransferAuthority = ix.keys[userTransferAuthorityIdx].pubkey;
+    for (let i = 0; i < ix.keys.length; ++i) {
+        if (ix.keys[i].pubkey.equals(oldUserTransferAuthority)) {
+            ix.keys[i].pubkey = tokenOwner;
+            ix.keys[i].isSigner = !cpi;
+        }
+    }
 
     const sourceMint = ix.keys[7].pubkey;
     if (srcTokenProgram === undefined) {
@@ -65,21 +72,31 @@ export async function modifySharedAccountsRouteInstruction(
         dstTokenProgram = accInfo.owner;
     }
 
+    const oldSourceToken = ix.keys[3].pubkey;
     const sourceToken = splToken.getAssociatedTokenAddressSync(
         sourceMint,
         tokenOwner,
         true, // allowOwnerOffCurve
         srcTokenProgram,
     );
-    ix.keys[3].pubkey = sourceToken;
+    for (let i = 0; i < ix.keys.length; ++i) {
+        if (ix.keys[i].pubkey.equals(oldSourceToken)) {
+            ix.keys[i].pubkey = sourceToken;
+        }
+    }
 
+    const oldDestinationToken = ix.keys[6].pubkey;
     const destinationToken = splToken.getAssociatedTokenAddressSync(
         destinationMint,
         tokenOwner,
         true, // allowOwnerOffCurve
         dstTokenProgram,
     );
-    ix.keys[6].pubkey = destinationToken;
+    for (let i = 0; i < ix.keys.length; ++i) {
+        if (ix.keys[i].pubkey.equals(oldDestinationToken)) {
+            ix.keys[i].pubkey = destinationToken;
+        }
+    }
 
     // Deserialize to modify args.
     const args = decodeSharedAccountsRouteArgs(ix.data) as any;
@@ -105,6 +122,8 @@ export async function modifySharedAccountsRouteInstruction(
         sourceMint,
         destinationMint,
         minAmountOut,
+        sourceTokenProgram: srcTokenProgram,
+        destinationTokenProgram: dstTokenProgram,
     };
 }
 

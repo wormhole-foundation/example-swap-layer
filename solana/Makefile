@@ -4,7 +4,11 @@ CLONED_PROGRAMS=\
 	ts/tests/artifacts/mainnet_cctp_message_transmitter.so \
 	ts/tests/artifacts/mainnet_jupiter_v6.so \
 	ts/tests/artifacts/mainnet_whirlpool.so \
-	ts/tests/artifacts/mainnet_phoenix_v1.so
+	ts/tests/artifacts/mainnet_phoenix_v1.so \
+	ts/tests/artifacts/mainnet_meteora_dlmm.so \
+	ts/tests/artifacts/mainnet_crema.so \
+	ts/tests/artifacts/mainnet_fluxbeam.so \
+	ts/tests/artifacts/mainnet_raydium_clmm.so
 
 .PHONY: all
 all: check
@@ -40,16 +44,11 @@ cargo-test: fast-transfer-sync
 
 .PHONY: anchor-test
 anchor-test: ../node_modules $(CLONED_PROGRAMS)
-# Omitting since node_modules runs the same command
-# ifndef SKIP_SUBMODULE_BUILD
-# 	cd .. && $(MAKE) fast-transfer-setup
-# endif
 	anchor test -- --features integration-test
 
 .PHONY: anchor-build-idl
 anchor-build-idl:
 	anchor build -- --features localnet
-#git diff --exit-code
 
 .PHONY: cargo-test-all
 cargo-test-all:
@@ -76,3 +75,15 @@ ts/tests/artifacts/mainnet_whirlpool.so: ts/tests/artifacts
 
 ts/tests/artifacts/mainnet_phoenix_v1.so: ts/tests/artifacts
 	solana program dump -u m PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY ts/tests/artifacts/mainnet_phoenix_v1.so
+
+ts/tests/artifacts/mainnet_meteora_dlmm.so: ts/tests/artifacts
+	solana program dump -u m LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo ts/tests/artifacts/mainnet_meteora_dlmm.so
+
+ts/tests/artifacts/mainnet_crema.so: ts/tests/artifacts
+	solana program dump -u m CLMM9tUoggJu2wagPkkqs9eFG4BWhVBZWkP1qv3Sp7tR ts/tests/artifacts/mainnet_crema.so
+
+ts/tests/artifacts/mainnet_fluxbeam.so: ts/tests/artifacts
+	solana program dump -u m FLUXubRmkEi2q6K3Y9kBPg9248ggaZVsoSFhtJHSrm1X ts/tests/artifacts/mainnet_fluxbeam.so
+	
+ts/tests/artifacts/mainnet_raydium_clmm.so: ts/tests/artifacts
+	solana program dump -u m CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK ts/tests/artifacts/mainnet_raydium_clmm.so

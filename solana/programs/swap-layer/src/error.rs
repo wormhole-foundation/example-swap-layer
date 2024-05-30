@@ -54,6 +54,8 @@ pub enum SwapLayerError {
     InvalidLimitAmount = 0x302,
     InvalidSwapType = 0x304,
     AmountOutTooSmall = 0x306,
+    InvalidSourceResidual = 0x308,
+    SourceResidualMismatch = 0x30a,
 
     // Jupiter V6
     #[msg("Jupiter V6 Authority ID must be >= 0 and < 8")]

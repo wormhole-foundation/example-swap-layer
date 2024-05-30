@@ -7,6 +7,7 @@ import {
     deserializeLayout,
     serializeLayout,
 } from "@wormhole-foundation/sdk-base";
+import { endianness } from "os";
 
 export type SharedAccountsRouteArgs = LayoutToType<typeof sharedAccountsRouteArgsLayout>;
 
@@ -67,7 +68,25 @@ const swapItem = {
         [[26, "RaydiumClmm"], []],
         [[27, "Openbook"], [{ name: "side", ...sideItem }]],
         [[28, "Phoenix"], [{ name: "side", ...sideItem }]],
-        // TODO: add more?
+        [
+            [29, "Symmetry"],
+            [
+                { name: "fromTokenId", binary: "uint", size: 8, endianness: "little" },
+                { name: "toTokenId", binary: "uint", size: 8, endianness: "little" },
+            ],
+        ],
+        [[30, "FluxBeam"], []],
+        [[31, "HeliumTreasuryManagementRedeemV0"], []],
+        [[32, "StakeDexStakeWrappedSol"], []],
+        [
+            [33, "StakeDexSwapViaStake"],
+            [{ name: "bridgeStakeSeed", binary: "uint", size: 4, endianness: "little" }],
+        ],
+        [[34, "GooseFXV2"], []],
+        [[35, "Perps"], []],
+        [[36, "PerpsAddLiquidity"], []],
+        [[37, "PerpsRemoveLiquidity"], []],
+        [[38, "MeteoraDlmm"], []],
     ],
 } as const satisfies SwitchLayoutItem;
 
@@ -85,7 +104,7 @@ export const selectorItem = (selector: AnchorSelector) =>
         name: "prefix",
         binary: "bytes",
         custom: Uint8Array.from(selector),
-    }) as const;
+    } as const);
 
 const sharedAccountsRouteArgsLayout = [
     selectorItem([193, 32, 155, 51, 65, 214, 156, 129]),

@@ -45,6 +45,7 @@ import {
     StagedInbound,
     StagedOutbound,
     SwapLayerProgram,
+    TEST_RELAY_PARAMS,
     U32_MAX,
     UpdateRelayParametersArgs,
     calculateRelayerFee,
@@ -52,15 +53,8 @@ import {
     encodeOutputToken,
     encodeSwapLayerMessage,
     localnet,
-    TEST_RELAY_PARAMS,
 } from "../src/swapLayer";
-import {
-    FEE_UPDATER_KEYPAIR,
-    REGISTERED_PEERS,
-    USDT_MINT_ADDRESS,
-    createLut,
-    tryNativeToUint8Array,
-} from "./helpers";
+import { FEE_UPDATER_KEYPAIR, REGISTERED_PEERS, createLut, tryNativeToUint8Array } from "./helpers";
 
 const SOLANA_CHAIN_ID = toChainId("Solana");
 
@@ -3466,6 +3460,10 @@ describe("Swap Layer", () => {
                         const consumeIx = await swapLayer.releaseInboundIx({
                             recipient: payer.publicKey,
                             stagedInbound,
+                            dstToken: splToken.getAssociatedTokenAddressSync(
+                                swapLayer.usdcMint,
+                                payer.publicKey,
+                            ),
                         });
 
                         await expectIxErr(connection, [consumeIx], [payer], "ConstraintAddress");
@@ -3497,7 +3495,7 @@ describe("Swap Layer", () => {
                             recipient: recipient.publicKey,
                             beneficiary: beneficiary.publicKey,
                             stagedInbound,
-                            dstToken: dstToken,
+                            dstToken,
                         });
 
                         await expectIxOk(connection, [consumeIx], [recipient]);
