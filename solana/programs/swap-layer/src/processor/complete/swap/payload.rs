@@ -55,12 +55,20 @@ pub struct CompleteSwapPayload<'info> {
     )]
     dst_swap_token: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 
+    /// CHECK: In case the exact in swap does not use all tokens, we send residual back to this
+    /// token account.
+    #[account(
+        mut,
+        address = consume_swap_layer_fill.custodian.fee_recipient_token,
+    )]
+    fee_recipient_token: UncheckedAccount<'info>,
+
     /// This account must be verified as the source mint for the swap.
     usdc: Usdc<'info>,
 
     /// CHECK: This account must be verified as the destination mint for the swap.
     #[account(constraint = usdc.key() != dst_mint.key() @ SwapLayerError::SameMint)]
-    dst_mint: UncheckedAccount<'info>,
+    dst_mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
 
     token_program: Program<'info, token::Token>,
     dst_token_program: Interface<'info, token_interface::TokenInterface>,
@@ -114,9 +122,10 @@ where
         HandleCompleteSwap {
             payer: &ctx.accounts.payer,
             consume_swap_layer_fill: &ctx.accounts.consume_swap_layer_fill,
-            authority: ctx.accounts.staged_inbound.as_ref().as_ref(),
+            swap_authority: ctx.accounts.staged_inbound.as_ref().as_ref(),
             src_swap_token: &ctx.accounts.src_swap_token,
             dst_swap_token: &ctx.accounts.dst_swap_token,
+            fee_recipient_token: &ctx.accounts.fee_recipient_token,
             dst_mint: &ctx.accounts.dst_mint,
             token_program: &ctx.accounts.token_program,
             system_program: &ctx.accounts.system_program,

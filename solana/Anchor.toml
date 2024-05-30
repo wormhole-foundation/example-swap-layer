@@ -25,7 +25,7 @@ wallet = "ts/tests/keys/pFCBP4bhqdSsrWUVTgqhPsLrfEdChBK17vgFM7TxjxQ.json"
 test = "npx ts-mocha -p ./tsconfig.anchor-test.json -t 1000000 --bail --exit ts/tests/[0-9]*.ts"
 
 [test]
-startup_wait = 20000
+startup_wait = 30000
 
 [test.validator]
 url = "https://api.mainnet-beta.solana.com"
@@ -174,35 +174,75 @@ filename = "ts/tests/accounts/payer_usdt_token.json"
 address = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
 filename = "ts/tests/accounts/usdt_mint.json"
 
+### Payer BERN Token-2022 Account
+[[test.validator.account]]
+address = "5uH9XJQ9gDp8Ym9vyCMVA88W61iVJ7sktBhvyMkNob17"
+filename = "ts/tests/accounts/payer_bern_token_2022.json"
+
+### BERN Mint (2022)
+[[test.validator.account]]
+address = "CKfatsPMUf8SkiURsDXs7eK6GWb4Jsd6UDbs7twMCWxo"
+filename = "ts/tests/accounts/bern_mint_2022.json"
+
 ### Jupiter V6 Program
 [[test.genesis]]
 address = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
 program = "ts/tests/artifacts/mainnet_jupiter_v6.so"
 
 ### Jupiter V6 -- Custody Token Owner
-[[test.validator.account]]
-address = "BQ72nSv9f3PRyRKCBnHLVrerrv37CYTHm5h3s9VSGQDV"
-filename = "ts/tests/accounts/jupiter/jupiter_custody_owner.json"
+#[[test.validator.account]]
+#address = "BQ72nSv9f3PRyRKCBnHLVrerrv37CYTHm5h3s9VSGQDV"
+#filename = "ts/tests/accounts/jupiter_v6/jupiter_custody_owner.json"
 
 ### Jupiter V6 -- USDC Custody Token
-[[test.validator.account]]
-address = "7u7cD7NxcZEuzRCBaYo8uVpotRdqZwez47vvuwzCov43"
-filename = "ts/tests/accounts/jupiter/jupiter_usdc_custody_token.json"
+#[[test.validator.account]]
+#address = "7u7cD7NxcZEuzRCBaYo8uVpotRdqZwez47vvuwzCov43"
+#filename = "ts/tests/accounts/jupiter_v6/jupiter_usdc_custody_token.json"
 
 ### Jupiter V6 -- USDT Custody Token
-[[test.validator.account]]
-address = "6pXVFSACE5BND2C3ibGRWMG1fNtV7hfynWrfNKtCXhN3"
-filename = "ts/tests/accounts/jupiter/jupiter_usdt_custody_token.json"
+#[[test.validator.account]]
+#address = "6pXVFSACE5BND2C3ibGRWMG1fNtV7hfynWrfNKtCXhN3"
+#filename = "ts/tests/accounts/jupiter_v6/jupiter_usdt_custody_token.json"
 
 ### Jupiter V6 -- LUT #1
 [[test.validator.account]]
 address = "GxS6FiQ3mNnAar9HGQ6mxP7t6FcwmHkU7peSeQDUHmpN"
-filename = "ts/tests/accounts/jupiter/jupiter_v6_lut_1.json"
+filename = "ts/tests/accounts/jupiter_v6/jupiter_v6_lut_1.json"
 
-### Jupiter V6 -- LUT #1
+### Jupiter V6 -- LUT #2
 [[test.validator.account]]
 address = "HsLPzBjqK3SUKQZwHdd2QHVc9cioPrsHNw9GcUDs7WL7"
-filename = "ts/tests/accounts/jupiter/jupiter_v6_lut_2.json"
+filename = "ts/tests/accounts/jupiter_v6/jupiter_v6_lut_2.json"
+
+### Jupiter V6 -- LUT #3
+[[test.validator.account]]
+address = "8Vaso6eE1pWktDHwy2qQBB1fhjmBgwzhoXQKe1sxtFjn"
+filename = "ts/tests/accounts/jupiter_v6/jupiter_v6_lut_3.json"
+
+### Jupiter V6 -- LUT #4
+[[test.validator.account]]
+address = "D6XNrxMsDoABJVVY5YyHxJuAB6WGzYCXpZeKyNtqu2v4"
+filename = "ts/tests/accounts/jupiter_v6/jupiter_v6_lut_4.json"
+
+### Jupiter V6 -- LUT #5
+[[test.validator.account]]
+address = "2aGZxQimbQhRsvQhjvjXE35vZGJP2ajBSrUggoEwGGy4"
+filename = "ts/tests/accounts/jupiter_v6/jupiter_v6_lut_5.json"
+
+### Jupiter V6 -- LUT #6
+[[test.validator.account]]
+address = "BpQ5uMzQNWNgBCRNf6jffChhYMX5XVZuaoM4Rx16NCdf"
+filename = "ts/tests/accounts/jupiter_v6/jupiter_v6_lut_6.json"
+
+### Jupiter V6 -- LUT #7
+[[test.validator.account]]
+address = "55ir29U8MrZbGBV63XbbweEDXP9DSx7eNenc7hnTM81E"
+filename = "ts/tests/accounts/jupiter_v6/jupiter_v6_lut_7.json"
+
+### Jupiter V6 -- LUT #8
+[[test.validator.account]]
+address = "5ePPDZP3ZAic796eFUDyHGtyYvynyFbpJ8oqTy2ydxvy"
+filename = "ts/tests/accounts/jupiter_v6/jupiter_v6_lut_8.json"
 
 ### Whirlpool Program
 [[test.genesis]]
@@ -273,3 +313,249 @@ filename = "ts/tests/accounts/phoenix_v1/phoenix_wsol_custody.json"
 [[test.validator.account]]
 address = "4DoNfFBfF7UokCC2FQzriy7yHK6DY6NVdYpuekQ5pRgg"
 filename = "ts/tests/accounts/phoenix_v1/phoenix_wsol_usdc_market_state.json"
+
+
+### Accounts below are auto-generated to perform Token 2022 multi-route swap. These accounts should
+### probably be reorganized based on which DEX they belong to. And there are other accounts loaded
+### here that may be able to be removed (since the tests create them).
+
+
+### Meteora DLMM Program
+[[test.genesis]]
+address = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
+program = "ts/tests/artifacts/mainnet_meteora_dlmm.so"
+
+### Crema Program
+[[test.genesis]]
+address = "CLMM9tUoggJu2wagPkkqs9eFG4BWhVBZWkP1qv3Sp7tR"
+program = "ts/tests/artifacts/mainnet_crema.so"
+
+### FluxBeam Program
+[[test.genesis]]
+address = "FLUXubRmkEi2q6K3Y9kBPg9248ggaZVsoSFhtJHSrm1X"
+program = "ts/tests/artifacts/mainnet_fluxbeam.so"
+
+### Raydium CLMM Program
+[[test.genesis]]
+address = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
+program = "ts/tests/artifacts/mainnet_raydium_clmm.so"
+
+### TODO
+[[test.validator.account]]
+address = "25s6jZQYe8RB8JpoCDq3i4u6cCNfCG1xicYK7E7f3v6L"
+filename = "ts/tests/accounts/jupiter_v6/multi/25s6jZQYe8RB8JpoCDq3i4u6cCNfCG1xicYK7E7f3v6L.json"
+
+### TODO
+[[test.validator.account]]
+address = "2LizoD7noGRmTFszBRj3P2GzfARqdGwhpimQthWTGbhn"
+filename = "ts/tests/accounts/jupiter_v6/multi/2LizoD7noGRmTFszBRj3P2GzfARqdGwhpimQthWTGbhn.json"
+
+### TODO
+[[test.validator.account]]
+address = "2UDdWW9TNeEJa2S539ijVLLeVZt88zuiduSYD7SeSeHN"
+filename = "ts/tests/accounts/jupiter_v6/multi/2UDdWW9TNeEJa2S539ijVLLeVZt88zuiduSYD7SeSeHN.json"
+
+### TODO
+[[test.validator.account]]
+address = "2W7aa5mVuzJiaM43uFtutVFdSoWx963AKT8dtizqejTF"
+filename = "ts/tests/accounts/jupiter_v6/multi/2W7aa5mVuzJiaM43uFtutVFdSoWx963AKT8dtizqejTF.json"
+
+### TODO
+[[test.validator.account]]
+address = "2qr4UqV7vdJ1TLLX2YGZ7fBJ9U96UwAFAjwLK572TJ4h"
+filename = "ts/tests/accounts/jupiter_v6/multi/2qr4UqV7vdJ1TLLX2YGZ7fBJ9U96UwAFAjwLK572TJ4h.json"
+
+### TODO
+[[test.validator.account]]
+address = "39PUs23GXEdyRJ74fnSfL7L4tZgXVafirBMsbHqZyCVx"
+filename = "ts/tests/accounts/jupiter_v6/multi/39PUs23GXEdyRJ74fnSfL7L4tZgXVafirBMsbHqZyCVx.json"
+
+### TODO
+[[test.validator.account]]
+address = "3GbtMs4cRP3Th3GhKcZk7sUkF3skxV8FdbiG8aKp7qeh"
+filename = "ts/tests/accounts/jupiter_v6/multi/3GbtMs4cRP3Th3GhKcZk7sUkF3skxV8FdbiG8aKp7qeh.json"
+
+### TODO
+[[test.validator.account]]
+address = "3MsJXVvievxAbsMsaT6TS4i6oMitD9jazucuq3X234tC"
+filename = "ts/tests/accounts/jupiter_v6/multi/3MsJXVvievxAbsMsaT6TS4i6oMitD9jazucuq3X234tC.json"
+
+### TODO
+[[test.validator.account]]
+address = "3nLYkE5zHKgGBxXW8Rj4neWZT5JHgdAjVRqUDcDk8nF9"
+filename = "ts/tests/accounts/jupiter_v6/multi/3nLYkE5zHKgGBxXW8Rj4neWZT5JHgdAjVRqUDcDk8nF9.json"
+
+### TODO
+[[test.validator.account]]
+address = "42xVpYuCFbr4FWYoMwzUjDgoUGC4dzjaLhjR71CrAQpe"
+filename = "ts/tests/accounts/jupiter_v6/multi/42xVpYuCFbr4FWYoMwzUjDgoUGC4dzjaLhjR71CrAQpe.json"
+
+### TODO
+[[test.validator.account]]
+address = "4h5Ye952uZqWBng69NpL1Ghxi9GaRa3t6vJpB7BZFLZZ"
+filename = "ts/tests/accounts/jupiter_v6/multi/4h5Ye952uZqWBng69NpL1Ghxi9GaRa3t6vJpB7BZFLZZ.json"
+
+### TODO
+[[test.validator.account]]
+address = "5Y117zFfFjBUoxATVGBaULdbwQgmx5CZ9WvX9jC6YZxq"
+filename = "ts/tests/accounts/jupiter_v6/multi/5Y117zFfFjBUoxATVGBaULdbwQgmx5CZ9WvX9jC6YZxq.json"
+
+### TODO
+[[test.validator.account]]
+address = "6LXutJvKUw8Q5ue2gCgKHQdAN4suWW8awzFVC6XCguFx"
+filename = "ts/tests/accounts/jupiter_v6/multi/6LXutJvKUw8Q5ue2gCgKHQdAN4suWW8awzFVC6XCguFx.json"
+
+### TODO
+[[test.validator.account]]
+address = "6P4tvbzRY6Bh3MiWDHuLqyHywovsRwRpfskPvyeSoHsz"
+filename = "ts/tests/accounts/jupiter_v6/multi/6P4tvbzRY6Bh3MiWDHuLqyHywovsRwRpfskPvyeSoHsz.json"
+
+### TODO
+[[test.validator.account]]
+address = "6mK4Pxs6GhwnessH7CvPivqDYauiHZmAdbEFDpXFk9zt"
+filename = "ts/tests/accounts/jupiter_v6/multi/6mK4Pxs6GhwnessH7CvPivqDYauiHZmAdbEFDpXFk9zt.json"
+
+### TODO
+[[test.validator.account]]
+address = "85VBFQZC9TZkfaptBWjvUw7YbZjy52A6mjtPGjstQAmQ"
+filename = "ts/tests/accounts/jupiter_v6/multi/85VBFQZC9TZkfaptBWjvUw7YbZjy52A6mjtPGjstQAmQ.json"
+
+### TODO
+[[test.validator.account]]
+address = "8M5rjeDQKW4w4rmWFQLTqCYVuA1rMe9Z2QQ2SZResD9M"
+filename = "ts/tests/accounts/jupiter_v6/multi/8M5rjeDQKW4w4rmWFQLTqCYVuA1rMe9Z2QQ2SZResD9M.json"
+
+### TODO
+[[test.validator.account]]
+address = "8sLbNZoA1cfnvMJLPfp98ZLAnFSYCFApfJKMbiXNLwxj"
+filename = "ts/tests/accounts/jupiter_v6/multi/8sLbNZoA1cfnvMJLPfp98ZLAnFSYCFApfJKMbiXNLwxj.json"
+
+### TODO
+[[test.validator.account]]
+address = "9iFER3bpjf1PTTCQCfTRu17EJgvsxo9pVyA9QWwEuX4x"
+filename = "ts/tests/accounts/jupiter_v6/multi/9iFER3bpjf1PTTCQCfTRu17EJgvsxo9pVyA9QWwEuX4x.json"
+
+### TODO
+[[test.validator.account]]
+address = "9keEfR6WRzJ5AXN55RQ6RrM1dFYz6qzeAUH3i83eTHkM"
+filename = "ts/tests/accounts/jupiter_v6/multi/9keEfR6WRzJ5AXN55RQ6RrM1dFYz6qzeAUH3i83eTHkM.json"
+
+### TODO
+[[test.validator.account]]
+address = "AMnF3iSQ2Z7yQRaKneUUwtdt9aF6kg6pxS2waqoJ57mX"
+filename = "ts/tests/accounts/jupiter_v6/multi/AMnF3iSQ2Z7yQRaKneUUwtdt9aF6kg6pxS2waqoJ57mX.json"
+
+### TODO
+[[test.validator.account]]
+address = "AMxuPcXBd6XXAbuMZSp9cNqaVreDcAtn5xWgQtPwXap4"
+filename = "ts/tests/accounts/jupiter_v6/multi/AMxuPcXBd6XXAbuMZSp9cNqaVreDcAtn5xWgQtPwXap4.json"
+
+### TODO
+[[test.validator.account]]
+address = "AxfosPGyrBuQGZ3bjE4Bgjk6tD29TNXcKxT4cq2vawo8"
+filename = "ts/tests/accounts/jupiter_v6/multi/AxfosPGyrBuQGZ3bjE4Bgjk6tD29TNXcKxT4cq2vawo8.json"
+
+### TODO
+[[test.validator.account]]
+address = "BhA6Xc9TK1qqjpASjokZr5bQzcoMUhGFwCEnqFukYtCg"
+filename = "ts/tests/accounts/jupiter_v6/multi/BhA6Xc9TK1qqjpASjokZr5bQzcoMUhGFwCEnqFukYtCg.json"
+
+### TODO
+[[test.validator.account]]
+address = "BuqEDKUwyAotZuK37V4JYEykZVKY8qo1zKbpfU9gkJMo"
+filename = "ts/tests/accounts/jupiter_v6/multi/BuqEDKUwyAotZuK37V4JYEykZVKY8qo1zKbpfU9gkJMo.json"
+
+### TODO
+[[test.validator.account]]
+address = "CVvxB22CKc2o2RiHVnyhHQVAngtKzyGkQFB3UPqD4HdL"
+filename = "ts/tests/accounts/jupiter_v6/multi/CVvxB22CKc2o2RiHVnyhHQVAngtKzyGkQFB3UPqD4HdL.json"
+
+### TODO
+[[test.validator.account]]
+address = "DCPM7ynTcsGbday27kM21MoQMVzWxEEUk4qZ65qKrwWb"
+filename = "ts/tests/accounts/jupiter_v6/multi/DCPM7ynTcsGbday27kM21MoQMVzWxEEUk4qZ65qKrwWb.json"
+
+### TODO
+[[test.validator.account]]
+address = "DHqUM3nbZtvuv7tm4rcAbbWSMX99hnPQvEmDQ2EyGfg3"
+filename = "ts/tests/accounts/jupiter_v6/multi/DHqUM3nbZtvuv7tm4rcAbbWSMX99hnPQvEmDQ2EyGfg3.json"
+
+### TODO
+[[test.validator.account]]
+address = "DNbwqtq4iKBmnjxGpjw6c1RHfukdeLSnq2LVTfQtAguL"
+filename = "ts/tests/accounts/jupiter_v6/multi/DNbwqtq4iKBmnjxGpjw6c1RHfukdeLSnq2LVTfQtAguL.json"
+
+### TODO
+[[test.validator.account]]
+address = "DS4251KfVSStaRxMVZUxwbzE4AXhzxgMruZ5QM9QdEqJ"
+filename = "ts/tests/accounts/jupiter_v6/multi/DS4251KfVSStaRxMVZUxwbzE4AXhzxgMruZ5QM9QdEqJ.json"
+
+### TODO
+[[test.validator.account]]
+address = "DoPuiZfJu7sypqwR4eiU7C5TMcmmiFoU4HaF5SoD8mRy"
+filename = "ts/tests/accounts/jupiter_v6/multi/DoPuiZfJu7sypqwR4eiU7C5TMcmmiFoU4HaF5SoD8mRy.json"
+
+### TODO
+[[test.validator.account]]
+address = "EJcnUbFntxsjPB9yZBEjUxoFTtgwCLWU7LYGPuvXMpHS"
+filename = "ts/tests/accounts/jupiter_v6/multi/EJcnUbFntxsjPB9yZBEjUxoFTtgwCLWU7LYGPuvXMpHS.json"
+
+### TODO
+[[test.validator.account]]
+address = "Ebbpz3PWLaQxj2oyK967RgEPbcPypjQCoZ3tpB4fwLsk"
+filename = "ts/tests/accounts/jupiter_v6/multi/Ebbpz3PWLaQxj2oyK967RgEPbcPypjQCoZ3tpB4fwLsk.json"
+
+### TODO
+[[test.validator.account]]
+address = "FNdKRVxLgzEvRBvFqSJ687isQRDqNoAS4hPM7iyXQ9gf"
+filename = "ts/tests/accounts/jupiter_v6/multi/FNdKRVxLgzEvRBvFqSJ687isQRDqNoAS4hPM7iyXQ9gf.json"
+
+### TODO
+[[test.validator.account]]
+address = "Ft1URsGGW7phzUQWwoDL3ijBuBAE46M2AiPguZKLXUWN"
+filename = "ts/tests/accounts/jupiter_v6/multi/Ft1URsGGW7phzUQWwoDL3ijBuBAE46M2AiPguZKLXUWN.json"
+
+### TODO
+[[test.validator.account]]
+address = "FtSs1FxzHXYtC6jEoNuY1SzwK95jNfJkNYNk5Qo666Dj"
+filename = "ts/tests/accounts/jupiter_v6/multi/FtSs1FxzHXYtC6jEoNuY1SzwK95jNfJkNYNk5Qo666Dj.json"
+
+### TODO
+[[test.validator.account]]
+address = "G4CD7aqqZZ6QKCNHrc1MPdS9Aw8BWmQ5ZkDd54W6mAEG"
+filename = "ts/tests/accounts/jupiter_v6/multi/G4CD7aqqZZ6QKCNHrc1MPdS9Aw8BWmQ5ZkDd54W6mAEG.json"
+
+### TODO
+[[test.validator.account]]
+address = "GATnWZVf9m241QDCemXvEZqnrQFud8Af8dEqZMjHD39u"
+filename = "ts/tests/accounts/jupiter_v6/multi/GATnWZVf9m241QDCemXvEZqnrQFud8Af8dEqZMjHD39u.json"
+
+### TODO
+[[test.validator.account]]
+address = "GMgh4NtWrGaUf1RR2kcXD7LY1jou1qFAuSsQeKp5ow4a"
+filename = "ts/tests/accounts/jupiter_v6/multi/GMgh4NtWrGaUf1RR2kcXD7LY1jou1qFAuSsQeKp5ow4a.json"
+
+### TODO
+[[test.validator.account]]
+address = "H7TY41Z55YxsyAHLuFVRNJ4bnZKgnMTKuRoipPSwsHpD"
+filename = "ts/tests/accounts/jupiter_v6/multi/H7TY41Z55YxsyAHLuFVRNJ4bnZKgnMTKuRoipPSwsHpD.json"
+
+### TODO
+[[test.validator.account]]
+address = "H7qgBfnKWHHpi4ixfTehtgSGDceS23rCG498zFeAEbDZ"
+filename = "ts/tests/accounts/jupiter_v6/multi/H7qgBfnKWHHpi4ixfTehtgSGDceS23rCG498zFeAEbDZ.json"
+
+### TODO
+[[test.validator.account]]
+address = "JMMtEtcqujYTQDRxRhnb9jznun5kxbr1uu9JNu1ZeiL"
+filename = "ts/tests/accounts/jupiter_v6/multi/JMMtEtcqujYTQDRxRhnb9jznun5kxbr1uu9JNu1ZeiL.json"
+
+### TODO
+[[test.validator.account]]
+address = "d64w2PJasfiHDT1kNJwYfeEQjwJzPKEwhP5WK13aGMb"
+filename = "ts/tests/accounts/jupiter_v6/multi/d64w2PJasfiHDT1kNJwYfeEQjwJzPKEwhP5WK13aGMb.json"
+
+### TODO
+[[test.validator.account]]
+address = "gyjtxRhXvimx3tfQ8PYCQu6KobCtZjQoerq8a4HjfCh"
+filename = "ts/tests/accounts/jupiter_v6/multi/gyjtxRhXvimx3tfQ8PYCQu6KobCtZjQoerq8a4HjfCh.json"

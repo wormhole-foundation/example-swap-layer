@@ -1,5 +1,6 @@
 import * as splToken from "@solana/spl-token";
 import {
+    AddressLookupTableAccount,
     ComputeBudgetProgram,
     Connection,
     Keypair,
@@ -39,6 +40,7 @@ import * as tokenRouterSdk from "@wormhole-foundation/example-liquidity-layer-so
 import { VaaAccount } from "@wormhole-foundation/example-liquidity-layer-solana/wormhole";
 import { Chain, ChainId, toChainId } from "@wormhole-foundation/sdk-base";
 import { UniversalAddress, toNative, toUniversal } from "@wormhole-foundation/sdk-definitions";
+import "@wormhole-foundation/sdk-solana/address";
 import { assert } from "chai";
 import * as fs from "fs";
 import * as jupiterV6 from "../src/jupiterV6";
@@ -49,25 +51,36 @@ import {
     StagedOutboundInfo,
     SwapLayerMessage,
     SwapLayerProgram,
+    TEST_RELAY_PARAMS,
     calculateRelayerFee,
     decodeSwapLayerMessage,
     denormalizeGasDropOff,
     encodeSwapLayerMessage,
     localnet,
-    TEST_RELAY_PARAMS,
 } from "../src/swapLayer";
 import {
+    BERN_MINT_ADDRESS,
+    BONK_MINT_ADDRESS,
+    FEE_UPDATER_KEYPAIR,
     REGISTERED_PEERS,
     USDT_MINT_ADDRESS,
+    createAta,
     createLut,
     tryNativeToUint8Array,
     whichTokenProgram,
-    FEE_UPDATER_KEYPAIR,
 } from "./helpers";
 
 const JUPITER_V6_LUT_ADDRESSES = [
     new PublicKey("GxS6FiQ3mNnAar9HGQ6mxP7t6FcwmHkU7peSeQDUHmpN"),
     new PublicKey("HsLPzBjqK3SUKQZwHdd2QHVc9cioPrsHNw9GcUDs7WL7"),
+];
+
+const JUPITER_V6_LUT_ADDRESSES_BERN = [
+    new PublicKey("2aGZxQimbQhRsvQhjvjXE35vZGJP2ajBSrUggoEwGGy4"),
+    new PublicKey("8Vaso6eE1pWktDHwy2qQBB1fhjmBgwzhoXQKe1sxtFjn"),
+    new PublicKey("BpQ5uMzQNWNgBCRNf6jffChhYMX5XVZuaoM4Rx16NCdf"),
+    new PublicKey("D6XNrxMsDoABJVVY5YyHxJuAB6WGzYCXpZeKyNtqu2v4"),
+    new PublicKey("55ir29U8MrZbGBV63XbbweEDXP9DSx7eNenc7hnTM81E"),
 ];
 
 describe("Jupiter V6 Testing", () => {
@@ -82,12 +95,10 @@ describe("Jupiter V6 Testing", () => {
     const tokenRouter = swapLayer.tokenRouterProgram();
     const matchingEngine = tokenRouter.matchingEngineProgram();
 
-    const luts: [PublicKey, PublicKey, PublicKey, PublicKey] = [
-        PublicKey.default,
-        PublicKey.default,
-        JUPITER_V6_LUT_ADDRESSES[0],
-        JUPITER_V6_LUT_ADDRESSES[1],
-    ];
+    const luts: PublicKey[] = [PublicKey.default];
+    for (let i = 0; i < JUPITER_V6_LUT_ADDRESSES.length; ++i) {
+        luts.push(JUPITER_V6_LUT_ADDRESSES[i]);
+    }
 
     let testCctpNonce = 2n ** 64n - 1n;
 
@@ -96,25 +107,11 @@ describe("Jupiter V6 Testing", () => {
 
     let wormholeSequence = 10000n;
 
-    describe("Jupiter V6 Setup", function () {
+    describe("Swap", function () {
         before("Generate ATAs", async function () {
             for (const mint of [swapLayer.usdcMint, USDT_MINT_ADDRESS, splToken.NATIVE_MINT]) {
                 for (let i = 0; i < 8; ++i) {
-                    const authority = jupiterV6.programAuthorityAddress(i);
-
-                    await expectIxOk(
-                        connection,
-                        [
-                            splToken.createAssociatedTokenAccountIdempotentInstruction(
-                                payer.publicKey,
-                                splToken.getAssociatedTokenAddressSync(mint, authority, true),
-                                authority,
-                                mint,
-                                splToken.TOKEN_PROGRAM_ID,
-                            ),
-                        ],
-                        [payer],
-                    );
+                    await createAta(connection, payer, mint, jupiterV6.programAuthorityAddress(i));
                 }
             }
 
@@ -152,21 +149,29 @@ describe("Jupiter V6 Testing", () => {
         });
 
         after("Setup Lookup Tables", async function () {
-            luts[0] = await createLut(
-                connection,
-                payer,
-                await tokenRouter
-                    .commonAccounts()
-                    .then((accounts) => Object.values(accounts).filter((key) => key !== undefined)),
-            );
+            const matchingEngineAccounts = await matchingEngine
+                .commonAccounts()
+                .then((accounts) => Object.values(accounts).filter((key) => key !== undefined));
+            const tokenRouterAccounts = await tokenRouter
+                .commonAccounts()
+                .then((accounts) => Object.values(accounts).filter((key) => key !== undefined));
 
-            luts[1] = await createLut(
-                connection,
-                payer,
-                await matchingEngine
-                    .commonAccounts()
-                    .then((accounts) => Object.values(accounts).filter((key) => key !== undefined)),
-            );
+            const { feeRecipientToken } = await swapLayer.fetchCustodian();
+            const addresses = [
+                swapLayer.custodianAddress(),
+                feeRecipientToken,
+                swapLayer.peerAddress(toChainId("Ethereum")),
+                splToken.TOKEN_2022_PROGRAM_ID,
+                splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
+                splToken.NATIVE_MINT,
+                USDT_MINT_ADDRESS,
+                BERN_MINT_ADDRESS,
+                BONK_MINT_ADDRESS,
+            ];
+            addresses.push(...matchingEngineAccounts);
+            addresses.push(...tokenRouterAccounts);
+
+            luts[0] = await createLut(connection, payer, addresses);
         });
 
         it("User Swap USDC to USDT From Simulated Quote -- Whirlpool", async function () {
@@ -201,27 +206,95 @@ describe("Jupiter V6 Testing", () => {
             }).then(invokeSharedAccountsRouteAsUser);
         });
 
+        it("User Swap USDC to Token-2022 Mint From Simulated Quote -- Multi Route", async function () {
+            const addressLookupTableAccounts = await Promise.all(
+                JUPITER_V6_LUT_ADDRESSES_BERN.map(async (lookupTableAddress) => {
+                    const resp = await connection.getAddressLookupTable(lookupTableAddress);
+                    return resp.value;
+                }),
+            );
+
+            await modifyUsdcTo2022SwapResponseForTest(payer.publicKey, {
+                inAmount: 10_000_000n,
+                quotedOutAmount: 200_000_000n,
+                slippageBps: 1000,
+            }).then((modifyArgs) =>
+                invokeSharedAccountsRouteAsUser(modifyArgs, addressLookupTableAccounts),
+            );
+        });
+
+        it("User Swap Token-2022 Mint to USDC From Simulated Quote -- Multi Route", async function () {
+            const addressLookupTableAccounts = await Promise.all(
+                JUPITER_V6_LUT_ADDRESSES_BERN.map(async (lookupTableAddress) => {
+                    const resp = await connection.getAddressLookupTable(lookupTableAddress);
+                    return resp.value;
+                }),
+            );
+
+            await modify2022ToUsdcSwapResponseForTest(payer.publicKey, {
+                inAmount: 200_000_000n,
+                quotedOutAmount: 10_000_000n,
+                slippageBps: 1000,
+            }).then((modifyArgs) =>
+                invokeSharedAccountsRouteAsUser(modifyArgs, addressLookupTableAccounts),
+            );
+        });
+
         async function invokeSharedAccountsRouteAsUser(
             modifyArgs: jupiterV6.ModifiedSharedAccountsRoute,
+            addressLookupTableAccounts?: AddressLookupTableAccount[],
         ) {
             const {
                 instruction: ix,
                 sourceToken: srcToken,
                 destinationToken: dstToken,
                 minAmountOut,
+                sourceTokenProgram,
+                destinationTokenProgram,
             } = modifyArgs;
 
-            const { amount: srcBalanceBefore } = await splToken.getAccount(connection, srcToken);
-            const { amount: dstBalanceBefore } = await splToken.getAccount(connection, dstToken);
+            const { amount: srcBalanceBefore } = await splToken.getAccount(
+                connection,
+                srcToken,
+                undefined,
+                sourceTokenProgram,
+            );
+            const { amount: dstBalanceBefore } = await splToken.getAccount(
+                connection,
+                dstToken,
+                undefined,
+                destinationTokenProgram,
+            );
 
-            await expectIxOk(connection, [ix], [payer]);
+            const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
+                units: 500_000,
+            });
+
+            await expectIxOk(connection, [computeIx, ix], [payer], { addressLookupTableAccounts });
 
             const decodedIxData = jupiterV6.decodeSharedAccountsRouteArgs(ix.data);
 
-            const { amount: srcBalanceAfter } = await splToken.getAccount(connection, srcToken);
-            assert.strictEqual(srcBalanceBefore - srcBalanceAfter, decodedIxData.inAmount);
+            const { amount: srcBalanceAfter } = await splToken.getAccount(
+                connection,
+                srcToken,
+                undefined,
+                sourceTokenProgram,
+            );
 
-            const { amount: dstBalanceAfter } = await splToken.getAccount(connection, dstToken);
+            // This math makes a crude assumption that the # of routes will result in more rounding
+            // errors. We can improve this calculation, but the amounts we are dealing with are so
+            // small.
+            const numRoutes = BigInt(decodedIxData.routePlan.length);
+            const srcBalanceChange = srcBalanceBefore - srcBalanceAfter;
+            assert.isTrue(srcBalanceChange >= decodedIxData.inAmount - numRoutes);
+            assert.isTrue(srcBalanceChange <= decodedIxData.inAmount);
+
+            const { amount: dstBalanceAfter } = await splToken.getAccount(
+                connection,
+                dstToken,
+                undefined,
+                destinationTokenProgram,
+            );
             assert.isTrue(dstBalanceAfter - dstBalanceBefore >= minAmountOut);
         }
     });
@@ -275,7 +348,7 @@ describe("Jupiter V6 Testing", () => {
                 await swapExactInForTest(
                     { payer: payer.publicKey, stagedOutbound, srcMint },
                     { cpiInstruction },
-                    "AmountOutTooSmall",
+                    { errorMsg: "Error Code: AmountOutTooSmall" },
                 );
             });
 
@@ -324,7 +397,7 @@ describe("Jupiter V6 Testing", () => {
                         preparedBy: testRecipient.publicKey,
                     },
                     { cpiInstruction },
-                    "prepared_by. Error Code: ConstraintAddress",
+                    { errorMsg: "prepared_by. Error Code: ConstraintAddress" },
                 );
             });
 
@@ -365,10 +438,10 @@ describe("Jupiter V6 Testing", () => {
                     },
                 );
 
-                const invalidToken = await splToken.getOrCreateAssociatedTokenAccount(
+                const invalidToken = await createAta(
                     connection,
                     payer,
-                    USDC_MINT_ADDRESS,
+                    swapLayer.usdcMint,
                     testRecipient.publicKey,
                 );
 
@@ -377,10 +450,10 @@ describe("Jupiter V6 Testing", () => {
                         payer: payer.publicKey,
                         stagedOutbound,
                         srcMint,
-                        usdcRefundToken: invalidToken.address,
+                        usdcRefundToken: invalidToken,
                     },
                     { cpiInstruction },
-                    "usdc_refund_token. Error Code: ConstraintAddress",
+                    { errorMsg: "usdc_refund_token. Error Code: ConstraintAddress" },
                 );
             });
 
@@ -430,7 +503,7 @@ describe("Jupiter V6 Testing", () => {
                         srcMint,
                     },
                     { cpiInstruction, targetChain: toChainId("Holesky") },
-                    "InvalidTargetChain",
+                    { errorMsg: "Error Code: ConstraintTokenOwner" },
                 );
             });
 
@@ -480,7 +553,7 @@ describe("Jupiter V6 Testing", () => {
                         srcMint: USDC_MINT_ADDRESS,
                     },
                     { cpiInstruction },
-                    "src_mint. Error Code: ConstraintAddress",
+                    { errorMsg: "Error Code: ConstraintTokenMint" },
                 );
             });
 
@@ -529,9 +602,13 @@ describe("Jupiter V6 Testing", () => {
                         stagedOutbound,
                         srcMint: USDC_MINT_ADDRESS,
                         stagedCustodyToken: swapLayer.stagedCustodyTokenAddress(stagedOutbound),
+                        srcResidual: splToken.getAssociatedTokenAddressSync(
+                            srcMint,
+                            payer.publicKey,
+                        ),
                     },
                     { cpiInstruction },
-                    "SameMint",
+                    { errorMsg: "Error Code: SameMint" },
                 );
             });
 
@@ -645,6 +722,120 @@ describe("Jupiter V6 Testing", () => {
                 );
                 assert.isTrue(preparedCustodyTokenBalance >= minAmountOut);
             });
+
+            it("Token-2022 Mint via Multi-Route", async function () {
+                const srcMint = BERN_MINT_ADDRESS;
+
+                const {
+                    stagedOutbound,
+                    stagedCustodyToken,
+                    custodyBalance: inAmount,
+                    stagedOutboundInfo,
+                    redeemMode,
+                    outputToken,
+                } = await stageOutboundForTest(
+                    {
+                        payer: payer.publicKey,
+                        senderToken: splToken.getAssociatedTokenAddressSync(
+                            srcMint,
+                            payer.publicKey,
+                            false,
+                            await whichTokenProgram(connection, srcMint),
+                        ),
+                        srcMint,
+                    },
+                    {
+                        amountIn: 100_000_000n,
+                        redeemOption: {
+                            relay: { gasDropoff: 500000, maxRelayerFee: 9999999999999n },
+                        },
+                    },
+                );
+
+                const preparedOrder = swapLayer.preparedOrderAddress(stagedOutbound);
+                const swapAuthority = swapLayer.swapAuthorityAddress(preparedOrder);
+                const {
+                    instruction: cpiInstruction,
+                    sourceToken,
+                    destinationToken,
+                    sourceMint,
+                    destinationMint,
+                    minAmountOut,
+                } = await modify2022ToUsdcSwapResponseForTest(swapAuthority, {
+                    inAmount,
+                    quotedOutAmount: 5_000_000n, // 5 USDC
+                    slippageBps: 1000,
+                    cpi: true,
+                });
+                assert.deepEqual(sourceMint, srcMint);
+                assert.deepEqual(destinationMint, swapLayer.usdcMint);
+
+                {
+                    const accInfos = await connection.getMultipleAccountsInfo([
+                        sourceToken,
+                        destinationToken,
+                    ]);
+                    assert.isTrue(accInfos.every((info) => info === null));
+                }
+
+                await swapExactInForTest(
+                    { payer: payer.publicKey, stagedOutbound, srcMint },
+                    { cpiInstruction },
+                    { additionalLuts: JUPITER_V6_LUT_ADDRESSES_BERN },
+                );
+
+                {
+                    const accInfos = await connection.getMultipleAccountsInfo([
+                        sourceToken,
+                        destinationToken,
+                        stagedOutbound,
+                        stagedCustodyToken,
+                    ]);
+                    assert.isTrue(accInfos.slice(0, 2).every((info) => info === null));
+                    assert.isTrue(accInfos.slice(2, 4).every((info) => info !== null));
+                }
+
+                const { targetChain, usdcRefundToken, recipient } = stagedOutboundInfo;
+                const { address: redeemer } = await swapLayer.fetchPeer(targetChain as ChainId);
+
+                // Verify the relevant information in the prepared order.
+                const preparedOrderData = await tokenRouter.fetchPreparedOrder(preparedOrder);
+
+                const { info } = preparedOrderData;
+                assert.deepEqual(
+                    preparedOrderData,
+                    new tokenRouterSdk.PreparedOrder(
+                        {
+                            orderSender: swapLayer.custodianAddress(),
+                            preparedBy: payer.publicKey,
+                            orderType: {
+                                market: {
+                                    minAmountOut: null,
+                                },
+                            },
+                            srcToken: destinationToken,
+                            refundToken: usdcRefundToken,
+                            targetChain,
+                            redeemer,
+                            preparedCustodyTokenBump: info.preparedCustodyTokenBump,
+                        },
+                        Buffer.from(
+                            encodeSwapLayerMessage({
+                                recipient: new UniversalAddress(Uint8Array.from(recipient)),
+                                redeemMode,
+                                outputToken,
+                            }),
+                        ),
+                    ),
+                );
+
+                // Verify the prepared custody token balance.
+                const { amount: preparedCustodyTokenBalance } = await splToken.getAccount(
+                    connection,
+                    tokenRouter.preparedCustodyTokenAddress(preparedOrder),
+                );
+                assert.isTrue(preparedCustodyTokenBalance >= minAmountOut);
+            });
         });
 
         describe("Inbound", function () {
@@ -687,18 +878,13 @@ describe("Jupiter V6 Testing", () => {
                     },
                 );
 
-                await splToken.getOrCreateAssociatedTokenAccount(
-                    connection,
-                    payer,
-                    USDC_MINT_ADDRESS,
-                    recipient,
-                );
+                await createAta(connection, payer, swapLayer.usdcMint, recipient);
 
                 const transferIx = await swapLayer.completeTransferRelayIx(
                     {
                         payer: payer.publicKey,
                         preparedFill,
-                        recipient: recipient,
+                        recipient,
                     },
                     toChainId("Ethereum"),
                 );
@@ -783,10 +969,10 @@ describe("Jupiter V6 Testing", () => {
                     },
                 );
 
-                const recipientToken = await splToken.getOrCreateAssociatedTokenAccount(
+                const recipientToken = await createAta(
                     connection,
                     payer,
-                    USDC_MINT_ADDRESS,
+                    swapLayer.usdcMint,
                     recipient,
                 );
 
@@ -796,8 +982,8 @@ describe("Jupiter V6 Testing", () => {
                         payer: payer.publicKey,
                         preparedFill,
                         recipient: recipient,
-                        dstMint: USDC_MINT_ADDRESS,
-                        recipientToken: recipientToken.address,
+                        dstMint: swapLayer.usdcMint,
+                        recipientToken,
                     },
                     {
                         limitAmount,
@@ -918,10 +1104,10 @@ describe("Jupiter V6 Testing", () => {
                     },
                 );
 
-                const recipientToken = await splToken.getOrCreateAssociatedTokenAccount(
+                const recipientToken = await createAta(
                     connection,
                     payer,
-                    USDC_MINT_ADDRESS,
+                    swapLayer.usdcMint,
                     recipient,
                 );
 
@@ -932,7 +1118,7 @@ describe("Jupiter V6 Testing", () => {
                         preparedFill,
                         recipient: recipient,
                         dstMint: USDC_MINT_ADDRESS,
-                        recipientToken: recipientToken.address,
+                        recipientToken,
                     },
                     {
                         limitAmount,
@@ -969,10 +1155,8 @@ describe("Jupiter V6 Testing", () => {
                 );
 
                 // Pass in payer token account instead.
-                const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
-                    connection,
-                    payer,
-                    USDC_MINT_ADDRESS,
+                const payerToken = splToken.getAssociatedTokenAddressSync(
+                    swapLayer.usdcMint,
                     payer.publicKey,
                 );
 
@@ -981,7 +1165,7 @@ describe("Jupiter V6 Testing", () => {
                         payer: payer.publicKey,
                         preparedFill,
                         recipient: recipient,
-                        recipientToken: payerToken.address,
+                        recipientToken: payerToken,
                         dstMint,
                     },
                     {
@@ -1019,10 +1203,10 @@ describe("Jupiter V6 Testing", () => {
                 );
 
                 // Pass in payer token account instead.
-                const recipientToken = await splToken.getOrCreateAssociatedTokenAccount(
+                const recipientToken = await createAta(
                     connection,
                     payer,
-                    USDC_MINT_ADDRESS,
+                    swapLayer.usdcMint,
                     recipient,
                 );
 
@@ -1031,7 +1215,7 @@ describe("Jupiter V6 Testing", () => {
                         payer: payer.publicKey,
                         preparedFill,
                         recipient: recipient,
-                        feeRecipientToken: recipientToken.address,
+                        feeRecipientToken: recipientToken,
                         dstMint,
                     },
                     {
@@ -1560,6 +1744,49 @@ describe("Jupiter V6 Testing", () => {
                 const recipientAfter = await getUsdcAtaBalance(connection, recipient);
                 assert.equal(recipientAfter - recipientBefore, amountIn);
             });
+
+            it("Other (Token-2022 Mint) via Multi-Route", async function () {
+                const dstMint = BERN_MINT_ADDRESS;
+                const { limitAmount, outputToken } = newQuotedSwapOutputToken({
+                    quotedAmountOut: 200_000_000n,
+                    dstMint,
+                    slippageBps: 500,
+                });
+
+                const gasDropoff = 100_000; // .1 SOL (10,000 * 1e3)
+                const relayingFee = 690000n; // .69 USDC
+                const amountIn = preFillAmountIn(10_000_000n, relayingFee);
+                const { preparedFill, recipient } = await redeemSwapLayerFastFillForTest(
+                    { payer: payer.publicKey },
+                    emittedEvents,
+                    {
+                        dstMint,
+                        outputToken,
+                        redeemMode: {
+                            mode: "Relay",
+                            gasDropoff,
+                            relayingFee,
+                        },
+                        amountIn,
+                    },
+                );
+
+                await completeSwapRelayForTest(
+                    {
+                        payer: payer.publicKey,
+                        preparedFill,
+                        recipient,
+                        dstMint,
+                    },
+                    {
+                        limitAmount,
+                        relayingFee,
+                        denormGasDropoff: denormalizeGasDropOff(gasDropoff),
+                        swapResponseModifier: modifyUsdcTo2022SwapResponseForTest,
+                        additionalLuts: JUPITER_V6_LUT_ADDRESSES_BERN,
+                    },
+                );
+            });
         });
     });
 
@@ -1891,10 +2118,8 @@ describe("Jupiter V6 Testing", () => {
                 );
 
                 // Pass in payer token account instead.
-                const payerToken = await splToken.getOrCreateAssociatedTokenAccount(
-                    connection,
-                    payer,
-                    USDC_MINT_ADDRESS,
+                const payerToken = splToken.getAssociatedTokenAddressSync(
+                    swapLayer.usdcMint,
                     payer.publicKey,
                 );
 
@@ -1903,7 +2128,7 @@ describe("Jupiter V6 Testing", () => {
                         payer: payer.publicKey,
                         preparedFill,
                         recipient,
-                        recipientToken: payerToken.address,
+                        recipientToken: payerToken,
                         dstMint,
                     },
                     {
@@ -2228,10 +2453,44 @@ describe("Jupiter V6 Testing", () => {
                     },
                 );
             });
+
+            it("Other (Token-2022 Mint) via Multi-Route", async function () {
+                const dstMint = BERN_MINT_ADDRESS;
+                const { limitAmount, outputToken } = newQuotedSwapOutputToken({
+                    quotedAmountOut: 200_000_000n,
+                    dstMint,
+                    slippageBps: 500,
+                });
+
+                const amountIn = preFillAmountIn(10_000_000n);
+                const { preparedFill, recipient } = await redeemSwapLayerFastFillForTest(
+                    { payer: payer.publicKey },
+                    emittedEvents,
+                    {
+                        dstMint,
+                        outputToken,
+                        amountIn,
+                    },
+                );
+
+                await completeSwapDirectForTest(
+                    {
+                        payer: payer.publicKey,
+                        preparedFill,
+                        recipient,
+                        dstMint,
+                    },
+                    {
+                        limitAmount,
+                        swapResponseModifier: modifyUsdcTo2022SwapResponseForTest,
+                        additionalLuts: JUPITER_V6_LUT_ADDRESSES_BERN,
+                    },
+                );
+            });
         });
     });
 
-    describe("USDC Transfer (Payload)", function () {
+    describe("USDC Swap (Payload)", function () {
         describe("Outbound", function () {
             it("USDT via Whirlpool", async function () {
                 const srcMint = USDT_MINT_ADDRESS;
@@ -2497,6 +2756,47 @@ describe("Jupiter V6 Testing", () => {
                     },
                 );
             });
+
+            it("Other (Token-2022 Mint) via Multi-Route", async function () {
+                const dstMint = BERN_MINT_ADDRESS;
+                const { limitAmount, outputToken } = newQuotedSwapOutputToken({
+                    quotedAmountOut: 200_800_000n,
+                    dstMint,
+                    slippageBps: 500,
+                });
+
+                const amountIn = preFillAmountIn(10_000_000n);
+                const { preparedFill } = await redeemSwapLayerFastFillForTest(
+                    { payer: payer.publicKey },
+                    emittedEvents,
+                    {
+                        dstMint,
+                        redeemMode: {
+                            mode: "Payload",
+                            sender: toUniversal(
+                                "Ethereum",
+                                "0x000000000000000000000000000000000000d00d",
+                            ),
+                            buf: Buffer.from("All your base are belong to us."),
+                        },
+                        outputToken,
+                        amountIn,
+                    },
+                );
+
+                await completeSwapPayloadForTest(
+                    {
+                        payer: payer.publicKey,
+                        preparedFill,
+                        dstMint,
+                    },
+                    {
+                        limitAmount,
+                        swapResponseModifier: modifyUsdcTo2022SwapResponseForTest,
+                        additionalLuts: JUPITER_V6_LUT_ADDRESSES_BERN,
+                    },
+                );
+            });
         });
     });
 
@@ -2559,10 +2859,14 @@ describe("Jupiter V6 Testing", () => {
                 tokenOwner: PublicKey,
                 opts: jupiterV6.ModifySharedAccountsRouteOpts,
             ) => Promise<jupiterV6.ModifiedSharedAccountsRoute>;
+            additionalLuts?: PublicKey[];
         },
     ): Promise<undefined> {
         const [{ signers, errorMsg }, otherOpts] = setDefaultForTestOpts(opts);
         const { limitAmount, outputTokenOverride, swapResponseModifier } = otherOpts;
+
+        let { additionalLuts } = otherOpts;
+        additionalLuts ??= [];
 
         const { instruction: cpiInstruction, destinationMint } = await swapResponseModifier(
             swapLayer.swapAuthorityAddress(accounts.preparedFill),
@@ -2579,13 +2883,13 @@ describe("Jupiter V6 Testing", () => {
 
         const ixs = [
             ComputeBudgetProgram.setComputeUnitLimit({
-                units: 420_000,
+                units: 700_000,
             }),
             ix,
         ];
 
         const addressLookupTableAccounts = await Promise.all(
-            luts.map(async (lookupTableAddress) => {
+            [...luts, ...additionalLuts].map(async (lookupTableAddress) => {
                 const resp = await connection.getAddressLookupTable(lookupTableAddress);
                 return resp.value;
             }),
@@ -2611,19 +2915,30 @@ describe("Jupiter V6 Testing", () => {
             const balanceAfter = await connection.getBalance(accounts.recipient).then(BigInt);
             assert.isTrue(balanceAfter - balanceBefore >= limitAmount);
         } else if (outputToken.type === "Other" || outputTokenOverride === "Other") {
+            const tokenProgram = await whichTokenProgram(connection, expectedDstMint);
             const dstToken = splToken.getAssociatedTokenAddressSync(
                 expectedDstMint,
                 accounts.recipient,
                 false,
-                await whichTokenProgram(connection, expectedDstMint),
+                tokenProgram,
             );
-            const { amount: dstBalanceBefore } = await splToken.getAccount(connection, dstToken);
+            const { amount: dstBalanceBefore } = await splToken.getAccount(
+                connection,
+                dstToken,
+                undefined,
+                tokenProgram,
+            );
 
             await expectIxOk(connection, ixs, signers, {
                 addressLookupTableAccounts,
             });
 
-            const { amount: dstBalanceAfter } = await splToken.getAccount(connection, dstToken);
+            const { amount: dstBalanceAfter } = await splToken.getAccount(
+                connection,
+                dstToken,
+                undefined,
+                tokenProgram,
+            );
             assert.isTrue(dstBalanceAfter - dstBalanceBefore >= limitAmount);
         } else {
             assert.fail("Invalid output token type");
@@ -2647,11 +2962,15 @@ describe("Jupiter V6 Testing", () => {
                 tokenOwner: PublicKey,
                 opts: jupiterV6.ModifySharedAccountsRouteOpts,
             ) => Promise<jupiterV6.ModifiedSharedAccountsRoute>;
+            additionalLuts?: PublicKey[];
         },
         overrides?: { signers: Signer[] },
     ): Promise<undefined> {
         const [{ signers, errorMsg }, otherOpts] = setDefaultForTestOpts(opts, overrides);
         const { limitAmount, relayingFee, denormGasDropoff, swapResponseModifier } = otherOpts;
+
+        let { additionalLuts } = otherOpts;
+        additionalLuts ??= [];
 
         const { instruction: cpiInstruction, destinationMint } = await swapResponseModifier(
             swapLayer.swapAuthorityAddress(accounts.preparedFill),
@@ -2665,13 +2984,13 @@ describe("Jupiter V6 Testing", () => {
 
         const ixs = [
             ComputeBudgetProgram.setComputeUnitLimit({
-                units: 420_000,
+                units: 700_000,
             }),
             ix,
         ];
 
         const addressLookupTableAccounts = await Promise.all(
-            luts.map(async (lookupTableAddress) => {
+            [...luts, ...additionalLuts].map(async (lookupTableAddress) => {
                 const resp = await connection.getAddressLookupTable(lookupTableAddress);
                 return resp.value;
             }),
@@ -2689,9 +3008,7 @@ describe("Jupiter V6 Testing", () => {
         const selfRedeem = accounts.payer == accounts.recipient;
 
         // Fetch the balance of the fee recipient before the swap.
-        const feeRecipientToken = await swapLayer
-            .fetchCustodian()
-            .then((acc) => acc.feeRecipientToken);
+        const { feeRecipientToken } = await swapLayer.fetchCustodian();
         const { amount: feeRecipientBefore } = await splToken.getAccount(
             connection,
             feeRecipientToken,
@@ -2710,20 +3027,31 @@ describe("Jupiter V6 Testing", () => {
                     (selfRedeem ? limitAmount : limitAmount + denormGasDropoff),
             );
         } else if (swapMsg.outputToken.type === "Other") {
+            const dstTokenProgram = await whichTokenProgram(connection, expectedDstMint);
             const dstToken = splToken.getAssociatedTokenAddressSync(
                 expectedDstMint,
                 accounts.recipient,
                 false,
-                await whichTokenProgram(connection, expectedDstMint),
+                dstTokenProgram,
             );
-            const { amount: dstBalanceBefore } = await splToken.getAccount(connection, dstToken);
+            const { amount: dstBalanceBefore } = await splToken.getAccount(
+                connection,
+                dstToken,
+                undefined,
+                dstTokenProgram,
+            );
             const balanceBefore = await connection.getBalance(accounts.recipient).then(BigInt);
 
             await expectIxOk(connection, ixs, signers, {
                 addressLookupTableAccounts,
             });
 
-            const { amount: dstBalanceAfter } = await splToken.getAccount(connection, dstToken);
+            const { amount: dstBalanceAfter } = await splToken.getAccount(
+                connection,
+                dstToken,
+                undefined,
+                dstTokenProgram,
+            );
 
             assert.isTrue(dstBalanceAfter - dstBalanceBefore >= limitAmount);
 
@@ -2758,10 +3086,14 @@ describe("Jupiter V6 Testing", () => {
                 tokenOwner: PublicKey,
                 opts: jupiterV6.ModifySharedAccountsRouteOpts,
             ) => Promise<jupiterV6.ModifiedSharedAccountsRoute>;
+            additionalLuts?: PublicKey[];
         },
     ): Promise<undefined> {
         const [{ signers, errorMsg }, otherOpts] = setDefaultForTestOpts(opts);
         const { limitAmount, swapResponseModifier } = otherOpts;
+
+        let { additionalLuts } = otherOpts;
+        additionalLuts ??= [];
 
         const stagedInbound = swapLayer.stagedInboundAddress(accounts.preparedFill);
         const {
@@ -2788,13 +3120,13 @@ describe("Jupiter V6 Testing", () => {
 
         const ixs = [
             ComputeBudgetProgram.setComputeUnitLimit({
-                units: 420_000,
+                units: 700_000,
             }),
             ix,
         ];
 
         const addressLookupTableAccounts = await Promise.all(
-            luts.map(async (lookupTableAddress) => {
+            [...luts, ...additionalLuts].map(async (lookupTableAddress) => {
                 const resp = await connection.getAddressLookupTable(lookupTableAddress);
                 return resp.value;
             }),
@@ -2844,7 +3176,12 @@ describe("Jupiter V6 Testing", () => {
         );
 
         if (outputToken.type === "Gas" || outputToken.type === "Other") {
-            const { amount } = await splToken.getAccount(connection, destinationToken);
+            const { amount } = await splToken.getAccount(
+                connection,
+                destinationToken,
+                undefined,
+                await whichTokenProgram(connection, expectedDstMint),
+            );
             assert.isTrue(amount >= limitAmount);
         } else {
             assert.fail("Invalid output token type");
@@ -2880,28 +3217,8 @@ describe("Jupiter V6 Testing", () => {
         };
 
         // Generate a new token account for recipient.
-        const tokenProgram = await whichTokenProgram(connection, dstMint);
         if (createRecipientAta) {
-            const recipientToken = splToken.getAssociatedTokenAddressSync(
-                dstMint,
-                recipient,
-                false,
-                tokenProgram,
-            );
-
-            await expectIxOk(
-                connection,
-                [
-                    splToken.createAssociatedTokenAccountInstruction(
-                        payer.publicKey,
-                        recipientToken,
-                        recipient,
-                        dstMint,
-                        tokenProgram,
-                    ),
-                ],
-                [payer],
-            );
+            await createAta(connection, payer, dstMint, recipient);
         }
 
         let encodedRecipient = recipient;
@@ -3011,6 +3328,42 @@ describe("Jupiter V6 Testing", () => {
     ): Promise<jupiterV6.ModifiedSharedAccountsRoute> {
         const response = JSON.parse(
             fs.readFileSync(`${__dirname}/jupiterV6SwapResponses/phoenix_v1_wsol_to_usdc.json`, {
+                encoding: "utf-8",
+            }),
+        );
+
+        return jupiterV6.modifySharedAccountsRouteInstruction(
+            connection,
+            response,
+            tokenOwner,
+            opts,
+        );
+    }
+
+    async function modifyUsdcTo2022SwapResponseForTest(
+        tokenOwner: PublicKey,
+        opts: jupiterV6.ModifySharedAccountsRouteOpts,
+    ): Promise<jupiterV6.ModifiedSharedAccountsRoute> {
+        const response = JSON.parse(
+            fs.readFileSync(`${__dirname}/jupiterV6SwapResponses/multi_usdc_to_2022.json`, {
+                encoding: "utf-8",
+            }),
+        );
+
+        return jupiterV6.modifySharedAccountsRouteInstruction(
+            connection,
+            response,
+            tokenOwner,
+            opts,
+        );
+    }
+
+    async function modify2022ToUsdcSwapResponseForTest(
+        tokenOwner: PublicKey,
+        opts: jupiterV6.ModifySharedAccountsRouteOpts,
+    ): Promise<jupiterV6.ModifiedSharedAccountsRoute> {
+        const response = JSON.parse(
+            fs.readFileSync(`${__dirname}/jupiterV6SwapResponses/multi_2022_to_usdc.json`, {
                 encoding: "utf-8",
             }),
         );
@@ -3255,6 +3608,10 @@ describe("Jupiter V6 Testing", () => {
         };
     }
 
+    function preFillAmountIn(amount: bigint, relayingFee?: bigint): bigint {
+        return amount + 1_250_000n + 420n + (relayingFee ?? 0n);
+    }
+
     type VaaResult = {
         vaa: PublicKey;
         vaaAccount: VaaAccount;
@@ -3468,13 +3825,24 @@ describe("Jupiter V6 Testing", () => {
         outputToken ??= null;
         transferType ??= "sender";
 
+        const accInfo = await connection.getAccountInfo(accounts.srcMint);
+        if (accInfo === null) {
+            throw new Error("Invalid mint account");
+        }
+        const srcTokenProgram = accInfo.owner;
+
         let sender = accounts.sender;
         if (sender === undefined) {
             if (accounts.senderToken === undefined) {
                 throw new Error("Sender must be specified if senderToken is null");
             }
 
-            const { owner } = await splToken.getAccount(connection, accounts.senderToken);
+            const { owner } = await splToken.getAccount(
+                connection,
+                accounts.senderToken,
+                undefined,
+                srcTokenProgram,
+            );
             sender = owner;
         }
 
@@ -3508,6 +3876,8 @@ describe("Jupiter V6 Testing", () => {
         const { amount: custodyBalance } = await splToken.getAccount(
             connection,
             stagedCustodyToken,
+            undefined,
+            srcTokenProgram,
         );
 
         const { info: stagedOutboundInfo } = await swapLayer.fetchStagedOutbound(stagedOutbound);
@@ -3565,34 +3935,42 @@ describe("Jupiter V6 Testing", () => {
             srcTokenProgram?: PublicKey;
             preparedBy?: PublicKey;
             usdcRefundToken?: PublicKey;
+            srcResidual?: PublicKey;
         },
         args: {
             cpiInstruction: TransactionInstruction;
             targetChain?: ChainId;
         },
-        err?: string,
+        opts: {
+            additionalLuts?: PublicKey[];
+        } & ForTestOpts = {},
     ) {
+        const [{ signers, errorMsg }, otherOpts] = setDefaultForTestOpts(opts);
+
+        let { additionalLuts } = otherOpts;
+        additionalLuts ??= [];
+
         const ix = await swapLayer.initiateSwapExactInIx(accounts, args);
 
         const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
-            units: 360_000,
+            units: 700_000,
         });
 
         const addressLookupTableAccounts = await Promise.all(
-            luts.map(async (lookupTableAddress) => {
+            [...luts, ...additionalLuts].map(async (lookupTableAddress) => {
                 const resp = await connection.getAddressLookupTable(lookupTableAddress);
                 return resp.value;
             }),
         );
 
-        if (err !== undefined) {
-            await expectIxErr(connection, [computeIx, ix], [payer], err, {
+        if (errorMsg !== null) {
+            await expectIxErr(connection, [computeIx, ix], signers, errorMsg, {
                 addressLookupTableAccounts,
             });
             return;
         }
 
-        await expectIxOk(connection, [computeIx, ix], [payer], {
+        await expectIxOk(connection, [computeIx, ix], signers, {
             addressLookupTableAccounts,
         });
     }

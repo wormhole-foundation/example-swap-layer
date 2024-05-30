@@ -146,6 +146,8 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
     });
     let output_token = OutputToken::read(&mut &encoded_output_token[..]).unwrap();
 
+    let is_usdc = ctx.accounts.src_mint.key() == common::USDC_MINT;
+
     // We need to determine the relayer fee. This fee will either be paid for right now if
     // StagedInput::Usdc or will be deducted from the USDC after a resulting swap from the source
     // mint.
@@ -171,7 +173,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
                 );
 
                 (
-                    if ctx.accounts.src_mint.key() == common::USDC_MINT {
+                    if is_usdc {
                         relaying_fee
                             .checked_add(amount_in)
                             .ok_or(SwapLayerError::U64Overflow)?
@@ -192,8 +194,9 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
     let src_token_program = &ctx.accounts.src_token_program;
     let custody_token = &ctx.accounts.staged_custody_token;
     let src_mint = &ctx.accounts.src_mint;
+    let sender_token = ctx.accounts.sender_token.as_ref();
 
-    let sender = match &ctx.accounts.sender_token {
+    let sender = match sender_token {
         Some(sender_token) => match (
             &ctx.accounts.sender,
             &ctx.accounts.program_transfer_authority,

@@ -26,40 +26,30 @@ pub struct InitiateSwapExactIn<'info> {
     /// Staging for outbound transfer. This account has all of the instructions needed to initiate
     /// the transfer.
     ///
-    /// This account will be closed by the end of the instruction.
-    #[account(
-        mut,
-        close = prepared_by,
-    )]
+    /// This account may be closed by the end of the instruction if there is no dust after the swap.
+    #[account(mut)]
     staged_outbound: Account<'info, StagedOutbound>,
 
-    /// This custody token account will be closed by the end of the instruction.
+    /// This custody token account may be closed by the end of the instruction if there is no dust
+    /// after the swap.
     #[account(
         mut,
+        token::mint = src_mint,
+        token::authority = target_peer,
+        token::token_program = src_token_program,
         seeds = [
             crate::STAGED_CUSTODY_TOKEN_SEED_PREFIX,
             staged_outbound.key().as_ref(),
         ],
         bump = staged_outbound.info.custody_token_bump,
     )]
-    staged_custody_token: Box<Account<'info, token::TokenAccount>>,
+    staged_custody_token: Box<InterfaceAccount<'info, token_interface::TokenAccount>>,
 
     /// CHECK: This account must equal the usdc refund token encoded in the staged outbound account.
     #[account(address = staged_outbound.usdc_refund_token)]
     usdc_refund_token: UncheckedAccount<'info>,
 
     /// Peer used to determine whether assets are sent to a valid destination.
-    #[account(
-        constraint = {
-            require_eq!(
-                staged_outbound.info.target_chain,
-                target_peer.seeds.chain,
-                SwapLayerError::InvalidTargetChain,
-            );
-
-            true
-        }
-    )]
     target_peer: RegisteredPeer<'info>,
 
     /// CHECK: Mutable, seeds must be \["prepared-order", staged_outbound.key()\]
@@ -105,7 +95,6 @@ pub struct InitiateSwapExactIn<'info> {
     dst_swap_token: Box<Account<'info, token::TokenAccount>>,
 
     /// This account must be verified as the source mint for the swap.
-    #[account(address = staged_custody_token.mint)]
     src_mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
 
     /// This account must be verified as the destination mint for the swap.
@@ -159,17 +148,7 @@ where
         src_mint.decimals,
     )?;
 
-    token_interface::close_account(CpiContext::new_with_signer(
-        src_token_program.to_account_info(),
-        token_interface::CloseAccount {
-            account: custody_token.to_account_info(),
-            destination: ctx.accounts.prepared_by.to_account_info(),
-            authority: peer.to_account_info(),
-        },
-        &[peer_signer_seeds],
-    ))?;
-
-    let (shared_accounts_route, swap_args, cpi_remaining_accounts) =
+    let (shared_accounts_route, swap_args, _) =
         JupiterV6SharedAccountsRoute::set_up(ctx.remaining_accounts, &instruction_data[..])?;
 
     let swap_authority = &ctx.accounts.swap_authority;
@@ -215,11 +194,11 @@ where
         &[ctx.bumps.swap_authority],
     ];
 
-    // Execute swap.
-    let usdc_amount_out = shared_accounts_route.swap_exact_in(
+    // Execute swap. Keep in mind that exact in is not really exact in... so there may be residual.
+    let (usdc_amount_out, src_dust) = shared_accounts_route.swap_exact_in(
         swap_args,
         swap_authority_seeds,
-        cpi_remaining_accounts,
+        ctx.remaining_accounts,
         Default::default(),
     )?;
 
@@ -237,17 +216,7 @@ where
     }
 
     let payer = &ctx.accounts.payer;
-
-    // Close the source swap token account.
-    token_interface::close_account(CpiContext::new_with_signer(
-        src_token_program.to_account_info(),
-        token_interface::CloseAccount {
-            account: ctx.accounts.src_swap_token.to_account_info(),
-            destination: payer.to_account_info(),
-            authority: swap_authority.to_account_info(),
-        },
-        &[swap_authority_seeds],
-    ))?;
+    let src_swap_token = &ctx.accounts.src_swap_token;
 
     let token_program = &ctx.accounts.token_program;
     let dst_swap_token = &ctx.accounts.dst_swap_token;
@@ -305,7 +274,7 @@ where
         },
     )?;
 
-    // Finally close the destination swap token account.
+    //  Close the destination swap token account.
     token::close_account(CpiContext::new_with_signer(
         token_program.to_account_info(),
         token::CloseAccount {
@@ -314,5 +283,60 @@ where
             authority: swap_authority.to_account_info(),
         },
         &[swap_authority_seeds],
-    ))
+    ))?;
+
+    // If there is residual, we keep the staged accounts open.
+    if src_dust > 0 {
+        msg!("Staged dust: {}", src_dust);
+
+        // Transfer dust back to the custody token.
+        token_interface::transfer_checked(
+            CpiContext::new_with_signer(
+                src_token_program.to_account_info(),
+                token_interface::TransferChecked {
+                    from: src_swap_token.to_account_info(),
+                    to: custody_token.to_account_info(),
+                    authority: swap_authority.to_account_info(),
+                    mint: src_mint.to_account_info(),
+                },
+                &[swap_authority_seeds],
+            ),
+            src_dust,
+            src_mint.decimals,
+        )?;
+    }
+
+    // Close the source swap token account.
+    token_interface::close_account(CpiContext::new_with_signer(
+        src_token_program.to_account_info(),
+        token_interface::CloseAccount {
+            account: src_swap_token.to_account_info(),
+            destination: payer.to_account_info(),
+            authority: swap_authority.to_account_info(),
+        },
+        &[swap_authority_seeds],
+    ))?;
+
+    if src_dust == 0 {
+        let prepared_by = &ctx.accounts.prepared_by;
+
+        // Close the custody token account.
+        token_interface::close_account(CpiContext::new_with_signer(
+            src_token_program.to_account_info(),
+            token_interface::CloseAccount {
+                account: custody_token.to_account_info(),
+                destination: prepared_by.to_account_info(),
+                authority: peer.to_account_info(),
+            },
+            &[peer_signer_seeds],
+        ))?;
+
+        // Close the staged outbound account.
+        ctx.accounts
+            .staged_outbound
+            .close(prepared_by.to_account_info())?;
+    }
+
+    // Done.
+    Ok(())
 }

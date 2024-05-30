@@ -4,6 +4,8 @@ use anchor_lang::prelude::*;
 pub const SHARED_ACCOUNTS_ROUTE_SELECTOR: AnchorSelector =
     AnchorSelector([193, 32, 155, 51, 65, 214, 156, 129]);
 
+/// NOTE: Currently performing CPI using a CpiContext uses an excessive amount of heap memory. So
+/// this will stay just in case CPI calls via Anchor become more memory efficient.
 pub struct SharedAccountsRoute<'info> {
     pub token_program: AccountInfo<'info>,
     pub program_authority: AccountInfo<'info>,
@@ -96,16 +98,4 @@ impl AnchorInstructionData for SharedAccountsRouteArgs {
 
         Ok(())
     }
-}
-
-/// NOTE: This requires remaining accounts, which are the accounts required to
-/// perform swap routes.
-pub fn shared_accounts_route<'info>(
-    ctx: CpiContext<'_, '_, '_, 'info, SharedAccountsRoute<'info>>,
-    args: SharedAccountsRouteArgs,
-) -> Result<()> {
-    wormhole_solana_utils::cpi::invoke_data_with_context(
-        (SHARED_ACCOUNTS_ROUTE_SELECTOR, args),
-        ctx,
-    )
 }

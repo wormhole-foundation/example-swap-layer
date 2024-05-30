@@ -1,7 +1,7 @@
+export * from "./consts";
 export * from "./messages";
 export * from "./relayerFees";
 export * from "./state";
-export * from "./consts";
 
 import * as wormholeSdk from "@certusone/wormhole-sdk";
 import { BN, Program } from "@coral-xyz/anchor";
@@ -926,13 +926,12 @@ export class SwapLayerProgram {
     async releaseInboundIx(accounts: {
         stagedInbound: PublicKey;
         recipient: PublicKey;
-        dstToken?: PublicKey;
+        dstToken: PublicKey;
         beneficiary?: PublicKey;
     }): Promise<TransactionInstruction> {
         let { stagedInbound, recipient, dstToken, beneficiary } = accounts;
 
         beneficiary ??= recipient;
-        dstToken ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, recipient);
 
         return this.program.methods
             .releaseInbound()
@@ -956,6 +955,7 @@ export class SwapLayerProgram {
             recipientToken?: PublicKey;
             beneficiary?: PublicKey;
             dstTokenProgram?: PublicKey;
+            feeRecipientToken?: PublicKey;
         },
         args: {
             cpiInstruction: TransactionInstruction;
@@ -964,10 +964,10 @@ export class SwapLayerProgram {
         const { payer, preparedFill, recipient } = accounts;
         const { cpiInstruction } = args;
 
-        let { beneficiary, dstMint, dstTokenProgram, recipientToken } = accounts;
+        let { beneficiary, dstMint, dstTokenProgram, recipientToken, feeRecipientToken } = accounts;
         beneficiary ??= payer;
         dstMint ??= splToken.NATIVE_MINT;
-        recipientToken ??= splToken.getAssociatedTokenAddressSync(dstMint, recipient);
+        feeRecipientToken ??= await this.fetchCustodian().then((c) => c.feeRecipientToken);
 
         const swapAuthority = this.swapAuthorityAddress(preparedFill);
         const swapAccounts = await this.swapAccounts({
@@ -979,6 +979,12 @@ export class SwapLayerProgram {
         });
         const { srcSwapToken, dstSwapToken } = swapAccounts;
         dstTokenProgram ??= swapAccounts.dstTokenProgram;
+        recipientToken ??= splToken.getAssociatedTokenAddressSync(
+            dstMint,
+            recipient,
+            true,
+            dstTokenProgram,
+        );
 
         return this.program.methods
             .completeSwapDirect(cpiInstruction.data)
@@ -992,6 +998,7 @@ export class SwapLayerProgram {
                     authority: swapAuthority,
                     srcSwapToken,
                     dstSwapToken,
+                    feeRecipientToken,
                     usdc: this.usdcComposite(),
                     dstMint,
                     associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -1028,7 +1035,6 @@ export class SwapLayerProgram {
         beneficiary ??= payer;
         dstMint ??= splToken.NATIVE_MINT;
         feeRecipientToken ??= await this.fetchCustodian().then((c) => c.feeRecipientToken);
-        recipientToken ??= splToken.getAssociatedTokenAddressSync(dstMint, recipient);
 
         const swapAuthority = this.swapAuthorityAddress(preparedFill);
         const swapAccounts = await this.swapAccounts({
@@ -1040,6 +1046,12 @@ export class SwapLayerProgram {
         });
         const { srcSwapToken, dstSwapToken } = swapAccounts;
         dstTokenProgram ??= swapAccounts.dstTokenProgram;
+        recipientToken ??= splToken.getAssociatedTokenAddressSync(
+            dstMint,
+            recipient,
+            true,
+            dstTokenProgram,
+        );
 
         return this.program.methods
             .completeSwapRelay(cpiInstruction.data)
@@ -1053,6 +1065,7 @@ export class SwapLayerProgram {
                     authority: swapAuthority,
                     srcSwapToken,
                     dstSwapToken,
+                    feeRecipientToken,
                     usdc: this.usdcComposite(),
                     dstMint,
                     associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -1062,7 +1075,6 @@ export class SwapLayerProgram {
                 },
                 recipientToken,
                 recipient,
-                feeRecipientToken,
             })
             .remainingAccounts(cpiInstruction.keys)
             .instruction();
@@ -1075,6 +1087,7 @@ export class SwapLayerProgram {
             dstMint?: PublicKey;
             beneficiary?: PublicKey;
             dstTokenProgram?: PublicKey;
+            feeRecipientToken?: PublicKey;
         },
         args: {
             cpiInstruction: TransactionInstruction;
@@ -1083,7 +1096,7 @@ export class SwapLayerProgram {
         const { payer, preparedFill } = accounts;
         const { cpiInstruction } = args;
 
-        let { beneficiary, dstMint, dstTokenProgram } = accounts;
+        let { beneficiary, dstMint, dstTokenProgram, feeRecipientToken } = accounts;
         beneficiary ??= payer;
         dstMint ??= splToken.NATIVE_MINT;
 
@@ -1097,6 +1110,7 @@ export class SwapLayerProgram {
         });
         const { srcSwapToken, dstSwapToken } = swapAccounts;
         dstTokenProgram ??= swapAccounts.dstTokenProgram;
+        feeRecipientToken ??= await this.fetchCustodian().then((c) => c.feeRecipientToken);
 
         return this.program.methods
             .completeSwapPayload(cpiInstruction.data)
@@ -1109,6 +1123,7 @@ export class SwapLayerProgram {
                 stagedInbound,
                 srcSwapToken,
                 dstSwapToken,
+                feeRecipientToken,
                 usdc: this.usdcComposite(),
                 dstMint,
                 associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
