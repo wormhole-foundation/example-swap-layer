@@ -25,6 +25,8 @@ pub struct CompleteTransferRelay<'info> {
                 SwapLayerError::InvalidRecipient
             );
 
+            // Ensure that the swap time limit has been exceeded if the
+            // relayer is attempting to redeem an output token that is not USDC.
             match swap_msg.output_token {
                 OutputToken::Usdc => {}
                 OutputToken::Gas(_) | OutputToken::Other {

@@ -39,7 +39,8 @@ pub struct CompleteTransferDirect<'info> {
     recipient_token_account: Box<Account<'info, token::TokenAccount>>,
 
     /// CHECK: This account must be the owner of the recipient token account. The
-    /// recipient token account must be encoded in the prepared fill.
+    /// recipient token account must be encoded in the prepared fill. This recipient
+    /// must also be encoded in the swap message.
     recipient: UncheckedAccount<'info>,
 
     token_program: Program<'info, token::Token>,
