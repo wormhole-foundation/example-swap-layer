@@ -3,7 +3,7 @@
 pragma solidity ^0.8.24;
 
 import { Percentage, PercentageLib } from "./Percentage.sol";
-import { GasPrice, GasPriceLib } from "./GasPrice.sol";
+import {   GasPrice,   GasPriceLib } from "./GasPrice.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 
 //store everything in one slot and make reads and writes cheap (no struct in memory nonsense)

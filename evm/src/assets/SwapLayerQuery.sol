@@ -64,7 +64,7 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
         (chainId,         offset) = queries.asUint16Unchecked(offset);
         (gasDropoff,      offset) = queries.asUint32Unchecked(offset);
         (outputTokenType, offset) = parseIoToken(queries, offset);
-        if (outputTokenType != IoToken.Usdc) {
+        if (outputTokenType != IoToken.Wire) {
           (swapCount,       offset) = queries.asUint8Unchecked(offset);
           (swapType,        offset) = queries.asUint8Unchecked(offset);
         }
@@ -74,7 +74,6 @@ abstract contract SwapLayerQuery is SwapLayerGovernance {
           uint48(_calcRelayingFee(
             chainId,
             GasDropoff.wrap(gasDropoff),
-            outputTokenType,
             swapCount,
             swapType
           ))

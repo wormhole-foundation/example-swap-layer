@@ -53,7 +53,9 @@ uint constant SOLANA_ATA_RENT_LAMPORTS = 2039280;
 uint constant LAMPORTS_PER_SOL = 1e9;
 
 //TODO the following are estimates from forge tests - refine further with testnet measurements:
-uint constant GAS_OVERHEAD           = 280e3;
+//overhead:
+//  forge tests: 270k, +20k transaction overhead, +~140k for 12 extra guardian sigs on mainnet
+uint constant GAS_OVERHEAD           = 430e3;
 uint constant DROPOFF_GAS_OVERHEAD   =  32e3;
 uint constant UNISWAP_GAS_OVERHEAD   =  10e3;
 uint constant UNISWAP_GAS_PER_SWAP   = 120e3;
@@ -126,7 +128,6 @@ abstract contract SwapLayerRelayingFees is SwapLayerBase {
   function _calcRelayingFee(
     uint16 targetChain,
     GasDropoff gasDropoff_,
-    IoToken, //outputTokenType,
     uint swapCount,
     uint swapType
   ) internal view returns (uint relayingFee) { unchecked {

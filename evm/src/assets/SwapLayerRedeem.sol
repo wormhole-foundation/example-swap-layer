@@ -97,7 +97,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
 
     IERC20 outputToken;
     uint outputAmount;
-    if (outputTokenType == IoToken.Usdc) {
+    if (outputTokenType == IoToken.Wire) {
       outputToken = _usdc;
       outputAmount = usdcAmount;
     }
@@ -130,7 +130,7 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
       );
 
       if (outputAmount == 0) {
-        outputTokenType = IoToken.Usdc;
+        outputTokenType = IoToken.Wire;
         outputToken = _usdc;
         outputAmount = usdcAmount;
       }

@@ -55,7 +55,7 @@ contract SLTSwapBase is SLTBase {
   }
 
   function _tokenToMultiplier(IoToken token) internal pure returns (uint) {
-    if (token == IoToken.Usdc)
+    if (token == IoToken.Wire)
       return USDC;
     if (token == IoToken.Gas)
       return 1 ether;
@@ -68,13 +68,13 @@ contract SLTSwapBase is SLTBase {
 
     uint numerator = _tokenToMultiplier(to);
     uint denominator = _tokenToMultiplier(from);
-    if (from == IoToken.Gas && to == IoToken.Usdc)
+    if (from == IoToken.Gas && to == IoToken.Wire)
       denominator /= USDC_PER_ETH;
-    else if (from == IoToken.Usdc && to == IoToken.Gas)
+    else if (from == IoToken.Wire && to == IoToken.Gas)
       numerator /= USDC_PER_ETH;
-    else if (from == IoToken.Other && to == IoToken.Usdc)
+    else if (from == IoToken.Other && to == IoToken.Wire)
       denominator /= USDC_PER_MOCK_TOKEN;
-    else if (from == IoToken.Usdc && to == IoToken.Other)
+    else if (from == IoToken.Wire && to == IoToken.Other)
       numerator /= USDC_PER_MOCK_TOKEN;
     else if (from == IoToken.Gas && to == IoToken.Other)
       denominator /= MOCK_TOKEN_PER_ETH;
@@ -94,7 +94,7 @@ contract SLTSwapBase is SLTBase {
 
   function _fuzzIoToken(uint[] memory rngSeed) internal pure returns (IoToken) {
     if (xPercentOfTheTime(33, rngSeed))
-      return IoToken.Usdc;
+      return IoToken.Wire;
 
     if (xPercentOfTheTime(50, rngSeed))
       return IoToken.Gas;
@@ -133,7 +133,7 @@ contract SLTSwapBase is SLTBase {
     bytes memory encodedSwap
   ) {
     outputToken = _fuzzIoToken(rngSeed);
-    if (outputToken != IoToken.Usdc) {
+    if (outputToken != IoToken.Wire) {
       (swapCount, swapType, deadline, minOutputAmount, encodedSwap) =
         _fuzzEvmOutputSwap(outputToken, rngSeed);
     }

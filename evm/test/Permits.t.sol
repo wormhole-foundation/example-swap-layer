@@ -43,13 +43,13 @@ contract PermitsTest is SLTSwapBase {
         false,           //fast transfer
         RedeemMode.Direct,
         true,            //isExactIn
-        IoToken.Usdc,    //input token
+        IoToken.Wire,    //input token
         uint128(amount), //input amount
         AcquireMode.Permit,
         amount,          //permit value
         _validDeadline(),     //permit deadline
         r, s, v,         //permit signature
-        IoToken.Usdc     //output token
+        IoToken.Wire     //output token
       )
     );
     (uint amountOut, ) = swapReturn.asUint256Unchecked(0);
@@ -94,14 +94,14 @@ contract PermitsTest is SLTSwapBase {
         false,           //fast transfer
         RedeemMode.Direct,
         true,            //isExactIn
-        IoToken.Usdc,    //input token
+        IoToken.Wire,    //input token
         uint128(amount), //input amount
         AcquireMode.Permit2Transfer,
         amount,
         nonce,
         sigDeadline,
         r, s, v,         //permit signature
-        IoToken.Usdc     //output token
+        IoToken.Wire     //output token
       )
     );
     (uint amountOut, ) = swapReturn.asUint256Unchecked(0);
@@ -146,7 +146,7 @@ contract PermitsTest is SLTSwapBase {
         false,           //fast transfer
         RedeemMode.Direct,
         true,            //isExactIn
-        IoToken.Usdc,    //input token
+        IoToken.Wire,    //input token
         uint128(amount), //input amount
         AcquireMode.Permit2Permit,
         uint160(amount),
@@ -154,7 +154,7 @@ contract PermitsTest is SLTSwapBase {
         nonce,
         sigDeadline,
         r, s, v,         //permit signature
-        IoToken.Usdc     //output token
+        IoToken.Wire     //output token
       )
     );
     (uint amountOut, ) = swapReturn.asUint256Unchecked(0);

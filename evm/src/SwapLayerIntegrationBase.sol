@@ -111,7 +111,7 @@ abstract contract SwapLayerIntegrationBase {
   // -----------------------------------------------------------------------------------------------
 
   function _swapLayerEncodeOutputParamsUsdc() internal pure returns (bytes memory) {
-    return abi.encodePacked(IoToken.Usdc);
+    return abi.encodePacked(IoToken.Wire);
   }
 
   function _swapLayerEncodeOutputParamsNative(
@@ -1046,7 +1046,7 @@ abstract contract SwapLayerIntegrationBase {
     return _swapLayerRelayingFee(
       targetChain,
       gasDropoffWei,
-      IoToken.Usdc,
+      IoToken.Wire,
       noSwap,
       SWAP_TYPE_INVALID
     );
@@ -1059,7 +1059,7 @@ abstract contract SwapLayerIntegrationBase {
     return _swapLayerRelayingFee(
       SOLANA_CHAIN_ID,
       gasDropoffLamports * 10**9,
-      IoToken.Usdc,
+      IoToken.Wire,
       noSwap,
       SWAP_TYPE_INVALID
     );
@@ -1068,11 +1068,11 @@ abstract contract SwapLayerIntegrationBase {
   function _swapLayerRelayingFeeEvmSwap(
     uint16 targetChain,
     uint256 gasDropoffWei,
-    IoToken outputTokenType, //use _swapLayerRelayingFeeEvmUsdc() for IoToken.Usdc
+    IoToken outputTokenType, //use _swapLayerRelayingFeeEvmUsdc() for IoToken.Wire
     uint256 swapCount,
     EvmSwapType swapType
   ) internal view returns (uint48 relayingFeeUsdc) {
-    //assert(outputTokenType != IoToken.Usdc);
+    //assert(outputTokenType != IoToken.Wire);
     return _swapLayerRelayingFee(
       targetChain,
       gasDropoffWei,
@@ -1084,9 +1084,9 @@ abstract contract SwapLayerIntegrationBase {
 
   function _swapLayerRelayingFeeSolanaSwap(
     uint64 gasDropoffLamports,
-    IoToken outputTokenType //use _swapLayerRelayingFeeSolanaUsdc() for IoToken.Usdc
+    IoToken outputTokenType //use _swapLayerRelayingFeeSolanaUsdc() for IoToken.Wire
   ) internal view returns (uint48 relayingFeeUsdc) {
-    //assert(outputTokenType != IoToken.Usdc);
+    //assert(outputTokenType != IoToken.Wire);
     return _swapLayerRelayingFee(
       SOLANA_CHAIN_ID,
       gasDropoffLamports * 10**9,
@@ -1104,12 +1104,12 @@ abstract contract SwapLayerIntegrationBase {
     uint8 swapType
   ) internal view returns (uint48 relayingFeeUsdc) {
     bytes memory query;
-    if (outputTokenType == IoToken.Usdc) {
+    if (outputTokenType == IoToken.Wire) {
       query = abi.encodePacked(
         QueryType.RelayingFee,
         targetChain,
         GasDropoffLib.to(gasDropoffWei),
-        IoToken.Usdc
+        IoToken.Wire
       );
     }
     else {
@@ -1252,7 +1252,7 @@ abstract contract SwapLayerIntegrationBase {
 
   function _encodeUsdcIn(uint amount) private pure returns (uint144) {
     return uint144((
-      uint(IoToken.Usdc)
+      uint(IoToken.Wire)
       << (SWAP_PARAM_AMOUNT_SIZE + MODE_SIZE) * 8) + uint(_encodeAmountPreapproved(amount))
     );
   }

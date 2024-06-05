@@ -49,14 +49,14 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       (GasDropoff gasDropoff, uint maxRelayingFee, ) = parseRelayParams(params, mos.redeem.offset);
       uint swapCount = 0;
       uint swapType; //unused if swapCount is 0
-      if (mos.output.mode != IoToken.Usdc) {
+      if (mos.output.mode != IoToken.Wire) {
         uint offset = mos.output.offset;
         if (mos.output.mode == IoToken.Other)
           offset += UNIVERSAL_ADDRESS_SIZE;
 
         (swapType, swapCount, ) = parseSwapTypeAndCountAndSkipParams(params, offset);
       }
-      relayingFee = _calcRelayingFee(targetChain, gasDropoff, mos.output.mode, swapCount, swapType);
+      relayingFee = _calcRelayingFee(targetChain, gasDropoff, swapCount, swapType);
       if (relayingFee > maxRelayingFee)
         revert ExceedsMaxRelayingFee(relayingFee, maxRelayingFee);
 
@@ -68,7 +68,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     }
 
     (uint64 usdcAmount, uint wormholeFee) =
-      _acquireUsdc(uint(maxFastFee) + relayingFee, mos, params);
+      _acquireWireToken(uint(maxFastFee) + relayingFee, mos, params);
 
     bytes32 peer = _getPeer(targetChain);
     if (peer == bytes32(0))
@@ -115,18 +115,21 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       : ret;
   }}
 
-  function _acquireUsdc(
+  function _acquireWireTokens(
     uint totalFee,
+    address wireToken,
     ModesOffsetsSizes memory mos,
     bytes memory params
-  ) private returns (uint64 usdcAmount, uint wormholeFee) { unchecked {
+  ) private returns (uint64 wireAmount, uint wormholeFee) { unchecked {
     IoToken inputTokenType = mos.input.mode;
     uint offset = mos.input.offset;
     uint finalAmount;
-    if (inputTokenType == IoToken.Usdc) {
-      //we received USDC directly
-      wormholeFee = msg.value; //we save the gas for an STATICCALL to look up the wormhole msg fee
-                               //and rely on the liquidity layer to revert if msg.value != fee
+    if (inputTokenType == IoToken.Wire) {
+      //we received the wire token directly
+
+      //we avoid a STATICCALL to look up the wormhole msg fee and instead rely on the
+      //  liquidity layer/token bridge to revert if msg.value != fee
+      wormholeFee = msg.value;
       (finalAmount, offset) = params.asUint128Unchecked(offset);
       if (mos.isExactIn) {
         if (finalAmount < totalFee)
@@ -135,7 +138,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       else
         finalAmount += totalFee;
 
-      _acquireInputTokens(finalAmount, _usdc, params, offset);
+      _acquireInputTokens(finalAmount, wireToken, params, offset);
     }
     else {
       //we received something else than usdc so we'll have to perform at least one swap
@@ -165,7 +168,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         _assertExhaustive();
 
       (uint256 deadline, uint outputAmount, uint swapType, bytes memory path, ) =
-        parseEvmSwapParams(address(inputToken), address(_usdc), params, offset);
+        parseEvmSwapParams(address(inputToken), address(wireToken), params, offset);
 
       //adjust outputAmount to ensure that the received usdc amount on the target chain is at least
       //  the specified outputAmount
@@ -177,7 +180,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         inputAmount,
         outputAmount,
         inputToken,
-        _usdc,
+        wireToken,
         true, //revert on failure
         approveCheck,
         deadline,
@@ -202,7 +205,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     }
     //unchecked cast, but if someone manages to withdraw 10^(19-6), i.e. 10 trillion USDC then
     //  we have other problems regardless (though who knows what the future holds for the "stable"
-    //  coin that is the US dollar - or any other fiat currency for that matter)u
+    //  coin that is the US dollar - or any other fiat currency for that matter)
     usdcAmount = uint64(finalAmount);
   }}
 

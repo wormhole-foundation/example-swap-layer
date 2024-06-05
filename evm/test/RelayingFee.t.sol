@@ -47,7 +47,7 @@ contract RelayingFeeTest is SLTBase, SwapLayerIntegrationBase {
 
   function _getFeesNoSwap(uint gasDropoff) internal view returns (uint) {
     uint8 noSwap;
-    return _swapLayerRelayingFee(FOREIGN_CHAIN_ID, gasDropoff, IoToken.Usdc, noSwap, noSwap);
+    return _swapLayerRelayingFee(FOREIGN_CHAIN_ID, gasDropoff, IoToken.Wire, noSwap, noSwap);
   }
 
   function _checkApprox(uint relayingFee, uint expected) internal pure {

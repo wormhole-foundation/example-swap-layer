@@ -26,8 +26,7 @@ build: dependencies
 	forge build
 
 test: dependencies
-	forge test --fork-url $$TEST_RPC -vvv
-#--match-test InitiateFullFuzz
+	forge test --fork-url $$TEST_RPC -vvvv --match-test InitiateFullFuzz
 
 LIB_DEPS = foundry-rs/forge-std
 LIB_DEPS += openzeppelin/openzeppelin-contracts@dc44c9f #4.9.6

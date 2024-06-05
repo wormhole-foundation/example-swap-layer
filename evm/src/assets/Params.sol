@@ -44,7 +44,7 @@ uint8 constant SWAP_TYPE_TRADERJOE = 2;
 uint8 constant SWAP_TYPE_JUPITERV6 = 16;
 
 enum IoToken {
-  Usdc,
+  Wire,
   Gas,
   Other
 }

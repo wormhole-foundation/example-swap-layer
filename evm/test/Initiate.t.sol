@@ -64,7 +64,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     uint32 deadline,
     uint8 swapType
   ) internal view returns (bytes memory) {
-    assert(inputToken != IoToken.Usdc);
+    assert(inputToken != IoToken.Wire);
     uint24 poolId = _evmSwapTypeToPoolId(swapType);
     return inputToken == IoToken.Other
       ? abi.encodePacked(
@@ -90,7 +90,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
   }
 
   function _fundUser(IoToken inputToken) internal {
-    if (inputToken == IoToken.Usdc) {
+    if (inputToken == IoToken.Wire) {
       _dealOverride(address(usdc), user, BASE_AMOUNT * USDC);
       vm.prank(user);
       usdc.approve(address(swapLayer), type(uint128).max);
@@ -113,7 +113,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     uint outputAmount,
     uint8 swapType
   ) external {
-    assert(inputToken != IoToken.Usdc);
+    assert(inputToken != IoToken.Wire);
     _fundUser(inputToken);
     uint balanceBefore;
     if (inputToken == IoToken.Gas)
@@ -142,7 +142,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
           uint32(_validDeadline()),
           swapType
         ),
-        IoToken.Usdc,
+        IoToken.Wire,
         new bytes(0)
       )
     ));
@@ -251,7 +251,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     vars.outputToken = _fuzzIoToken(rngSeed);
 
-    if (vars.outputToken != IoToken.Usdc) {
+    if (vars.outputToken != IoToken.Wire) {
       vars.invalidSwap = xPercentOfTheTime(2, rngSeed);
       if ((vars.targetChain == FOREIGN_CHAIN_ID && !vars.invalidSwap) ||
           (vars.targetChain ==  SOLANA_CHAIN_ID &&  vars.invalidSwap)) {
@@ -260,7 +260,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       }
       else {
         vars.outputSwapCount = uint8(nextRn(rngSeed) % 3);
-        if (vars.outputToken != IoToken.Usdc) {
+        if (vars.outputToken != IoToken.Wire) {
           vars.outputSwapType = SWAP_TYPE_JUPITERV6;
           uint32 deadline = uint32(nextRn(rngSeed));
           uint128 minOutputAmount = uint128(nextRn(rngSeed));
@@ -359,7 +359,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     uint precision = 100; //use up to two decimals
     vars.inputAmount = nextRn(rngSeed) % (BASE_AMOUNT * precision) + 1;
     vars.inputToken = _fuzzIoToken(rngSeed);
-    if (vars.inputToken == IoToken.Usdc)
+    if (vars.inputToken == IoToken.Wire)
       vars.inputAmount *= USDC;
     else if (vars.inputToken == IoToken.Gas) {
       vars.inputAmount *= 1 ether;
@@ -373,7 +373,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     vars.inputAmount /= 5;
     vars.inputAmount /= precision;
 
-    if (vars.inputToken == IoToken.Usdc) {
+    if (vars.inputToken == IoToken.Wire) {
       vars.inputParams = abi.encodePacked(uint128(vars.inputAmount), AcquireMode.Preapproved);
       vars.expectedSentAmount = vars.inputAmount;
     }
@@ -383,12 +383,12 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       if (!vars.isExactIn)
         //add fees + 100 % buffer to input amount
         vars.inputAmount += _convertAmount(
-          IoToken.Usdc,
+          IoToken.Wire,
           2 * (vars.expectedRelayingFee + vars.fastTransferMaxFee),
           vars.inputToken
         );
 
-      vars.outputAmount = uint128(_convertAmount(vars.inputToken, vars.inputAmount, IoToken.Usdc));
+      vars.outputAmount = uint128(_convertAmount(vars.inputToken, vars.inputAmount, IoToken.Wire));
       if (vars.slippageExceeded)
         vars.outputAmount *= 2;
       else
@@ -579,7 +579,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
     assertEq(
       usdc.balanceOf(user),
-      vars.userBalanceBeforeUsdc - (vars.inputToken == IoToken.Usdc ? vars.expectedSentAmount : 0),
+      vars.userBalanceBeforeUsdc - (vars.inputToken == IoToken.Wire ? vars.expectedSentAmount : 0),
       "usdc balance"
     );
     if (vars.inputToken == IoToken.Gas && !vars.isExactIn)

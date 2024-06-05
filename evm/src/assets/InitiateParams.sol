@@ -11,7 +11,7 @@ using BytesParsing for bytes;
 enum TransferMode {
   LiquidityLayer,
   LiquidityLayerFast
-  //TokenBridge
+  TokenBridge
 }
 
 enum AcquireMode {
@@ -78,8 +78,10 @@ uint constant PERMIT2_PERMIT_SIZE =
 // 1 byte   transfer mode
 //  0: liquidity layer
 //  1: liquidity layer fast
-//    6 bytes  max fee
+//    6 bytes  max fee (in usdc, i.e. 1e6 = 1 usdc)
 //    4 bytes  deadline
+//  2: token bridge
+//   20 bytes  wire token
 //
 // 1 byte   redeem mode
 //  0: direct
@@ -88,16 +90,16 @@ uint constant PERMIT2_PERMIT_SIZE =
 //    n bytes  payload (n = length)
 //  2: relay
 //    4 bytes  gas dropoff (in 1e12 wei, i.e. microether, i.e. 1 eth = 10**6)
-//    6 bytes  max relayer fee (in atomic usdc, i.e. 6 decimals -> 1e6 = 1 usdc)
+//    6 bytes  max relayer fee (in wire type, i.e. with 6 (usdc) or 8 (tokenbridge) decimals)
 //
 // 1 byte   isExactIn
 // 1 byte   input token type
-//  0: USDC
+//  0: Wire
 //   16 bytes  input amount
 //    acquire layout
-//  1: GAS
+//  1: Gas
 //    swap layout
-//  2: ERC20
+//  2: Other
 //    1 byte   approveCheck
 //   20 bytes  token address
 //   16 bytes  input amount
@@ -105,10 +107,10 @@ uint constant PERMIT2_PERMIT_SIZE =
 //    swap layout
 //
 // 1 byte   output token type
-//  0: USDC
-//  1: GAS
+//  0: Wire
+//  1: Gas
 //    swap layout
-//  2: Token
+//  2: Other
 //   32 bytes  token address
 //    swap layout
 
@@ -173,7 +175,7 @@ function parseParamBaseStructure(
     IoToken inputTokenType;
     (inputTokenType, offset) = parseIoToken(params, offset);
     paramBlockOffset = offset;
-    if (inputTokenType == IoToken.Usdc) {
+    if (inputTokenType == IoToken.Wire) {
       offset += SWAP_PARAM_AMOUNT_SIZE;
       offset = skipAcquire(params, offset);
     }
@@ -191,7 +193,7 @@ function parseParamBaseStructure(
     IoToken outputTokenType;
     (outputTokenType, offset) = parseIoToken(params, offset);
     paramBlockOffset = offset;
-    if (outputTokenType != IoToken.Usdc) {
+    if (outputTokenType != IoToken.Wire) {
       if (outputTokenType == IoToken.Other) {
         bytes32 universalAddr;
         (universalAddr, offset) = params.asBytes32Unchecked(offset);
