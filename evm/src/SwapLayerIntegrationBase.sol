@@ -1247,7 +1247,7 @@ abstract contract SwapLayerIntegrationBase {
   function _encodePayloadParams(
     bytes memory payload
   ) private pure returns (bytes memory) {
-    return abi.encodePacked(RedeemMode.Payload, uint32(payload.length), payload);
+    return abi.encodePacked(RedeemMode.Payload, uint16(payload.length), payload);
   }
 
   function _encodeUsdcIn(uint amount) private pure returns (uint144) {
