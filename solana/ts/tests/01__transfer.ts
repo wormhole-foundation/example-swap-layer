@@ -58,7 +58,7 @@ import { FEE_UPDATER_KEYPAIR, REGISTERED_PEERS, createLut, tryNativeToUint8Array
 
 const SOLANA_CHAIN_ID = toChainId("Solana");
 
-describe("Swap Layer", () => {
+describe("Swap Layer -- Admin and USDC Transfer", () => {
     const connection = new Connection(LOCALHOST, "processed");
     const payer = PAYER_KEYPAIR;
     const owner = OWNER_KEYPAIR;
@@ -1110,6 +1110,40 @@ describe("Swap Layer", () => {
     describe("Business Logic", function () {
         describe("Stage Outbound", function () {
             describe("Native", function () {
+                it("Cannot Stage Outbound (Exact In Required)", async function () {
+                    const stagedOutboundSigner = Keypair.generate();
+                    const stagedOutbound = stagedOutboundSigner.publicKey;
+
+                    const amountIn = 690000n;
+                    const [approveIx, ix] = await swapLayer.stageOutboundIx(
+                        {
+                            payer: payer.publicKey,
+                            stagedOutbound,
+                            usdcRefundToken: splToken.getAssociatedTokenAddressSync(
+                                swapLayer.usdcMint,
+                                payer.publicKey,
+                            ),
+                            sender: null,
+                        },
+                        {
+                            transferType: "native",
+                            amountIn,
+                            isExactIn: false,
+                            targetChain: foreignChain,
+                            recipient: foreignRecipientAddress,
+                            redeemOption: null,
+                            outputToken: null,
+                        },
+                    );
+                    assert.isNull(approveIx);
+
+                    await expectIxErr(
+                        connection,
+                        [ix],
+                        [payer, stagedOutboundSigner],
+                        "Error Code: ExactInRequired",
+                    );
+                });
                 it("Cannot Stage Outbound (Sender Required)", async function () {
                     const stagedOutboundSigner = Keypair.generate();
                     const stagedOutbound = stagedOutboundSigner.publicKey;
@@ -1128,6 +1162,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "native",
                             amountIn,
+                            isExactIn: true,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: null,
@@ -1140,7 +1175,7 @@ describe("Swap Layer", () => {
                         connection,
                         [ix],
                         [payer, stagedOutboundSigner],
-                        "rror Code: SenderRequired",
+                        "Error Code: SenderRequired",
                     );
                 });
 
@@ -1177,6 +1212,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "native",
                             amountIn,
+                            isExactIn: true,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: null,
@@ -1202,6 +1238,7 @@ describe("Swap Layer", () => {
                                 sender,
                                 targetChain: foreignChain,
                                 recipient: foreignRecipientAddress,
+                                isExactIn: true,
                                 usdcRefundToken,
                             },
                             { direct: {} },
@@ -1230,6 +1267,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "programTransferAuthority",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: null,
@@ -1265,6 +1303,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "programTransferAuthority",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: null,
@@ -1296,6 +1335,7 @@ describe("Swap Layer", () => {
                                 sender: payer.publicKey,
                                 targetChain: foreignChain,
                                 recipient: foreignRecipientAddress,
+                                isExactIn: false,
                                 usdcRefundToken: senderToken,
                             },
                             { direct: {} },
@@ -1323,6 +1363,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "programTransferAuthority",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: {
@@ -1357,6 +1398,7 @@ describe("Swap Layer", () => {
                                 sender: payer.publicKey,
                                 targetChain: foreignChain,
                                 recipient: foreignRecipientAddress,
+                                isExactIn: false,
                                 usdcRefundToken: senderToken,
                             },
                             { payload: { "0": Buffer.from("All your base are belong to us.") } },
@@ -1386,6 +1428,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: null,
@@ -1432,6 +1475,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: null,
@@ -1468,6 +1512,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: new Array(32).fill(0),
                             redeemOption: { relay: { gasDropoff, maxRelayerFee: 1000000000n } },
@@ -1503,6 +1548,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: { relay: { gasDropoff, maxRelayerFee: 1n } },
@@ -1549,6 +1595,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: { relay: { gasDropoff, maxRelayerFee: 1000000000n } },
@@ -1592,6 +1639,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: { relay: { gasDropoff, maxRelayerFee } },
@@ -1606,7 +1654,43 @@ describe("Swap Layer", () => {
                     );
                 });
 
-                it("Cannot Stage Outbound (U64 Overflow)", async function () {
+                it("Cannot Stage Outbound (Exact-In Amount Too Small)", async function () {
+                    const stagedOutboundSigner = Keypair.generate();
+                    const stagedOutbound = stagedOutboundSigner.publicKey;
+
+                    const amountIn = 1n;
+                    const gasDropoff = 42069;
+                    const senderToken = splToken.getAssociatedTokenAddressSync(
+                        swapLayer.usdcMint,
+                        payer.publicKey,
+                    );
+                    const [, ix] = await swapLayer.stageOutboundIx(
+                        {
+                            payer: payer.publicKey,
+                            senderToken,
+                            stagedOutbound,
+                            usdcRefundToken: senderToken,
+                        },
+                        {
+                            transferType: "sender",
+                            amountIn,
+                            isExactIn: true,
+                            targetChain: foreignChain,
+                            recipient: foreignRecipientAddress,
+                            redeemOption: { relay: { gasDropoff, maxRelayerFee: 1000000000n } },
+                            outputToken: null,
+                        },
+                    );
+
+                    await expectIxErr(
+                        connection,
+                        [ix],
+                        [payer, stagedOutboundSigner],
+                        "Error Code: InsufficientAmountIn",
+                    );
+                });
+
+                it("Cannot Stage Outbound (Exact-Out U64 Overflow)", async function () {
                     const stagedOutboundSigner = Keypair.generate();
                     const stagedOutbound = stagedOutboundSigner.publicKey;
 
@@ -1626,6 +1710,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: { relay: { gasDropoff, maxRelayerFee: 1000000000n } },
@@ -1641,7 +1726,7 @@ describe("Swap Layer", () => {
                     );
                 });
 
-                it("Stage Outbound USDC (Relay)", async function () {
+                it("Stage Outbound USDC (Exact-In Relay)", async function () {
                     const stagedOutboundSigner = Keypair.generate();
                     const stagedOutbound = stagedOutboundSigner.publicKey;
 
@@ -1661,6 +1746,80 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: true,
+                            targetChain: foreignChain,
+                            recipient: foreignRecipientAddress,
+                            redeemOption: { relay: { gasDropoff, maxRelayerFee: 1000000000n } },
+                            outputToken: null,
+                        },
+                    );
+
+                    const { amount: balanceBefore } = await splToken.getAccount(
+                        connection,
+                        senderToken,
+                    );
+                    await expectIxOk(connection, [ix], [payer, stagedOutboundSigner]);
+
+                    const { amount: balanceAfter } = await splToken.getAccount(
+                        connection,
+                        senderToken,
+                    );
+
+                    const { relayParams } = await swapLayer.fetchPeer(foreignChain);
+                    const expectedRelayerFee = calculateRelayerFee(
+                        relayParams,
+                        denormalizeGasDropOff(gasDropoff),
+                        { type: "Usdc" },
+                    );
+                    assert.equal(balanceBefore - balanceAfter, amountIn);
+
+                    const stagedOutboundData = await swapLayer.fetchStagedOutbound(stagedOutbound);
+                    const { info } = stagedOutboundData;
+
+                    assert.deepEqual(
+                        stagedOutboundData,
+                        new StagedOutbound(
+                            {
+                                custodyTokenBump: info.custodyTokenBump,
+                                preparedBy: payer.publicKey,
+                                sender: payer.publicKey,
+                                targetChain: foreignChain,
+                                recipient: foreignRecipientAddress,
+                                isExactIn: true,
+                                usdcRefundToken: senderToken,
+                            },
+                            {
+                                relay: {
+                                    gasDropoff: gasDropoff,
+                                    relayingFee: uint64ToBN(expectedRelayerFee),
+                                },
+                            },
+                            Buffer.alloc(1),
+                        ),
+                    );
+                });
+
+                it("Stage Outbound USDC (Exact-Out Relay)", async function () {
+                    const stagedOutboundSigner = Keypair.generate();
+                    const stagedOutbound = stagedOutboundSigner.publicKey;
+
+                    const amountIn = 690000n;
+                    const gasDropoff = 42069;
+                    const senderToken = splToken.getAssociatedTokenAddressSync(
+                        swapLayer.usdcMint,
+                        payer.publicKey,
+                    );
+                    const [, ix] = await swapLayer.stageOutboundIx(
+                        {
+                            payer: payer.publicKey,
+                            senderToken,
+                            stagedOutbound,
+                            usdcRefundToken: senderToken,
+                        },
+                        {
+                            transferType: "sender",
+                            amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: { relay: { gasDropoff, maxRelayerFee: 1000000000n } },
@@ -1699,6 +1858,7 @@ describe("Swap Layer", () => {
                                 sender: payer.publicKey,
                                 targetChain: foreignChain,
                                 recipient: foreignRecipientAddress,
+                                isExactIn: false,
                                 usdcRefundToken: senderToken,
                             },
                             {
@@ -1731,6 +1891,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: null,
@@ -1762,6 +1923,7 @@ describe("Swap Layer", () => {
                                 sender: payer.publicKey,
                                 targetChain: foreignChain,
                                 recipient: foreignRecipientAddress,
+                                isExactIn: false,
                                 usdcRefundToken: senderToken,
                             },
                             { direct: {} },
@@ -1806,6 +1968,7 @@ describe("Swap Layer", () => {
                         {
                             transferType: "sender",
                             amountIn,
+                            isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: null,
@@ -1837,6 +2000,7 @@ describe("Swap Layer", () => {
                                 sender: payer.publicKey,
                                 targetChain: foreignChain,
                                 recipient: foreignRecipientAddress,
+                                isExactIn: false,
                                 usdcRefundToken: senderToken,
                             },
                             { direct: {} },
@@ -3688,6 +3852,7 @@ describe("Swap Layer", () => {
         },
         opts: {
             amountIn?: bigint;
+            isExactIn?: boolean;
             redeemOption?:
                 | { relay: { gasDropoff: number; maxRelayerFee: Uint64 } }
                 | { payload: Uint8Array | Buffer }
@@ -3698,8 +3863,9 @@ describe("Swap Layer", () => {
         const stagedOutboundSigner = Keypair.generate();
         const stagedOutbound = stagedOutboundSigner.publicKey;
 
-        let { amountIn, redeemOption, outputToken } = opts;
+        let { amountIn, isExactIn, redeemOption, outputToken } = opts;
         amountIn ??= 690000n;
+        isExactIn ??= false;
         redeemOption ??= null;
         outputToken ??= null;
 
@@ -3712,6 +3878,7 @@ describe("Swap Layer", () => {
             {
                 transferType: "sender",
                 amountIn,
+                isExactIn,
                 targetChain: foreignChain,
                 recipient: foreignRecipientAddress,
                 redeemOption,

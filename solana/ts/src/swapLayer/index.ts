@@ -529,6 +529,7 @@ export class SwapLayerProgram {
         args: {
             transferType: "native" | "programTransferAuthority" | "sender";
             amountIn: Uint64;
+            isExactIn: boolean;
             targetChain: ChainId;
             recipient: Array<number>;
             redeemOption:
