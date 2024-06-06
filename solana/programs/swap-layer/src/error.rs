@@ -49,12 +49,14 @@ pub enum SwapLayerError {
     RelayingFeeExceedsMinAmountOut = 0x260,
     ZeroMinAmountOut = 0x262,
     DelegatedAmountMismatch = 0x264,
+    ExactInRequired = 0x266,
+    InsufficientAmountIn = 0x268,
 
     // Swap
     SwapPastDeadline = 0x300,
     InvalidLimitAmount = 0x302,
     InvalidSwapType = 0x304,
-    AmountOutTooSmall = 0x306,
+    InsufficientAmountOut = 0x306,
     InvalidSourceResidual = 0x308,
     SourceResidualMismatch = 0x30a,
 

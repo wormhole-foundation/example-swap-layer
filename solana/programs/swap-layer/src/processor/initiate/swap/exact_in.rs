@@ -27,7 +27,10 @@ pub struct InitiateSwapExactIn<'info> {
     /// the transfer.
     ///
     /// This account may be closed by the end of the instruction if there is no dust after the swap.
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = staged_outbound.info.is_exact_in @ SwapLayerError::ExactInRequired,
+    )]
     staged_outbound: Account<'info, StagedOutbound>,
 
     /// This custody token account may be closed by the end of the instruction if there is no dust
@@ -211,7 +214,7 @@ where
     {
         require!(
             usdc_amount_out > relaying_fee.into(),
-            SwapLayerError::AmountOutTooSmall
+            SwapLayerError::InsufficientAmountOut
         );
     }
 

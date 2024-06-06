@@ -99,7 +99,20 @@ pub struct StageOutbound<'info> {
     usdc_refund_token: Box<Account<'info, token::TokenAccount>>,
 
     /// Mint can either be USDC or whichever mint is used to swap into USDC.
-    #[account(token::token_program = src_token_program)]
+    #[account(
+        token::token_program = src_token_program,
+        constraint = {
+            if sender_token.is_none() {
+                require_keys_eq!(
+                    src_mint.key(),
+                    token::spl_token::native_mint::ID,
+                    SwapLayerError::InvalidSourceMint,
+                );
+            }
+
+            true
+        }
+    )]
     src_mint: Box<InterfaceAccount<'info, token_interface::Mint>>,
 
     src_token_program: Interface<'info, token_interface::TokenInterface>,
@@ -111,6 +124,13 @@ pub struct StageOutbound<'info> {
 #[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct StageOutboundArgs {
     pub amount_in: u64,
+
+    /// This argument only applies to relays. If exact in is specified, the relaying fee will be
+    /// removed from the amount in. Otherwise it will be added to the amount in to guarantee the
+    /// USDC amount specified above.
+    ///
+    /// For swaps, this argument will determine whether which initiate swap instruction to use.
+    pub is_exact_in: bool,
 
     /// The Wormhole chain ID of the network to transfer tokens to.
     pub target_chain: u16,
@@ -132,6 +152,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
 
     let StageOutboundArgs {
         amount_in,
+        is_exact_in,
         target_chain,
         recipient,
         redeem_option,
@@ -147,6 +168,10 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
     let output_token = OutputToken::read(&mut &encoded_output_token[..]).unwrap();
 
     let is_usdc = ctx.accounts.src_mint.key() == common::USDC_MINT;
+
+    // Swap layer does not support exact out for swaps (yet). We catch this before we reach the
+    // initiate swap instruction.
+    require!(is_usdc || is_exact_in, SwapLayerError::ExactInRequired);
 
     // We need to determine the relayer fee. This fee will either be paid for right now if
     // StagedInput::Usdc or will be deducted from the USDC after a resulting swap from the source
@@ -174,9 +199,18 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
 
                 (
                     if is_usdc {
-                        relaying_fee
-                            .checked_add(amount_in)
-                            .ok_or(SwapLayerError::U64Overflow)?
+                        if is_exact_in {
+                            require!(
+                                amount_in > relaying_fee,
+                                SwapLayerError::InsufficientAmountIn
+                            );
+
+                            amount_in
+                        } else {
+                            amount_in
+                                .checked_add(relaying_fee)
+                                .ok_or(SwapLayerError::U64Overflow)?
+                        }
                     } else {
                         amount_in
                     },
@@ -291,6 +325,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
             usdc_refund_token: ctx.accounts.usdc_refund_token.key(),
             sender,
             target_chain,
+            is_exact_in,
             recipient,
         },
         staged_redeem,

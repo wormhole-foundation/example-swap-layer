@@ -23,6 +23,7 @@ export type StagedOutboundInfo = {
     sender: PublicKey;
     targetChain: number;
     recipient: Array<number>;
+    isExactIn: boolean;
     usdcRefundToken: PublicKey;
 };
 

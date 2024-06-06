@@ -83,7 +83,7 @@ const JUPITER_V6_LUT_ADDRESSES_BERN = [
     new PublicKey("55ir29U8MrZbGBV63XbbweEDXP9DSx7eNenc7hnTM81E"),
 ];
 
-describe("Jupiter V6 Testing", () => {
+describe("Swap Layer -- Jupiter V6", () => {
     const connection = new Connection(LOCALHOST, "processed");
 
     const payer = PAYER_KEYPAIR;
@@ -348,7 +348,7 @@ describe("Jupiter V6 Testing", () => {
                 await swapExactInForTest(
                     { payer: payer.publicKey, stagedOutbound, srcMint },
                     { cpiInstruction },
-                    { errorMsg: "Error Code: AmountOutTooSmall" },
+                    { errorMsg: "Error Code: InsufficientAmountOut" },
                 );
             });
 
@@ -1912,6 +1912,7 @@ describe("Jupiter V6 Testing", () => {
                     {
                         transferType: "native",
                         amountIn,
+                        isExactIn: true,
                         targetChain: toChainId("Ethereum"),
                         recipient: Array.from(Buffer.alloc(32, "deadbeef")),
                         redeemOption: null,
@@ -3862,6 +3863,7 @@ describe("Jupiter V6 Testing", () => {
             {
                 transferType,
                 amountIn,
+                isExactIn: true,
                 targetChain,
                 recipient: Array.from(Buffer.alloc(32, "deadbeef")),
                 redeemOption,
