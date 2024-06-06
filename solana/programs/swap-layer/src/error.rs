@@ -31,6 +31,7 @@ pub enum SwapLayerError {
     PayloadTooLarge = 0x114,
     UnsupportedFillType = 0x115,
     SwapTimeLimitNotExceeded = 0x116,
+    ImmutableProgram = 0x118,
 
     // EVM Execution Param errors
     InvalidBaseFee = 0x200,

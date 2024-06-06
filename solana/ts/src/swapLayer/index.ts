@@ -19,6 +19,7 @@ import IDL from "../../../target/idl/swap_layer.json";
 import { SwapLayer } from "../../../target/types/swap_layer";
 import { OutputToken, encodeOutputToken } from "./messages";
 import { Custodian, Peer, RedeemOption, RelayParams, StagedInbound, StagedOutbound } from "./state";
+import { programDataAddress } from "./utils";
 
 export const PROGRAM_IDS = ["SwapLayer1111111111111111111111111111111111"] as const;
 
@@ -299,7 +300,7 @@ export class SwapLayerProgram {
                     feeRecipient,
                 ),
                 feeUpdater,
-                usdc: this.usdcComposite(),
+                programData: programDataAddress(this.ID),
                 systemProgram: SystemProgram.programId,
             })
             .instruction();
