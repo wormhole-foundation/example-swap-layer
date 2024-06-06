@@ -39,9 +39,9 @@ function encodeSwapMessageRelayParams(
 
 function encodeSwapMessagePayloadParams(
   address sender,
-  bytes memory payload
+  bytes memory lengthPrefixedPayload
 ) pure returns (bytes memory) {
-  return abi.encodePacked(sender.toUniversalAddress(), payload);
+  return abi.encodePacked(sender.toUniversalAddress(), lengthPrefixedPayload);
 }
 
 struct SwapMessageStructure {
