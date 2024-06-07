@@ -1,5 +1,6 @@
 .PHONY: build clean FORCE
 
+ifeq (,$(filter clean,$(MAKECMDGOALS)))
 ifndef NETWORK
   $(info No NETWORK specified, defaulting to Mainnet)
   NETWORK = Mainnet
@@ -7,6 +8,7 @@ endif
 
 ifndef CHAIN
   $(error No CHAIN specified)
+endif
 endif
 
 FORK = $(NETWORK) $(CHAIN)
