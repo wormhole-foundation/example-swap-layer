@@ -72,8 +72,8 @@ async function run() {
 
 function createInitiateArgs(config: TestSendConfig): InitiateArgs {
   const output: InitiateArgs = {
-    transferMode: {
-      mode: "LiquidityLayer",
+    fastTransferMode: {
+      mode: "Disabled",
     },
     redeemMode: {
       mode: "Relay",

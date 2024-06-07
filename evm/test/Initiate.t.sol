@@ -129,7 +129,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       FOREIGN_CHAIN_ID,
       user.toUniversalAddress(),
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         new bytes(0),
         RedeemMode.Direct,
         new bytes(0),
@@ -186,7 +186,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     uint   msgValue;
     uint16 targetChain;
 
-    TransferMode transferMode;
+    FastTransferMode fastTransferMode;
     uint   fastTransferMaxFee;
     uint32 auctionDeadline;
     bytes  transferParams;
@@ -285,7 +285,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     }
 
     if (xPercentOfTheTime(25, rngSeed)) {
-      vars.transferMode = TransferMode.LiquidityLayerFast;
+      vars.fastTransferMode = FastTransferMode.Enabled;
       vars.fastTransferMaxFee = FAST_FEE_MINIMUM;
       bool insufficientMaxTransferFee = xPercentOfTheTime(4, rngSeed);
       if (insufficientMaxTransferFee)
@@ -300,7 +300,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       vars.msgValue += 2*_wormholeMsgFee();
     }
     else {
-      vars.transferMode = TransferMode.LiquidityLayer;
+      vars.fastTransferMode = FastTransferMode.Disabled;
       vars.transferParams = new bytes(0);
       vars.msgValue += _wormholeMsgFee();
     }
@@ -430,7 +430,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     console.log("msgValue: %d", vars.msgValue);
     console.log("targetChain: %d", vars.targetChain);
 
-    console.log("transferMode: %d", uint8(vars.transferMode));
+    console.log("fastTransferMode: %d", uint8(vars.fastTransferMode));
     console.log("fastTransferMaxFee: %d", vars.fastTransferMaxFee);
     console.log("transferParams");
     console.logBytes(vars.transferParams);
@@ -470,7 +470,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
           vars.targetChain,
           user.toUniversalAddress(),
           abi.encodePacked(
-            vars.transferMode,
+            vars.fastTransferMode,
             vars.transferParams,
             vars.redeemMode,
             vars.redeemParams,
@@ -529,7 +529,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       return;
     }
 
-    if (vars.transferMode == TransferMode.LiquidityLayerFast) {
+    if (vars.fastTransferMode == FastTransferMode.Enabled) {
       if (vars.expectedSentAmount > FAST_TRANSFER_MAX_AMOUNT) {
         assertFalse(success, "fastTransferMaxAmount exceeded");
         assertEq(maybeErrorSelector, bytes4(keccak256("ErrAmountTooLarge(uint64,uint64)")));
@@ -563,7 +563,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
 
       offset += 32; //skip protocolSequence
 
-      if (vars.transferMode == TransferMode.LiquidityLayerFast) {
+      if (vars.fastTransferMode == FastTransferMode.Enabled) {
         uint64 fastSequence;
         (fastSequence, offset) = returnData.asUint64Unchecked(offset + 24);
         assertEq(fastSequence, vars.sequenceBefore + 1, "fastSequence mismatch");
@@ -611,7 +611,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     PublishedMessage[] memory pubMsgs = wormhole.fetchPublishedMessages(vm.getRecordedLogs());
     assertEq(
       pubMsgs.length,
-      vars.transferMode == TransferMode.LiquidityLayerFast ? 2 : 1,
+      vars.fastTransferMode == FastTransferMode.Enabled ? 2 : 1,
       "emitted wormhole messages"
     );
 
@@ -632,7 +632,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       assertEq(cctpAmount, vars.expectedSentAmount, "deposit cctpAmount");
       assertEq(
         mintRecipient,
-        vars.transferMode == TransferMode.LiquidityLayerFast
+        vars.fastTransferMode == FastTransferMode.Enabled
         ? MATCHING_ENGINE_MINT_RECIPIENT
         : FOREIGN_LIQUIDITY_LAYER,
         "deposit mintRecipient"
@@ -645,7 +645,7 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     bytes32 expectedRedeemer = vars.targetChain == SOLANA_CHAIN_ID
       ? SOLANA_SWAP_LAYER
       : FOREIGN_SWAP_LAYER;
-    if (vars.transferMode == TransferMode.LiquidityLayerFast) {
+    if (vars.fastTransferMode == FastTransferMode.Enabled) {
       LiquidityLayerMessages.SlowOrderResponse memory slowResp =
         LiquidityLayerMessages.decodeSlowOrderResponse(depositPayload);
 

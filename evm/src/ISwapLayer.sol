@@ -2,6 +2,9 @@
 
 pragma solidity ^0.8.24;
 
+
+import { OrderResponse } from "liquidity-layer/interfaces/ITokenRouter.sol";
+
 //integration guideline:
 // *  on-chain: use SwapLayerIntegration.sol base contract
 // * off-chain: use TypeScript SDK to compose calls and decode returned bytes
@@ -13,10 +16,9 @@ interface ISwapLayer {
     bytes calldata params
   ) external payable returns (bytes memory);
 
-  //selector: 2e14075e
+  //selector: 604009a9 (redeem(bytes,(bytes,bytes,bytes)))
   function redeem(
-    uint8 attestationType, //AttestationType enum value
-    bytes calldata attestation,
+    OrderResponse calldata attestations,
     bytes calldata params
   ) external payable returns (bytes memory);
 

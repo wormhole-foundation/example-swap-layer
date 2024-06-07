@@ -109,7 +109,7 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     vars.userBalanceBeforeUsdc = usdc.balanceOf(user);
     vars.feeRecipientBalanceBeforeUsdc = usdc.balanceOf(feeRecipient);
 
-    bytes memory attestation = _attestation(vars.usdcAmount, vars.swapMessage);
+    OrderResponse memory attestation = _attestation(vars.usdcAmount, vars.swapMessage);
     vars.withOverride = xPercentOfTheTime(vars.redeemMode == RedeemMode.Relay ? 1 : 20, rngSeed);
     ComposedRedeemParams memory composedParams;
     if (vars.withOverride) {
@@ -158,7 +158,6 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     (bool success, bytes memory returnData) = address(swapLayer).call{value: vars.msgValue}(
       abi.encodeCall(
         swapLayer.redeem, (
-          AttestationType.LiquidityLayer,
           composedParams.attestation,
           composedParams.params
         )
@@ -247,7 +246,10 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     }
   }
 
-  function _attestation(uint amount, bytes memory swapMessage) private returns (bytes memory) {
+  function _attestation(
+    uint amount,
+    bytes memory swapMessage
+  ) private returns (OrderResponse memory) {
     Messages.Fill memory fill = Messages.Fill({
       sourceChain: FOREIGN_CHAIN_ID,
       orderSender: FOREIGN_SWAP_LAYER,
@@ -258,6 +260,6 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     (bytes memory encodedVaa, bytes memory encodedCctpMessage, bytes memory cctpAttestation) =
       wormholeCctpSimulator.craftWormholeCctpRedeemParams(amount, fill.encode());
 
-    return abi.encode(OrderResponse(encodedVaa, encodedCctpMessage, cctpAttestation));
+    return OrderResponse(encodedVaa, encodedCctpMessage, cctpAttestation);
   }
 }

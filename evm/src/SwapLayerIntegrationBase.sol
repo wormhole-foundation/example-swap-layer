@@ -28,13 +28,13 @@ import {
   FAST_TRANSFER_DEADLINE_SIZE,
   RELAY_GAS_DROPOFF_SIZE,
   RELAY_MAX_RELAYER_FEE_SIZE,
-  TransferMode,
+  FastTransferMode,
   RedeemMode,
   IoToken,
   AcquireMode
 } from "./assets/InitiateParams.sol";
 import { AttestationType } from "./assets/SwapLayerRedeem.sol";
-import { ISwapLayer } from "./ISwapLayer.sol";
+import { ISwapLayer, OrderResponse } from "./ISwapLayer.sol";
 
 //written in a way to avoid memory allocations as much as possible, hence some repetitive passages
 abstract contract SwapLayerIntegrationBase {
@@ -267,7 +267,7 @@ abstract contract SwapLayerIntegrationBase {
       params.amount,
       params.targetParams,
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         RedeemMode.Direct,
         params.isExactIn,
         IoToken.Gas,
@@ -296,7 +296,7 @@ abstract contract SwapLayerIntegrationBase {
       SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
       params.targetParams,
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         RedeemMode.Direct,
         uint8(0), //isExactIn - irrelevant
         _encodeUsdcIn(params.amount),
@@ -328,7 +328,7 @@ abstract contract SwapLayerIntegrationBase {
       SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
       params.targetParams,
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         RedeemMode.Direct,
         params.isExactIn,
         _encodeTokenIn(params.inputToken, params.approveCheck),
@@ -363,7 +363,7 @@ abstract contract SwapLayerIntegrationBase {
       params.amount,
       params.targetParams,
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         _encodeRelayParams(params.relayParams),
         params.isExactIn,
         IoToken.Gas,
@@ -399,7 +399,7 @@ abstract contract SwapLayerIntegrationBase {
       SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
       params.targetParams,
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         _encodeRelayParams(params.relayParams),
         params.isExactIn,
         _encodeUsdcIn(params.amount),
@@ -437,7 +437,7 @@ abstract contract SwapLayerIntegrationBase {
       SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
       params.targetParams,
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         _encodeRelayParams(params.relayParams),
         params.isExactIn,
         _encodeTokenIn(params.inputToken, params.approveCheck),
@@ -477,7 +477,7 @@ abstract contract SwapLayerIntegrationBase {
       params.amount,
       params.targetParams,
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         _encodePayloadParams(params.payload),
         params.isExactIn,
         IoToken.Gas,
@@ -507,7 +507,7 @@ abstract contract SwapLayerIntegrationBase {
       SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
       params.targetParams,
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         _encodePayloadParams(params.payload),
         uint8(0), //isExactIn - irrelevant
         _encodeUsdcIn(params.amount),
@@ -540,7 +540,7 @@ abstract contract SwapLayerIntegrationBase {
       SINGLE_WORMHOLE_MESSAGE_FEE_PLACEHOLDER,
       params.targetParams,
       abi.encodePacked(
-        TransferMode.LiquidityLayer,
+        FastTransferMode.Disabled,
         _encodePayloadParams(params.payload),
         params.isExactIn,
         _encodeTokenIn(params.inputToken, params.approveCheck),
@@ -937,8 +937,7 @@ abstract contract SwapLayerIntegrationBase {
   }
 
   struct ComposedRedeemParams {
-    AttestationType attestationType;
-    bytes attestation;
+    OrderResponse attestation;
     bytes params;
   }
 
@@ -946,7 +945,6 @@ abstract contract SwapLayerIntegrationBase {
     ComposedRedeemParams memory params
   ) internal returns (bool success, bytes memory returnData) {
     try _swapLayer().redeem(
-        uint8(params.attestationType),
         params.attestation,
         params.params
       )
@@ -965,14 +963,13 @@ abstract contract SwapLayerIntegrationBase {
   }
 
   struct Redeem {
-    bytes attestation;
+    OrderResponse attestation;
   }
 
   function _swapLayerComposeRedeem(
     Redeem memory params
   ) internal pure returns (ComposedRedeemParams memory) {
     return ComposedRedeemParams(
-      AttestationType.LiquidityLayer,
       params.attestation,
       new bytes(0)
     );
@@ -999,7 +996,7 @@ abstract contract SwapLayerIntegrationBase {
   }
 
   struct RedeemOverride {
-    bytes attestation;
+    OrderResponse attestation;
     bytes outputSwap;
   }
 
@@ -1007,7 +1004,6 @@ abstract contract SwapLayerIntegrationBase {
     RedeemOverride memory params
   ) internal pure returns (ComposedRedeemParams memory) {
     return ComposedRedeemParams(
-      AttestationType.LiquidityLayer,
       params.attestation,
       params.outputSwap
     );
@@ -1227,7 +1223,7 @@ abstract contract SwapLayerIntegrationBase {
     _checkMax(params.auctionDeadline, type(uint32).max);
 
     return uint88(((
-      uint(TransferMode.LiquidityLayerFast)
+      uint(FastTransferMode.Enabled)
       <<  FAST_TRANSFER_MAX_FEE_SIZE * 8) + params.maxFastFeeUsdc
       << FAST_TRANSFER_DEADLINE_SIZE * 8) + params.auctionDeadline
     );

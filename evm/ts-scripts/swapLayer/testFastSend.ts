@@ -72,8 +72,8 @@ async function run() {
 
 function createInitiateArgs(config: TestSendConfig): InitiateArgs {
   const output: InitiateArgs = {
-    transferMode: {
-      mode: "LiquidityLayerFast",
+    fastTransferMode: {
+      mode: "Enabled",
       maxFee: BigInt(1000001), //TODO configurable
       deadline: parseInt("1716290122"),
     },

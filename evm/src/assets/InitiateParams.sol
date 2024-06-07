@@ -8,10 +8,9 @@ import "./Params.sol";
 
 using BytesParsing for bytes;
 
-enum TransferMode {
-  LiquidityLayer,
-  LiquidityLayerFast
-  //TokenBridge
+enum FastTransferMode {
+  Disabled,
+  Enabled
 }
 
 enum AcquireMode {
@@ -75,9 +74,9 @@ uint constant PERMIT2_PERMIT_SIZE =
 //    65 bytes  signature (r, s, v)
 
 //initiate param layout:
-// 1 byte   transfer mode
-//  0: liquidity layer
-//  1: liquidity layer fast
+// 1 byte   fast mode
+//  0: no
+//  1: yes
 //    6 bytes  max fee
 //    4 bytes  deadline
 //
@@ -112,8 +111,8 @@ uint constant PERMIT2_PERMIT_SIZE =
 //   32 bytes  token address
 //    swap layout
 
-struct TransferMOS {
-  TransferMode mode;
+struct FastTransferMOS {
+  FastTransferMode mode;
   uint offset;
   uint size;
 }
@@ -131,7 +130,7 @@ struct IoTokenMOS {
 }
 
 struct ModesOffsetsSizes {
-  TransferMOS transfer;
+  FastTransferMOS fastTransfer;
   RedeemMOS redeem;
   bool isExactIn;
   IoTokenMOS input;
@@ -145,14 +144,14 @@ function parseParamBaseStructure(
   uint offset = 0;
   uint paramBlockOffset;
   {
-    TransferMode transferMode;
-    (transferMode, offset) = parseTransferMode(params, offset);
+    FastTransferMode fastTransferMode;
+    (fastTransferMode, offset) = parseFastTransferMode(params, offset);
     paramBlockOffset = offset;
-    if (transferMode == TransferMode.LiquidityLayerFast)
+    if (fastTransferMode == FastTransferMode.Enabled)
       offset += FAST_TRANSFER_PARAM_SIZE;
 
-    mos.transfer =
-      TransferMOS(transferMode, paramBlockOffset, offset - paramBlockOffset);
+    mos.fastTransfer =
+      FastTransferMOS(fastTransferMode, paramBlockOffset, offset - paramBlockOffset);
   }
   {
     RedeemMode redeemMode;
@@ -207,13 +206,13 @@ function parseParamBaseStructure(
   params.checkLength(offset);
 }}
 
-function parseTransferMode(
+function parseFastTransferMode(
   bytes memory params,
   uint offset
-) pure returns (TransferMode, uint) {
+) pure returns (FastTransferMode, uint) {
   uint8 value;
   (value, offset) = params.asUint8Unchecked(offset);
-  return (TransferMode(value), offset);
+  return (FastTransferMode(value), offset);
 }
 
 //gas optimization - cheaper than if else branch

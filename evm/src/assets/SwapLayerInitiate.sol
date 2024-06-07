@@ -37,8 +37,8 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
     uint64 maxFastFee = 0;
     uint32 fastTransferDeadline = 0;
-    if (mos.transfer.mode == TransferMode.LiquidityLayerFast) {
-      uint offset = mos.transfer.offset;
+    if (mos.fastTransfer.mode == FastTransferMode.Enabled) {
+      uint offset = mos.fastTransfer.offset;
       (maxFastFee, offset   ) = params.asUint48Unchecked(offset);
       (fastTransferDeadline,) = params.asUint32Unchecked(offset);
     }
@@ -83,7 +83,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       encodeSwapMessage(recipient, mos.redeem.mode, redeemPayload, outputSwap);
 
     bytes memory ret;
-    if (mos.transfer.mode == TransferMode.LiquidityLayerFast) {
+    if (mos.fastTransfer.mode == FastTransferMode.Enabled) {
       (uint64 sequence, uint64 fastSequence, uint256 protocolSequence) =
         _liquidityLayer.placeFastMarketOrder{value: wormholeFee}(
           usdcAmount,
@@ -96,7 +96,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
       ret = abi.encode(usdcAmount, sequence, protocolSequence, fastSequence);
     }
-    else if (mos.transfer.mode == TransferMode.LiquidityLayer) {
+    else if (mos.fastTransfer.mode == FastTransferMode.Disabled) {
       (uint64 sequence, uint256 protocolSequence) =
         _liquidityLayer.placeMarketOrder{value: wormholeFee}(
           usdcAmount,
@@ -144,7 +144,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       bool approveCheck = false; //gas optimization
       if (inputTokenType == IoToken.Gas) {
         wormholeFee = _wormhole.messageFee();
-        if (mos.transfer.mode == TransferMode.LiquidityLayerFast)
+        if (mos.fastTransfer.mode == FastTransferMode.Enabled)
           wormholeFee *= 2; //fast transfers emit 2 wormhole messages
 
         if (msg.value < wormholeFee)
