@@ -115,7 +115,7 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     if (vars.withOverride) {
       (, vars.swapCount, vars.swapType, vars.deadline, vars.minOutputAmount, vars.swap) =
         _fuzzEvmOutputParams(rngSeed);
-      composedParams = _swapLayerComposeRedeem(RedeemOverride(attestation, vars.swap));
+      composedParams = _swapLayerComposeRedeem(RedeemOverride(vars.swap, attestation));
     }
     else
       composedParams = _swapLayerComposeRedeem(Redeem(attestation));
@@ -156,12 +156,7 @@ contract RedeemTest is SLTSwapBase, SwapLayerIntegrationBase {
     // console.log("feeRecipientBalanceBeforeUsdc: %d", vars.feeRecipientBalanceBeforeUsdc);
     vm.prank(vars.sender);
     (bool success, bytes memory returnData) = address(swapLayer).call{value: vars.msgValue}(
-      abi.encodeCall(
-        swapLayer.redeem, (
-          composedParams.attestation,
-          composedParams.params
-        )
-      )
+      abi.encodeCall(swapLayer.redeem, (composedParams.params, composedParams.attestation))
     );
 
     bytes memory expectedError;

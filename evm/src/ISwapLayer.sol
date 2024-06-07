@@ -18,8 +18,8 @@ interface ISwapLayer {
 
   //selector: 604009a9 (redeem(bytes,(bytes,bytes,bytes)))
   function redeem(
-    OrderResponse calldata attestations,
-    bytes calldata params
+    bytes calldata params,
+    OrderResponse calldata attestations
   ) external payable returns (bytes memory);
 
   //selector: 64ee4476

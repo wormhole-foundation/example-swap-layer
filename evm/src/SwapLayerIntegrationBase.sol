@@ -937,16 +937,16 @@ abstract contract SwapLayerIntegrationBase {
   }
 
   struct ComposedRedeemParams {
-    OrderResponse attestation;
     bytes params;
+    OrderResponse attestation;
   }
 
   function _swapLayerRedeemRaw(
     ComposedRedeemParams memory params
   ) internal returns (bool success, bytes memory returnData) {
     try _swapLayer().redeem(
-        params.attestation,
-        params.params
+        params.params,
+        params.attestation
       )
     returns (bytes memory successData) { return (true,  successData); }
     catch   (bytes memory errorData)   { return (false, errorData  ); }
@@ -969,10 +969,7 @@ abstract contract SwapLayerIntegrationBase {
   function _swapLayerComposeRedeem(
     Redeem memory params
   ) internal pure returns (ComposedRedeemParams memory) {
-    return ComposedRedeemParams(
-      params.attestation,
-      new bytes(0)
-    );
+    return ComposedRedeemParams(new bytes(0), params.attestation);
   }
 
   function _swapLayerRedeem(
@@ -996,16 +993,16 @@ abstract contract SwapLayerIntegrationBase {
   }
 
   struct RedeemOverride {
-    OrderResponse attestation;
     bytes outputSwap;
+    OrderResponse attestation;
   }
 
   function _swapLayerComposeRedeem(
     RedeemOverride memory params
   ) internal pure returns (ComposedRedeemParams memory) {
     return ComposedRedeemParams(
-      params.attestation,
-      params.outputSwap
+      params.outputSwap,
+      params.attestation
     );
   }
 

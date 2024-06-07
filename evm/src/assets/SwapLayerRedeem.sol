@@ -48,8 +48,8 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
   //    no extra params allowed
 
   function redeem(
-    OrderResponse calldata attestations,
-    bytes calldata params
+    bytes calldata params,
+    OrderResponse calldata attestations
   ) external payable returns (bytes memory) {
     RedeemedFill memory fill = _liquidityLayer.redeemFill(attestations);
     SwapMessageStructure memory sms = parseSwapMessageStructure(fill.message);
