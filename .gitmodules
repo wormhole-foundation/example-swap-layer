@@ -1,4 +1,4 @@
 [submodule "lib/example-liquidity-layer"]
     path = lib/example-liquidity-layer
     url = https://github.com/wormhole-foundation/example-liquidity-layer.git
-    rev = 40b328135c95453f41ffb12804cfcce440143c46
+    rev = a1763da8aa395c25753a0a5e9781662eb3724e6c

@@ -79,25 +79,65 @@ filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messen
 address = "72bvEFk2Usi2uYc1SnaTNhBcQPc6tiJWXr9oKk7rkd4C"
 filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_local_token.json"
 
-### Circle Token Messenger Minter PDA -- USDC Token Pair
+### Circle Token Messenger Minter PDA -- USDC Token Pair (Domain 0)
 [[test.validator.account]]
 address = "8d1jdvvMFhJfxSzPXcDGtifcGMTvUxc2EpWFstbNzcTL"
-filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/usdc_token_pair.json"
+filename = "ts/tests/accounts/cctp/usdc_token_pair_0.json"
 
-### Circle Token Messenger Minter PDA -- Ethereum Remote Token Messenger
+### Circle Token Messenger Minter PDA -- Remote Token Messenger (Domain 0)
 [[test.validator.account]]
 address = "Hazwi3jFQtLKc2ughi7HFXPkpDeso7DQaMR9Ks4afh3j"
-filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/ethereum_remote_token_messenger.json"
+filename = "ts/tests/accounts/cctp/remote_token_messenger_0.json"
 
-### Circle Token Messenger Minter PDA -- Arbitrum Remote Token Messenger
+### Circle Token Messenger Minter PDA -- USDC Token Pair (Domain 1)
+[[test.validator.account]]
+address = "9nZDjKDg3CDoYYBk6tTSKgVZigENeztf498b9ZTMNzH2"
+filename = "ts/tests/accounts/cctp/usdc_token_pair_1.json"
+
+### Circle Token Messenger Minter PDA -- Remote Token Messenger (Domain 1)
+[[test.validator.account]]
+address = "FWFDZqvQx3PVr8Y92d8vp5EQFpZNVPA8G42d9KfkhPk5"
+filename = "ts/tests/accounts/cctp/remote_token_messenger_1.json"
+
+### Circle Token Messenger Minter PDA -- USDC Token Pair (Domain 2)
+[[test.validator.account]]
+address = "F7yEZhdiMSMCDHtdYErSfLsU3hPr7DsTGjZeFTGo1rUf"
+filename = "ts/tests/accounts/cctp/usdc_token_pair_2.json"
+
+### Circle Token Messenger Minter PDA -- Remote Token Messenger (Domain 2)
+[[test.validator.account]]
+address = "AcUS9yaMAyyC12RCwMnkJBpbkzQfa5d3ErSYdACBapJw"
+filename = "ts/tests/accounts/cctp/remote_token_messenger_2.json"
+
+### Circle Token Messenger Minter PDA -- USDC Token Pair (Domain 3)
+[[test.validator.account]]
+address = "3jziQYpnNe67yDduLX4VMNYL1VQai4kVHJKBfGKUHkK6"
+filename = "ts/tests/accounts/cctp/usdc_token_pair_3.json"
+
+### Circle Token Messenger Minter PDA -- Remote Token Messenger (Domain 3)
 [[test.validator.account]]
 address = "REzxi9nX3Eqseha5fBiaJhTC6SFJx4qJhP83U4UCrtc"
-filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/arbitrum_remote_token_messenger.json"
+filename = "ts/tests/accounts/cctp/remote_token_messenger_3.json"
 
-### Circle Token Messenger Minter PDA -- Base Remote Token Messenger
+### Circle Token Messenger Minter PDA -- USDC Token Pair (Domain 6)
+[[test.validator.account]]
+address = "4N7AAQpL49n6exovi55CSo4rCFz5WxXmA8bziBQsh7Vk"
+filename = "ts/tests/accounts/cctp/usdc_token_pair_6.json"
+
+### Circle Token Messenger Minter PDA -- Remote Token Messenger (Domain 6)
 [[test.validator.account]]
 address = "BWyFzH6LsnmDAaDWbGsriQ9SiiKq1CF6pbH4Ye3kzSBV"
-filename = "../lib/example-liquidity-layer/solana/ts/tests/accounts/token_messenger_minter/misconfigured_remote_token_messenger.json"
+filename = "ts/tests/accounts/cctp/remote_token_messenger_6.json"
+
+### Circle Token Messenger Minter PDA -- USDC Token Pair (Domain 7)
+[[test.validator.account]]
+address = "2urk1WTiiav7kj8Cn3fZ1crFdxY9xNv7WKsusoMXLJEN"
+filename = "ts/tests/accounts/cctp/usdc_token_pair_7.json"
+
+### Circle Token Messenger Minter PDA -- Remote Token Messenger (Domain 7)
+[[test.validator.account]]
+address = "HENV19bfgVUXtvnCNxYnVDKhDjer6i34xU5sKrcbgdyt"
+filename = "ts/tests/accounts/cctp/remote_token_messenger_7.json"
 
 ### Circle Message Transmitter PDA -- Message Transmitter Config
 [[test.validator.account]]

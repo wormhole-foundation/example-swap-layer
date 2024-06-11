@@ -1,0 +1,6 @@
+.anchor
+.env
+.private
+.vscode
+Anchor.toml
+target

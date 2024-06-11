@@ -33,7 +33,7 @@ LIB_DEPS = foundry-rs/forge-std
 LIB_DEPS += openzeppelin/openzeppelin-contracts@dc44c9f #4.9.6
 LIB_DEPS += Uniswap/permit2@cc56ad0 #latest commit as per 22/04/2024
 LIB_DEPS += wormhole-foundation/wormhole-solidity-sdk@b935ddc #post-merged branch
-LIB_DEPS += wormhole-foundation/example-liquidity-layer@80aebe9 #main branch
+LIB_DEPS += wormhole-foundation/example-liquidity-layer@f57444f #main branch
 
 # dynamically generate install rule for each lib dependency and add to depdenencies
 $(foreach dep,$(LIB_DEPS), $(eval $(call install_lib,$(dep))))
@@ -41,5 +41,5 @@ $(foreach dep,$(LIB_DEPS), $(eval $(call install_lib,$(dep))))
 clean:
 	forge clean
 	rm -rf lib
+	rm -rf node_modules
 	@$(MAKE) -C env clean
-

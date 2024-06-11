@@ -14,7 +14,8 @@
         "test": "jest --config ./jest.config.ts --detectOpenHandles",
         "build:cjs": "tsc -p tsconfig.cjs.json",
         "build:esm": "tsc -p tsconfig.esm.json",
-        "build": "tsc -p tsconfig.json"
+        "build": "tsc -p tsconfig.json",
+        "clean":"rm -rf dist"
     },
     "dependencies": {
         "@certusone/wormhole-sdk": "^0.10.10",
@@ -24,12 +25,13 @@
         "@solana/web3.js": "^1.91.6",
         "@types/node-fetch": "^2.6.11",
         "@wormhole-foundation/example-liquidity-layer-definitions": "file:../lib/example-liquidity-layer/wormhole-foundation-example-liquidity-layer-definitions-0.0.1.tgz",
+        "@wormhole-foundation/example-liquidity-layer-evm": "file:../lib/example-liquidity-layer/wormhole-foundation-example-liquidity-layer-evm-0.0.1.tgz",
         "@wormhole-foundation/example-liquidity-layer-solana": "file:../lib/example-liquidity-layer/wormhole-foundation-example-liquidity-layer-solana-0.0.1.tgz",
-        "@wormhole-foundation/sdk-base": "^0.7.0-beta.4",
-        "@wormhole-foundation/sdk-definitions": "^0.7.0-beta.4",
-        "@wormhole-foundation/sdk-evm": "0.7.0-beta.4",
-        "@wormhole-foundation/sdk-solana": "^0.7.0-beta.4",
-        "@wormhole-foundation/sdk-solana-core": "^0.7.0-beta.4",
+        "@wormhole-foundation/sdk-base": "^0.7.0-beta.6",
+        "@wormhole-foundation/sdk-definitions": "^0.7.0-beta.6",
+        "@wormhole-foundation/sdk-evm": "0.7.0-beta.6",
+        "@wormhole-foundation/sdk-solana": "^0.7.0-beta.6",
+        "@wormhole-foundation/sdk-solana-core": "^0.7.0-beta.6",
         "anchor-0.29.0": "npm:@coral-xyz/anchor@^0.29.0",
         "chai-as-promised": "^7.1.1",
         "ts-results": "^3.3.0",

@@ -43,8 +43,11 @@ cargo-test: fast-transfer-sync
 	cargo test --workspace --all-targets --features $(NETWORK)
 
 .PHONY: anchor-test
-anchor-test: ../node_modules $(CLONED_PROGRAMS)
+anchor-test: anchor-test-setup
 	anchor test -- --features integration-test
+
+.PHONY: anchor-test-setup
+anchor-test-setup: ../node_modules $(CLONED_PROGRAMS)
 
 .PHONY: anchor-build-idl
 anchor-build-idl:
