@@ -1,6 +1,6 @@
 use crate::state::StagedInbound;
 use anchor_lang::prelude::*;
-use anchor_spl::token;
+use anchor_spl::token_interface;
 
 /// Accounts required for [consume_inbound].
 #[derive(Accounts)]
@@ -33,11 +33,14 @@ pub struct ReleaseInbound<'info> {
     /// Staged custody token account. This account will be closed at the end of this instruction.
     #[account(
         mut,
+        token::mint = mint,
         address = staged_inbound.custody_token,
     )]
-    staged_custody_token: Account<'info, token::TokenAccount>,
+    staged_custody_token: InterfaceAccount<'info, token_interface::TokenAccount>,
 
-    token_program: Program<'info, token::Token>,
+    mint: InterfaceAccount<'info, token_interface::Mint>,
+
+    token_program: Interface<'info, token_interface::TokenInterface>,
 }
 
 pub fn release_inbound(ctx: Context<ReleaseInbound>) -> Result<()> {
@@ -51,24 +54,27 @@ pub fn release_inbound(ctx: Context<ReleaseInbound>) -> Result<()> {
 
     let custody_token = &ctx.accounts.staged_custody_token;
     let token_program = &ctx.accounts.token_program;
+    let mint = &ctx.accounts.mint;
 
-    token::transfer(
+    token_interface::transfer_checked(
         CpiContext::new_with_signer(
             token_program.to_account_info(),
-            token::Transfer {
+            token_interface::TransferChecked {
                 from: custody_token.to_account_info(),
                 to: ctx.accounts.dst_token.to_account_info(),
                 authority: staged_inbound.to_account_info(),
+                mint: mint.to_account_info(),
             },
             &[staged_inbound_signer_seeds],
         ),
         custody_token.amount,
+        mint.decimals,
     )?;
 
     // Finally close token account.
-    token::close_account(CpiContext::new_with_signer(
+    token_interface::close_account(CpiContext::new_with_signer(
         token_program.to_account_info(),
-        token::CloseAccount {
+        token_interface::CloseAccount {
             account: custody_token.to_account_info(),
             destination: ctx.accounts.beneficiary.to_account_info(),
             authority: staged_inbound.to_account_info(),

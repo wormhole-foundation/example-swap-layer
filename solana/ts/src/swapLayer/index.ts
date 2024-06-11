@@ -930,10 +930,19 @@ export class SwapLayerProgram {
         recipient: PublicKey;
         dstToken: PublicKey;
         beneficiary?: PublicKey;
+        mint?: PublicKey;
+        tokenProgram?: PublicKey;
     }): Promise<TransactionInstruction> {
-        let { stagedInbound, recipient, dstToken, beneficiary } = accounts;
+        const { stagedInbound, recipient, dstToken } = accounts;
 
+        let { beneficiary, mint, tokenProgram } = accounts;
         beneficiary ??= recipient;
+
+        if (mint === undefined || tokenProgram === undefined) {
+            const accInfo = await this.connection().getAccountInfo(dstToken);
+            tokenProgram ??= accInfo.owner;
+            mint ??= splToken.unpackAccount(dstToken, accInfo, accInfo.owner).mint;
+        }
 
         return this.program.methods
             .releaseInbound()
@@ -943,7 +952,8 @@ export class SwapLayerProgram {
                 stagedInbound,
                 dstToken,
                 stagedCustodyToken: this.stagedCustodyTokenAddress(stagedInbound),
-                tokenProgram: splToken.TOKEN_PROGRAM_ID,
+                mint,
+                tokenProgram,
             })
             .instruction();
     }
