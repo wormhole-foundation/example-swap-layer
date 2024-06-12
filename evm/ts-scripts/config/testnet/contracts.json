@@ -2,13 +2,13 @@
   "description": "This file contains the addresses for the contracts on each chain. If useLastRun is true, this file will be ignored, and the addresses will be taken from the lastrun.json of the deployment scripts.",
   "useLastRun": true,
   "SwapLayers": [
-    { "address": "0xd89852c2feF7FAF2BDE3350906d18FF5c7Aa5A3c", "chainId": 6 },
+    { "address": "0x550C57ad1E470090Cf14f487a1FAb5b323a65319", "chainId": 6 },
     {
-      "address": "0x00147919bF0ee91B70ce683190B3f2Fb5392B752",
+      "address": "0x42CE2224e197DA43ECCEAa6B7EC3a21536D0efb8",
       "chainId": 10003
     },
     {
-      "address": "0xcae99a9eDA4C462536eA56a7c6368f2D6507c199",
+      "address": "0xcC5cA95db8D3De599E123Ded0315d84c3e65B240",
       "chainId": 10004
     }
   ]
