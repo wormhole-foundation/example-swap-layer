@@ -152,7 +152,7 @@ export const feeParamsLayout = [
   { name: "baseFee",                 ...baseFeeItem       },
 ] as const satisfies Layout;
 
-// ---- initiate params ----
+// ---- initiate/redeem params ----
 
 const fastTransferModeItem = {
   name: "fastTransferMode",
@@ -297,12 +297,16 @@ const inputTokenItem = {
   layouts: zip([ioTokenTypes, inputTokenLayouts]),
 } as const satisfies NamedLayoutItem;
 
-const outputTokenItem = {
-  name: "outputToken",
+const outputTokenLayout = {
   binary: "switch",
   idSize: 1,
   idTag: "type",
   layouts: zip([ioTokenTypes, outputTokenLayouts])
+} as const satisfies Layout;
+
+const outputTokenItem = {
+  name: "outputToken",
+  ...outputTokenLayout
 } as const satisfies NamedLayoutItem;
 
 export const initiateArgsLayout = [
@@ -312,6 +316,15 @@ export const initiateArgsLayout = [
   inputTokenItem,
   outputTokenItem,
 ] as const satisfies Layout;
+
+export const redeemParamLayout = outputTokenLayout;
+
+// ---- batch max approve ----
+
+export const batchMaxApproveParamLayout = {
+  binary: "array",
+  layout: evmAddressItem
+} as const as Layout;
 
 // ---- message layout ----
 

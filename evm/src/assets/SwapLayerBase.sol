@@ -67,7 +67,7 @@ abstract contract SwapLayerBase {
     uint offset = 0;
     while (offset < approvals.length) {
       IERC20 token;
-      (token,    offset) = parseIERC20(approvals, offset);
+      (token, offset) = parseIERC20(approvals, offset);
       _uniswapMaxApprove(token);
       _traderJoeMaxApprove(token);
     }
