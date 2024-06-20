@@ -209,7 +209,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
                         } else {
                             amount_in
                                 .checked_add(relaying_fee)
-                                .ok_or(SwapLayerError::U64Overflow)?
+                                .ok_or_else(|| SwapLayerError::U64Overflow)?
                         }
                     } else {
                         amount_in

@@ -681,7 +681,7 @@ pub(crate) fn handle_complete_swap_jup_v6<'ctx, 'info>(
                 ),
                 amount_out
                     .checked_add(gas_dropoff.unwrap_or_default())
-                    .ok_or(SwapLayerError::U64Overflow)?,
+                    .ok_or_else(|| SwapLayerError::U64Overflow)?,
             )?
         } else {
             // Verify that the encoded owner is the actual owner. ATAs are no different from other token

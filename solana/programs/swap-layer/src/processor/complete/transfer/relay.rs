@@ -164,7 +164,7 @@ fn handle_complete_transfer_relay(
             // Calculate the user amount.
             fill_amount
                 .checked_sub(relaying_fee)
-                .ok_or(SwapLayerError::InvalidRelayerFee)?
+                .ok_or_else(|| SwapLayerError::InvalidRelayerFee)?
         }
     };
 

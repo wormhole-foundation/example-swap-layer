@@ -692,6 +692,8 @@ export class SwapLayerProgram {
         preparedOrder ??= this.preparedOrderAddress(stagedOutbound);
         stagedCustodyToken ??= this.stagedCustodyTokenAddress(stagedOutbound);
 
+        const tokenRouter = this.tokenRouterProgram();
+
         return this.program.methods
             .initiateTransfer()
             .accounts({
@@ -702,12 +704,14 @@ export class SwapLayerProgram {
                 stagedCustodyToken,
                 usdcRefundToken,
                 targetPeer: this.registeredPeerComposite({ chain: targetChain }),
-                tokenRouterCustodian: this.tokenRouterProgram().custodianAddress(),
+                tokenRouterCustodian: tokenRouter.custodianAddress(),
+                targetRouterEndpoint: tokenRouter
+                    .matchingEngineProgram()
+                    .routerEndpointAddress(targetChain),
                 preparedOrder,
-                preparedCustodyToken:
-                    this.tokenRouterProgram().preparedCustodyTokenAddress(preparedOrder),
+                preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(preparedOrder),
                 usdc: this.usdcComposite(),
-                tokenRouterProgram: this.tokenRouterProgram().ID,
+                tokenRouterProgram: tokenRouter.ID,
                 tokenProgram: splToken.TOKEN_PROGRAM_ID,
                 systemProgram: SystemProgram.programId,
             })
@@ -788,6 +792,9 @@ export class SwapLayerProgram {
                 srcMint,
                 usdc: this.usdcComposite(),
                 tokenRouterCustodian: tokenRouter.custodianAddress(),
+                targetRouterEndpoint: tokenRouter
+                    .matchingEngineProgram()
+                    .routerEndpointAddress(targetChain),
                 preparedCustodyToken: tokenRouter.preparedCustodyTokenAddress(preparedOrder),
                 tokenRouterProgram: tokenRouter.ID,
                 associatedTokenProgram: splToken.ASSOCIATED_TOKEN_PROGRAM_ID,
