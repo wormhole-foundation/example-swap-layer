@@ -128,7 +128,7 @@ pub fn calculate_relayer_fee(
             relay_params.gas_dropoff_margin,
             relay_params.native_token_price,
         )
-        .ok_or(SwapLayerError::GasDropoffCalculationFailed)?;
+        .ok_or_else(|| SwapLayerError::GasDropoffCalculationFailed)?;
 
         relayer_fee = relayer_fee.saturating_add(gas_dropoff_cost);
     }
@@ -149,7 +149,7 @@ pub fn calculate_relayer_fee(
                 .saturating_add(match output_token {
                     OutputToken::Gas(swap) | OutputToken::Other { address: _, swap } => {
                         calculate_evm_swap_overhead(&swap.swap_type)
-                            .ok_or(SwapLayerError::EvmGasCalculationFailed)?
+                            .ok_or_else(|| SwapLayerError::EvmGasCalculationFailed)?
                     }
                     _ => 0,
                 });
@@ -160,7 +160,7 @@ pub fn calculate_relayer_fee(
                 total_gas,
                 relay_params.native_token_price,
             )
-            .ok_or(SwapLayerError::EvmGasCalculationFailed)?;
+            .ok_or_else(|| SwapLayerError::EvmGasCalculationFailed)?;
 
             relayer_fee = relayer_fee.saturating_add(evm_gas_cost);
 

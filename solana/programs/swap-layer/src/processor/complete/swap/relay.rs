@@ -76,7 +76,7 @@ where
         (
             fill_amount
                 .checked_sub(relaying_fee)
-                .ok_or(SwapLayerError::InvalidRelayerFee)?,
+                .ok_or_else(|| SwapLayerError::InvalidRelayerFee)?,
             gas_dropoff.into(),
         )
     } else {

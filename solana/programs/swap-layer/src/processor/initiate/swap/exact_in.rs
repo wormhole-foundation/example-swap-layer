@@ -104,8 +104,11 @@ pub struct InitiateSwapExactIn<'info> {
     #[account(constraint = src_mint.key() != usdc.key() @ SwapLayerError::SameMint)]
     usdc: Usdc<'info>,
 
-    /// CHECK: Token router config.
+    /// CHECK: Seeds must be \["emitter"] (Token Router Program).
     token_router_custodian: UncheckedAccount<'info>,
+
+    /// CHECK: Seeds must be \["endpoint"\, target_chain.to_be_bytes()] (Matching Engine Program).
+    target_router_endpoint: UncheckedAccount<'info>,
 
     /// CHECK: Mutable, seeds must be \["prepared-custody", prepared_order.key()\]
     #[account(mut)]
@@ -255,6 +258,9 @@ where
                 prepared_custody_token: ctx.accounts.prepared_custody_token.to_account_info(),
                 usdc: token_router::cpi::accounts::Usdc {
                     mint: ctx.accounts.usdc.to_account_info(),
+                },
+                target_router_endpoint: token_router::cpi::accounts::RegisteredEndpoint {
+                    endpoint: ctx.accounts.target_router_endpoint.to_account_info(),
                 },
                 token_program: token_program.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),

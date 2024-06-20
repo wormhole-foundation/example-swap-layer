@@ -52,7 +52,7 @@ impl StagedInbound {
             RedeemMode::Payload { sender: _, buf } => buf
                 .len()
                 .checked_add(FIXED)
-                .ok_or(error!(SwapLayerError::PayloadTooLarge)),
+                .ok_or_else(|| error!(SwapLayerError::PayloadTooLarge)),
             _ => err!(SwapLayerError::InvalidRedeemMode),
         }
     }

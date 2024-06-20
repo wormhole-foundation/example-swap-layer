@@ -43,7 +43,7 @@ impl<'info> ToAccountMetas for SharedAccountsRoute<'info> {
             AccountMeta::new_readonly(
                 self.token_2022_program
                     .as_ref()
-                    .map_or(program_id, |acc_info| *acc_info.key),
+                    .map_or_else(|| program_id, |acc_info| *acc_info.key),
                 false,
             ),
             AccountMeta::new_readonly(*self.event_authority.key, false),
@@ -68,10 +68,10 @@ impl<'info> ToAccountInfos<'info> for SharedAccountsRoute<'info> {
             self.destination_mint.clone(),
             self.platform_fee
                 .as_ref()
-                .map_or(program.clone(), |acc_info| acc_info.clone()),
+                .map_or_else(|| program.clone(), |acc_info| acc_info.clone()),
             self.token_2022_program
                 .as_ref()
-                .map_or(program.clone(), |acc_info| acc_info.clone()),
+                .map_or_else(|| program.clone(), |acc_info| acc_info.clone()),
             self.event_authority.clone(),
             program.clone(),
         ]
