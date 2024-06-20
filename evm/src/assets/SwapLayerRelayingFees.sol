@@ -52,8 +52,9 @@ enum FeeUpdate {
 uint constant SOLANA_ATA_RENT_LAMPORTS = 2039280;
 uint constant LAMPORTS_PER_SOL = 1e9;
 
-//TODO the following are estimates from forge tests - refine further with testnet measurements:
-uint constant GAS_OVERHEAD           = 280e3;
+//TODO the following are estimates from forge tests (already adjusted upwards for more guardians
+//     on mainnet) - refine further with testnet measurements (+guardian count adjustments!)
+uint constant GAS_OVERHEAD           = 390e3;
 uint constant DROPOFF_GAS_OVERHEAD   =  32e3;
 uint constant UNISWAP_GAS_OVERHEAD   =  10e3;
 uint constant UNISWAP_GAS_PER_SWAP   = 120e3;
