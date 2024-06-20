@@ -8,7 +8,7 @@ import "./SwapLayerQuery.sol";
 import "./SwapLayerInitiate.sol";
 import "./SwapLayerRedeem.sol";
 
-error InvalidPeer();
+error PeerIsZeroAddress();
 
 //# Inheritance diagram
 //
@@ -71,7 +71,7 @@ abstract contract SwapLayerSansRouterImpls is SwapLayerQuery, SwapLayerInitiate,
       (peer,      offset) = args.asBytes32Unchecked(offset);
       (feeParams, offset) = args.asUint256Unchecked(offset);
       if (peer == bytes32(0))
-        revert InvalidPeer();
+        revert PeerIsZeroAddress();
 
       _setPeer(chain, peer);
       _setFeeParams(chain, FeeParamsLib.checkedWrap(feeParams));

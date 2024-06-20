@@ -18,6 +18,7 @@ enum AttestationType {
   //TokenBridge
 }
 
+error InvalidPeer(uint16 chainId, bytes32 fillSender, bytes32 expectedPeer);
 error SenderNotRecipient(address sender, address recipient);
 error InvalidMsgValue(uint256 value, uint256 expected);
 error NoExtraParamsAllowed();
@@ -52,6 +53,10 @@ abstract contract SwapLayerRedeem is SwapLayerGovernance {
     OrderResponse calldata attestations
   ) external payable returns (bytes memory) {
     RedeemedFill memory fill = _liquidityLayer.redeemFill(attestations);
+    bytes32 expectedPeer = _getPeer(fill.senderChain);
+    if (fill.sender != expectedPeer)
+      revert InvalidPeer(fill.senderChain, fill.sender, expectedPeer);
+
     SwapMessageStructure memory sms = parseSwapMessageStructure(fill.message);
 
     bool senderIsRecipient = msg.sender == sms.recipient;
