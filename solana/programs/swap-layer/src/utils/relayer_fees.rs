@@ -28,7 +28,9 @@ pub fn denormalize_gas_price(gas_price: u32) -> u64 {
 
 fn compound(percentage: u32, base: u64) -> Option<u64> {
     if percentage == 0 {
-        Some(base)
+        base.into()
+    } else if percentage > crate::MAX_BPS {
+        None
     } else {
         // NOTE: Upcasting from u32 to u128 is safe here.
         #[allow(clippy::as_conversions)]
@@ -37,7 +39,9 @@ fn compound(percentage: u32, base: u64) -> Option<u64> {
 
         let base: u128 = u128::from(base);
 
-        base.saturating_add(base.saturating_mul(percentage.into()).saturating_div(MAX))
+        base.saturating_mul(percentage.into())
+            .saturating_div(MAX)
+            .saturating_add(base)
             .try_into()
             .ok()
     }
@@ -213,12 +217,48 @@ mod test {
     }
 
     #[test]
-    fn test_zero_compound() {
+    fn test_compound_beyond_max() {
+        let base = 1_000;
+        let percentage = 2_000_000; // 200%
+        let compounded = compound(percentage, base);
+
+        assert_eq!(compounded, None);
+    }
+
+    #[test]
+    fn test_compound_at_max_int() {
+        let base = u64::MAX;
+        let percentage = 1_000_000; // crate::MAX_BPS
+        let compounded = compound(percentage, base);
+
+        assert_eq!(compounded, None);
+    }
+
+    #[test]
+    fn test_compound_zero_percentage() {
         let base = 1_000;
         let percentage = 0;
         let compounded = compound(percentage, base);
 
         assert_eq!(compounded, Some(1_000));
+    }
+
+    #[test]
+    fn test_compound_zero_base() {
+        let base = 0;
+        let percentage = 500_000; // 50%
+        let compounded = compound(percentage, base);
+
+        assert_eq!(compounded, Some(0));
+    }
+
+    #[test]
+    fn test_compound_at_low_values() {
+        let base = 1;
+        let percentage = 1;
+        let compounded = compound(percentage, base);
+
+        assert_eq!(compounded, Some(1));
     }
 
     #[test]
