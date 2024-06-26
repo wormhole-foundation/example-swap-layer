@@ -1,5 +1,7 @@
 # Swap Layer
 
+Build via `make` run forge tests via `make test`.
+
 ## Basics
 
 The basic premise of the Swap Layer contract is to compose on top of the [Liquidity Layer](https://github.com/wormhole-foundation/example-liquidity-layer/) to facilitate any-token-to-any-token transfers cross-chain via USDC/CCTP as the "liquidity highway asset", Uniswap/TraderJoe and Jupiter for swaps to and from USDC on EVM and Solana respectively, and Wormhole general-message-passing (GMP) for transmitting additional information.
@@ -17,14 +19,14 @@ While both `initiate` and `redeem` can contain an optional swap step, depending 
 ### Initiate
 
 Every `initiate` call has 3 independent parts:
-1. whether the underlying Liquidity Layer transfer is fast or not
+1. whether the underlying Liquidity Layer transfer should be fast or not
 2. the `RedeemMode` (in `src/assets/Params.sol`) of the transfer, which can be
   1. either `Direct` - just a normal, permissionless transfer
   2. or `Payload` - the transfer includes an integrator payload and can only be redeemed by the specified recipient
   3. or `Relay` - the redeem transaction should be submitted to the target chain by the Swap Layer's designated relayer with an optional gas dropoff (a specified amount of native gas tokens of the target chain provided by the relayer), using a portion of the transferred USDC to pay for the service
 3. the desired input and output tokens/swaps
 
-The following analogy with [Wormhole's Token Bridge](https://github.com/wormhole-foundation/wormhole/blob/main/ethereum/contracts/bridge/Bridge.sol) and [the associated Token Bridge Relayer (TBR)](https://github.com/wormhole-foundation/example-token-bridge-relayer/blob/main/README.md#design) regarding the `RedeemMode` might be helpful:
+Regarding the `RedeemMode`, the following analogy with [Wormhole's Token Bridge](https://github.com/wormhole-foundation/wormhole/blob/main/ethereum/contracts/bridge/Bridge.sol) and [the associated Token Bridge Relayer (TBR)](https://github.com/wormhole-foundation/example-token-bridge-relayer/blob/main/README.md#design)  might be helpful:
 1. `Direct` corresponds to a plain [transferTokens](https://github.com/wormhole-foundation/wormhole/blob/dc3a6cf804137525239dbdb69cd56687322f8d50/ethereum/contracts/bridge/Bridge.sol#L166)
 2. `Payload` is like [transferTokensWithPayload](https://github.com/wormhole-foundation/wormhole/blob/dc3a6cf804137525239dbdb69cd56687322f8d50/ethereum/contracts/bridge/Bridge.sol#L203)
 3. `Relay` is analogous to TBR's [transferTokensWithRelay](https://github.com/wormhole-foundation/example-token-bridge-relayer/blob/d9d17254dae48c985fe6b58e2987e2135d1e8c65/evm/src/token-bridge-relayer/TokenBridgeRelayer.sol#L99C14-L99C37)
@@ -32,6 +34,12 @@ The following analogy with [Wormhole's Token Bridge](https://github.com/wormhole
 One important difference between the TBR and the Swap Layer however is that Swap Layer fees are calculated in their totality (both the cost of the relay itself as well as the requested gas dropoff) as part of the `initiate` call on the source chain and are always taken from the USDC that's being tranferred (rather than any input or output token).
 
 As mentioned above, a swap failure during `initiate` will always cause the transaction to revert.
+
+The Swap Layer acquires ERC20 input tokens either via an old-fashioned ERC20 `transferFrom` (after the user has given the required ERC20 approval in a previous transaction), but it also supports [Permit](https://eips.ethereum.org/EIPS/eip-2612) and [Permit2](https://github.com/dragonfly-xyz/useful-solidity-patterns/tree/main/patterns/permit2). See `AcquireMode` (in `src/assets/InitiateParams.sol`) for more.
+
+Separately, users can specify via the `isExactIn` parameter, whether the swap to USDC (if applicable) is an exact in or exact out swap. Additionally, `isExactIn` also determines how additional fees (from relaying or fast transfer) are handled. When a user transfers USDC directly (i.e. no input swap is necessary) `isExactIn == true` means that fees are already considered to be included in the specified amount while `isExactIn == false` means that fees will be added on top of the specified amount, ensuring that the transfer will comprise at least this USDC amount after fees. Likewise, for swaps the output amount is adjusted upwards by the fees, so that the swap result either at least covers the user's specified swap output minimum + fees (for exact in) or that the user receives exactly the specified USDC output amount + fees (for exact out).
+
+Finally, the `approveCheck` parameter that has to be specified when using an arbitrary ERC20 input token (i.e. something else than USDC or `msg.value`) is a gas optimization parameter that allows users to skip the Swap Layer's ERC20 `approve` with the associated swap router contracts (i.e. [Uniswap's UniversalRouter](https://docs.uniswap.org/contracts/universal-router/overview) or [TraderJoe's LBRouter](https://github.com/traderjoe-xyz/joe-v2/blob/main/src/LBRouter.sol)). Since these contracts are trusted (and non-upgradeable), they can be given a single infinite approval rather than having to set an exact allowance on every swap. While it is safe to always set `approveCheck` to `true`, it is more efficient to look up a router's Swap Layer allowance for a given token off-chain and then skip the approval if the router already has a sufficient allowance (because the Swap Layer has swapped the given token before and hence an infinite approval has already been granted).
 
 A successful `initiate` invocation will emit a Liquidity Layer message that contains a Swap Layer message in its payload. The Swap Layer message (in `src/assets/Message.sol`) in turn contains the intended recipient on the target chain, the desired output swap/token, and the `RedeemMode` and its associated information, namely the integrator payload, or the relaying fee and requested gas dropoff in case of `Payload` and `Relay` respectively.
 
