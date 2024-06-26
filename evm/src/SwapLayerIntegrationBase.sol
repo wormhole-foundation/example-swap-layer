@@ -33,7 +33,6 @@ import {
   IoToken,
   AcquireMode
 } from "./assets/InitiateParams.sol";
-import { AttestationType } from "./assets/SwapLayerRedeem.sol";
 import { ISwapLayer, OrderResponse } from "./ISwapLayer.sol";
 
 //written in a way to avoid memory allocations as much as possible, hence some repetitive passages
