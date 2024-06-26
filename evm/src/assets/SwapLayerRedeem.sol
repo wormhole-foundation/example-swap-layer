@@ -13,11 +13,6 @@ import "./Params.sol";
 import { SwapMessageStructure, parseSwapMessageStructure } from "./Message.sol";
 import { GasDropoff, GasDropoffLib } from "./GasDropoff.sol";
 
-enum AttestationType {
-  LiquidityLayer
-  //TokenBridge
-}
-
 error InvalidPeer(uint16 chainId, bytes32 fillSender, bytes32 expectedPeer);
 error SenderNotRecipient(address sender, address recipient);
 error InvalidMsgValue(uint256 value, uint256 expected);

@@ -10,13 +10,6 @@ import "./SwapLayerRedeem.sol";
 
 error PeerIsZeroAddress();
 
-//# Inheritance diagram
-//
-//SL = SwapLayer
-//                    ┌─> SL-Query  ─┬─> SL-Governance ─┬─> ProxyBase
-//SL-SansRouterImpls ─┼─> SL-Redeem ─┘                  └─┬─> SL-RelayingFees ─> SL-Base
-//                    └─> SL-Initiate ────────────────────┘
-//
 //# General Remark
 //
 //This is a large contract and so a lot of care was taken to stay within the contract size limits.
