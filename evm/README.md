@@ -42,11 +42,11 @@ Every `redeem` call requires a Liquidity Layer VAA and its associated CCTP attes
 * If a `Relay` transfer is submitted by the transfer recipient themselves, no fees are charged. Otherwise the gas dropoff (i.e. `msg.value` that's transferred to the recipient) must match the value in the Swap Layer message before the relaying fee is transferred to the Swap Layer's reward address (as with the TBR, the rationale is to prevent MEV exploitation of the relayer and to keep rewards concentrated in a single address rather than have it diffuse over many different relaying wallets).
 * When the specified recipient themselves invoke `redeem`, they are free to override the output swap/token that was specified in the Swap Layer message. This is primarily intended to allow users to specify the slippage of the output swap at the time of redemption, rather than initiation. Calls to `redeem` by third parties will simply execute the swap that's specified in the Swap Layer message (if applicable).
 
----
-Note: The first and last point together imply that if a user initiated a transfer on the source chain and specified USDC as the output token on the target chain with the intention of overriding that instruction with their actually desired output swap when redeeming their transfer on the target chain, they could find themselves preempted by a third party that submits their transfer as in in their place, thus causing them to receive USDC.
-
-This is not considered a problem because swaps that fail upon redemption will transfer USDC to the recipient regardless (i.e. the recipient receiving USDC is always a possibility regardless) and because in such a case the recipient is free to just execute their desired swap in a separate transaction themselves. Ultimately, any such "attacker" would therefore only end up paying the gas costs for verifying the attestations with no actual drawback to the recipient (in fact they end up saving gas) and the tangible upshot is that users can be helped by third parties in case they run into any issues by having their transfer redeemed for them.
----
+> Note:
+>
+> The first and last point together imply that if a user initiated a transfer on the source chain and specified USDC as the output token on the target chain with the intention of overriding that instruction with their actually desired output swap when redeeming their transfer on the target chain, they could find themselves preempted by a third party that submits their transfer as in in their place, thus causing them to receive USDC.
+> 
+> This is not considered a problem because swaps that fail upon redemption will transfer USDC to the recipient regardless (i.e. the recipient receiving USDC is always a possibility regardless) and because in such a case the recipient is free to just execute their desired swap in a separate transaction themselves. Ultimately, any such "attacker" would therefore only end up paying the gas costs for verifying the attestations with no actual drawback to the recipient (in fact they end up saving gas) and the tangible upshot is that users can be helped by third parties in case they run into any issues by having their transfer redeemed for them.
 
 ## Files / Repo Structure
 
