@@ -4,9 +4,11 @@ Build via `make` run forge tests via `make test`.
 
 ## Basics
 
-The basic premise of the Swap Layer contract is to compose on top of the [Liquidity Layer](https://github.com/wormhole-foundation/example-liquidity-layer/) to facilitate any-token-to-any-token transfers cross-chain via USDC/CCTP as the "liquidity highway asset", Uniswap/TraderJoe and Jupiter for swaps to and from USDC on EVM and Solana respectively, and Wormhole general-message-passing (GMP) for transmitting additional information.
+The basic premise of the Swap Layer contract is to compose on top of the [Liquidity Layer](https://github.com/wormhole-foundation/example-liquidity-layer/) to facilitate any-token-to-any-token (*) transfers cross-chain via USDC/CCTP as the "liquidity highway asset", Uniswap/TraderJoe and Jupiter for swaps to and from USDC on EVM and Solana respectively, and Wormhole general-message-passing (GMP) for transmitting additional information.
 
 In a nutshell, the Liquidity Layer is a more advanced version of the [Wormhole Circle Integration](https://github.com/wormhole-foundation/wormhole-circle-integration), which allows composing CCTP transfers with Wormhole GMP. For slow finality chains, the Liquidity Layer additionally offers a fast transfer mode, which emits an instant finality message on the source chain, which then kicks off an auction to front the transferred USDC on Solana (a fast finality chain) so it can be taken to the target chain from there. The original funds (i.e. the USDC CCTP transfer originating from the source chain) are subsequently routed to the auction winner once the slower CCTP attestation becomes available.
+
+(*) though see limitations section below
 
 ## Flow
 
@@ -73,6 +75,12 @@ SL ─┼─> SL-SansRouterImpls ─┼─> SL-Redeem ─┘                  �
 Given the large number of combinations to invoke both `initiate` and `redeem` it would be impractical (as well as highly gas inefficient, since every additional public function that exists on a contract incurs a gas overhead on every contract call of 11 gas on average) to overload these functions for every possible combination. Therefore, the Swap Layer implements a custom parameter encoding (see `src/ISwapLayer.sol` and `src/assets/InitiateParams.sol`).
 
 To make integrator's lives easier `SwapLayerIntegration` (and its base `SwapLayerIntegrationBase`) offer a solution that's much closer to a normal Solidity contract interface, and that take care of all the parameter encoding. While these contracts (that are only contracts for technical reasons and should rather be thought of as libraries) are very large (because they do expand a lot of the aforementioned combinatorial complexity), all code that's unused by an integrator will be dropped, which should result in an acceptable overhead.
+
+## Limitations
+
+### Supported Tokens
+
+Only ERC20 tokens that do not take a fee on transfer are supported. The rationale for excluding fee-on-transfer tokens is that they require additional external function calls (namely having to look up the received amount via an additional `balanceOf()` call) which increases gas costs for the much more common (and sensible) use case of normal ERC20 tokens.
 
 
 # Dev Notes
