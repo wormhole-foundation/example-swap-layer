@@ -21,9 +21,9 @@ While both `initiate` and `redeem` can contain an optional swap step, depending 
 Every `initiate` call has 3 independent parts:
 1. whether the underlying Liquidity Layer transfer should be fast or not
 2. the `RedeemMode` (in `src/assets/Params.sol`) of the transfer, which can be
-  1. either `Direct` - just a normal, permissionless transfer
-  2. or `Payload` - the transfer includes an integrator payload and can only be redeemed by the specified recipient
-  3. or `Relay` - the redeem transaction should be submitted to the target chain by the Swap Layer's designated relayer with an optional gas dropoff (a specified amount of native gas tokens of the target chain provided by the relayer), using a portion of the transferred USDC to pay for the service
+    1. either `Direct` - just a normal, permissionless transfer
+    2. or `Payload` - the transfer includes an integrator payload and can only be redeemed by the specified recipient
+    3. or `Relay` - the redeem transaction should be submitted to the target chain by the Swap Layer's designated relayer with an optional gas dropoff (a specified amount of native gas tokens of the target chain provided by the relayer), using a portion of the transferred USDC to pay for the service
 3. the desired input and output tokens/swaps
 
 Regarding the `RedeemMode`, the following analogy with [Wormhole's Token Bridge](https://github.com/wormhole-foundation/wormhole/blob/main/ethereum/contracts/bridge/Bridge.sol) and [the associated Token Bridge Relayer (TBR)](https://github.com/wormhole-foundation/example-token-bridge-relayer/blob/main/README.md#design)  might be helpful:
