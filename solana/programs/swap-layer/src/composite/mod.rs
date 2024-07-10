@@ -863,7 +863,8 @@ impl<'info> JupiterV6SharedAccountsRoute<'info> {
         account_infos: &'info [AccountInfo<'info>],
         limit_amount: Option<u64>,
     ) -> Result<(u64, u64)> {
-        let limit_amount = limit_amount.unwrap_or(utils::jupiter_v6::compute_min_amount_out(&args));
+        let limit_amount =
+            limit_amount.unwrap_or_else(|| utils::jupiter_v6::compute_min_amount_out(&args));
 
         let mut accounts = account_infos
             .iter()
