@@ -24,6 +24,7 @@ export type StagedOutboundInfo = {
     targetChain: number;
     recipient: Array<number>;
     usdcRefundToken: PublicKey;
+    minAmountOut: BN | null;
 };
 
 export class StagedOutbound {

@@ -71,6 +71,12 @@ pub struct StageOutbound<'info> {
             // Cannot send to zero address.
             require!(args.recipient != [0; 32], SwapLayerError::InvalidRecipient);
 
+            // Min amount out must be specified for swaps into USDC.
+            require!(
+                args.min_amount_out.is_some() || src_mint.key() == common::USDC_MINT,
+                SwapLayerError::MinAmountOutRequired,
+            );
+
             true
         }
     )]
@@ -112,6 +118,9 @@ pub struct StageOutbound<'info> {
 pub struct StageOutboundArgs {
     pub amount_in: u64,
 
+    // Must be specified for swaps into USDC.
+    pub min_amount_out: Option<u64>,
+
     /// The Wormhole chain ID of the network to transfer tokens to.
     pub target_chain: u16,
 
@@ -132,6 +141,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
 
     let StageOutboundArgs {
         amount_in,
+        min_amount_out,
         target_chain,
         recipient,
         redeem_option,
@@ -176,6 +186,14 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
                             .checked_add(amount_in)
                             .ok_or(SwapLayerError::U64Overflow)?
                     } else {
+                        // Min amount out must cover the relaying fee. This unwrap should
+                        // be fine since we've already checked that min_amount_out is Some
+                        // in the account context.
+                        require!(
+                            min_amount_out.unwrap() > relaying_fee,
+                            SwapLayerError::AmountOutTooSmall
+                        );
+
                         amount_in
                     },
                     StagedRedeem::Relay {
@@ -289,6 +307,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
             sender,
             target_chain,
             recipient,
+            min_amount_out,
         },
         staged_redeem,
         encoded_output_token,

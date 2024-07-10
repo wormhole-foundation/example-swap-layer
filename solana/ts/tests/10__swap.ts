@@ -228,15 +228,11 @@ describe("Jupiter V6 Testing", () => {
 
     describe("USDC Swap (Relay)", function () {
         describe("Outbound", function () {
-            it("Cannot Swap (Amount Out Doesn't Cover Relayer Fee)", async function () {
+            it("Cannot Swap (Min Amount Out Too Small)", async function () {
                 const srcMint = USDT_MINT_ADDRESS;
                 const gasDropoff = 500000;
 
-                const {
-                    stagedOutbound,
-                    custodyBalance: inAmount,
-                    outputToken,
-                } = await stageOutboundForTest(
+                const { stagedOutbound, custodyBalance: inAmount } = await stageOutboundForTest(
                     {
                         payer: payer.publicKey,
                         senderToken: splToken.getAssociatedTokenAddressSync(
@@ -248,17 +244,12 @@ describe("Jupiter V6 Testing", () => {
                         srcMint,
                     },
                     {
-                        amountIn: 100n, // Reduce the amountIn.
+                        amountIn: 100000n,
+                        minAmountOut: 9999999999999n, // Specify a really large min amount out.
                         redeemOption: {
                             relay: { gasDropoff, maxRelayerFee: 9999999999999n },
                         },
                     },
-                );
-
-                const expectedRelayerFee = calculateRelayerFee(
-                    TEST_RELAY_PARAMS,
-                    denormalizeGasDropOff(gasDropoff),
-                    outputToken,
                 );
 
                 const preparedOrder = swapLayer.preparedOrderAddress(stagedOutbound);
@@ -270,7 +261,6 @@ describe("Jupiter V6 Testing", () => {
                         slippageBps: 10000,
                         cpi: true,
                     });
-                assert.isTrue(minAmountOut < expectedRelayerFee);
 
                 await swapExactInForTest(
                     { payer: payer.publicKey, stagedOutbound, srcMint },
@@ -282,11 +272,7 @@ describe("Jupiter V6 Testing", () => {
             it("Cannot Swap (Invalid Prepared By)", async function () {
                 const srcMint = USDT_MINT_ADDRESS;
 
-                const {
-                    stagedOutbound,
-                    custodyBalance: inAmount,
-                    outputToken,
-                } = await stageOutboundForTest(
+                const { stagedOutbound, custodyBalance: inAmount } = await stageOutboundForTest(
                     {
                         payer: payer.publicKey,
                         senderToken: splToken.getAssociatedTokenAddressSync(
@@ -503,6 +489,7 @@ describe("Jupiter V6 Testing", () => {
                         srcMint,
                     },
                     {
+                        minAmountOut: 1n,
                         redeemOption: {
                             relay: { gasDropoff: 500000, maxRelayerFee: 9999999999999n },
                         },
@@ -1626,7 +1613,7 @@ describe("Jupiter V6 Testing", () => {
                         sender: payer.publicKey,
                         srcMint: splToken.NATIVE_MINT,
                     },
-                    { amountIn, transferType: "native" },
+                    { amountIn, minAmountOut: 1n, transferType: "native" },
                 );
 
                 const balanceBefore = await connection.getBalance(payer.publicKey).then(BigInt);
@@ -1685,6 +1672,7 @@ describe("Jupiter V6 Testing", () => {
                     {
                         transferType: "native",
                         amountIn,
+                        minAmountOut: 1n,
                         targetChain: toChainId("Ethereum"),
                         recipient: Array.from(Buffer.alloc(32, "deadbeef")),
                         redeemOption: null,
@@ -1729,6 +1717,65 @@ describe("Jupiter V6 Testing", () => {
         });
 
         describe("Outbound", function () {
+            it("Cannot Swap (Min Amount Out Too Small)", async function () {
+                const srcMint = USDT_MINT_ADDRESS;
+
+                const { stagedOutbound, custodyBalance: inAmount } = await stageOutboundForTest(
+                    {
+                        payer: payer.publicKey,
+                        senderToken: splToken.getAssociatedTokenAddressSync(
+                            srcMint,
+                            payer.publicKey,
+                            false,
+                            await whichTokenProgram(connection, srcMint),
+                        ),
+                        srcMint,
+                    },
+                    { minAmountOut: 9999999999999n },
+                );
+
+                const preparedOrder = swapLayer.preparedOrderAddress(stagedOutbound);
+                const swapAuthority = swapLayer.swapAuthorityAddress(preparedOrder);
+                const {
+                    instruction: cpiInstruction,
+                    sourceMint,
+                    destinationMint,
+                } = await modifyUsdtToUsdcSwapResponseForTest(swapAuthority, {
+                    inAmount,
+                    quotedOutAmount: inAmount, // stable swap
+                    slippageBps: 50,
+                    cpi: true,
+                });
+                assert.deepEqual(sourceMint, srcMint);
+                assert.deepEqual(destinationMint, swapLayer.usdcMint);
+
+                const ix = await swapLayer.initiateSwapExactInIx(
+                    {
+                        payer: payer.publicKey,
+                        stagedOutbound,
+                        srcMint,
+                    },
+                    {
+                        cpiInstruction,
+                    },
+                );
+
+                const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
+                    units: 360_000,
+                });
+
+                const addressLookupTableAccounts = await Promise.all(
+                    luts.map(async (lookupTableAddress) => {
+                        const resp = await connection.getAddressLookupTable(lookupTableAddress);
+                        return resp.value;
+                    }),
+                );
+
+                await expectIxErr(connection, [computeIx, ix], [payer], "AmountOutTooSmall", {
+                    addressLookupTableAccounts,
+                });
+            });
+
             it("USDT via Whirlpool", async function () {
                 const srcMint = USDT_MINT_ADDRESS;
 
@@ -1739,16 +1786,19 @@ describe("Jupiter V6 Testing", () => {
                     stagedOutboundInfo,
                     redeemMode,
                     outputToken,
-                } = await stageOutboundForTest({
-                    payer: payer.publicKey,
-                    senderToken: splToken.getAssociatedTokenAddressSync(
+                } = await stageOutboundForTest(
+                    {
+                        payer: payer.publicKey,
+                        senderToken: splToken.getAssociatedTokenAddressSync(
+                            srcMint,
+                            payer.publicKey,
+                            false,
+                            await whichTokenProgram(connection, srcMint),
+                        ),
                         srcMint,
-                        payer.publicKey,
-                        false,
-                        await whichTokenProgram(connection, srcMint),
-                    ),
-                    srcMint,
-                });
+                    },
+                    { minAmountOut: 1n },
+                );
 
                 const preparedOrder = swapLayer.preparedOrderAddress(stagedOutbound);
                 const swapAuthority = swapLayer.swapAuthorityAddress(preparedOrder);
@@ -2255,6 +2305,7 @@ describe("Jupiter V6 Testing", () => {
                         srcMint,
                     },
                     {
+                        minAmountOut: 1n,
                         redeemOption: {
                             payload: Buffer.from("All your base are belong to us."),
                         },
@@ -3441,6 +3492,7 @@ describe("Jupiter V6 Testing", () => {
         },
         opts: {
             amountIn?: bigint;
+            minAmountOut?: bigint;
             targetChain?: ChainId;
             redeemOption?:
                 | { relay: { gasDropoff: number; maxRelayerFee: Uint64 } }
@@ -3461,8 +3513,9 @@ describe("Jupiter V6 Testing", () => {
         const stagedOutboundSigner = Keypair.generate();
         const stagedOutbound = stagedOutboundSigner.publicKey;
 
-        let { amountIn, targetChain, redeemOption, outputToken, transferType } = opts;
+        let { amountIn, minAmountOut, targetChain, redeemOption, outputToken, transferType } = opts;
         amountIn ??= 690000n;
+        minAmountOut ??= 680000n;
         targetChain ??= toChainId("Ethereum");
         redeemOption ??= null;
         outputToken ??= null;
@@ -3494,6 +3547,7 @@ describe("Jupiter V6 Testing", () => {
             {
                 transferType,
                 amountIn,
+                minAmountOut,
                 targetChain,
                 recipient: Array.from(Buffer.alloc(32, "deadbeef")),
                 redeemOption,
