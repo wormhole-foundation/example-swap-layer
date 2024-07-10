@@ -286,8 +286,6 @@ impl<'info> ConsumeSwapLayerFill<'info> {
 
             // Check the deadline for the swap. There may not be a deadline check with the
             // dex that this instruction composes with, so we will check it here.
-            //
-            // TODO: Do we accept deadline == 0?
             require!(
                 deadline == 0 || Clock::get().unwrap().unix_timestamp <= i64::from(deadline),
                 SwapLayerError::SwapPastDeadline,

@@ -50,7 +50,6 @@ pub struct PeerSeeds {
 #[derive(Debug, InitSpace)]
 /// Foreign Peer account data.
 pub struct Peer {
-    /// TODO: add bump seed
     pub seeds: PeerSeeds,
     /// Peer address. Cannot be zero address.
     pub address: [u8; 32],
