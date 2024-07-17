@@ -1276,9 +1276,13 @@ abstract contract SwapLayerIntegrationBase {
     address fromToken,
     address toToken
   ) private pure returns (bytes memory) { unchecked {
-    uint startOffset = _swapPathStartOffset(params.path, checkTokens, fromToken, toToken);
-    (uint24 firstPoolId, uint offset) = params.path.asUint24Unchecked(startOffset);
-    uint pathLength = (params.path.length - startOffset) / SHARED_PATH_ELEMENT_SIZE;
+    //stripOffset has one of two values:
+    // 0: if params.path is only a partial path i.e. does not include the from and to token
+    // ADDRESS_SIZE: if params.path contains the from and to token at its head/tail
+    uint stripOffset = _fullPathStripOffset(params.path, checkTokens, fromToken, toToken);
+    (uint24 firstPoolId, uint offset) = params.path.asUint24Unchecked(stripOffset);
+    //assert(pathLength % SHARED_PATH_ELEMENT_SIZE == 0);
+    uint pathLength = (params.path.length - offset - stripOffset) / SHARED_PATH_ELEMENT_SIZE;
     _checkMax(pathLength, type(uint8).max);
     (bytes memory finalPath, ) =
       params.path.sliceUnchecked(offset, pathLength * SHARED_PATH_ELEMENT_SIZE);
@@ -1315,7 +1319,7 @@ abstract contract SwapLayerIntegrationBase {
     return uint160((swapDeadline << SWAP_PARAM_AMOUNT_SIZE * 8) + _encodeAmount(outputAmount));
   }
 
-  function _swapPathStartOffset(
+  function _fullPathStripOffset(
     bytes memory path,
     bool checkTokens,
     address fromToken,
