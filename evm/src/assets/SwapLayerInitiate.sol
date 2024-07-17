@@ -220,7 +220,12 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     else if (acquireMode == AcquireMode.Permit) {
       uint256 value; uint256 deadline; bytes32 r; bytes32 s; uint8 v;
       (value, deadline, r, s, v, offset) = parsePermit(params, offset);
-      IERC20Permit(address(inputToken)).permit(msg.sender, address(this), value, deadline, v, r, s);
+      //allow failure to prevent front-running griefing attacks
+      //  (i.e. getting permit form mempool and submitting it to the inputToken contract directly)
+      try
+        IERC20Permit(address(inputToken))
+          .permit(msg.sender, address(this), value, deadline, v, r, s) {}
+      catch {}
       inputToken.safeTransferFrom(msg.sender, address(this), inputAmount);
     }
     else if (acquireMode == AcquireMode.Permit2Transfer) {
@@ -241,15 +246,23 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       uint160 amount; uint48 expiration; uint48 nonce; uint256 sigDeadline; bytes memory signature;
       (amount, expiration, nonce, sigDeadline, signature, offset) =
         parsePermit2Permit(params, offset);
-      _permit2.permit(
-        msg.sender,
-        IAllowanceTransfer.PermitSingle({
-          details: IAllowanceTransfer.PermitDetails(address(inputToken), amount, expiration, nonce),
-          spender: address(this),
-          sigDeadline: sigDeadline
-        }),
-        signature
-      );
+      //allow failure to prevent front-running griefing attacks
+      try
+        _permit2.permit(
+          msg.sender,
+          IAllowanceTransfer.PermitSingle({
+            details: IAllowanceTransfer.PermitDetails(
+              address(inputToken),
+              amount,
+              expiration,
+              nonce
+            ),
+            spender: address(this),
+            sigDeadline: sigDeadline
+          }),
+          signature
+        ) {}
+      catch {}
       _permit2.transferFrom(msg.sender, address(this), uint160(inputAmount), address(inputToken));
     }
     else
