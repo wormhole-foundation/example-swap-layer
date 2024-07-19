@@ -57,9 +57,9 @@ uint constant LAMPORTS_PER_SOL = 1e9;
 uint constant GAS_OVERHEAD           = 390e3;
 uint constant DROPOFF_GAS_OVERHEAD   =  32e3;
 uint constant UNISWAP_GAS_OVERHEAD   =  10e3;
-uint constant UNISWAP_GAS_PER_SWAP   = 120e3;
+uint constant UNISWAP_GAS_PER_SWAP   = 150e3;
 uint constant TRADERJOE_GAS_OVERHEAD =  30e3;
-uint constant TRADERJOE_GAS_PER_SWAP =  80e3;
+uint constant TRADERJOE_GAS_PER_SWAP = 100e3;
 
 abstract contract SwapLayerRelayingFees is SwapLayerBase {
   using BytesParsing for bytes;
