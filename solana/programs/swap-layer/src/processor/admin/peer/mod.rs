@@ -34,7 +34,7 @@ pub fn handle_add_peer(
 
     let seeds = PeerSeeds {
         chain,
-        bump: bump_seed.unwrap_or(peer.seeds.bump),
+        bump: bump_seed.unwrap_or_else(|| peer.seeds.bump),
     };
     let expected = Pubkey::create_program_address(
         &[Peer::SEED_PREFIX, &seeds.chain.to_be_bytes(), &[seeds.bump]],

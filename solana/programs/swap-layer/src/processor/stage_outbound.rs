@@ -170,7 +170,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
     } = args;
 
     // Replace None with OutputToken::USDC encoded.
-    let encoded_output_token = encoded_output_token.unwrap_or({
+    let encoded_output_token = encoded_output_token.unwrap_or_else(|| {
         let mut buf = Vec::with_capacity(1);
         OutputToken::Usdc.write(&mut buf).unwrap();
         buf
