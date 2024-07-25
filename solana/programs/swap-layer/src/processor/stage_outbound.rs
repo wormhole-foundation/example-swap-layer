@@ -71,6 +71,12 @@ pub struct StageOutbound<'info> {
             // Cannot send to zero address.
             require!(args.recipient != [0; 32], SwapLayerError::InvalidRecipient);
 
+            // Min amount out must be specified for swaps into USDC.
+            require!(
+                args.min_amount_out.is_some() || src_mint.key() == common::USDC_MINT,
+                SwapLayerError::MinAmountOutRequired,
+            );
+
             true
         }
     )]
@@ -125,6 +131,9 @@ pub struct StageOutbound<'info> {
 pub struct StageOutboundArgs {
     pub amount_in: u64,
 
+    // Must be specified for swaps into USDC.
+    pub min_amount_out: Option<u64>,
+
     /// This argument only applies to relays. If exact in is specified, the relaying fee will be
     /// removed from the amount in. Otherwise it will be added to the amount in to guarantee the
     /// USDC amount specified above.
@@ -152,6 +161,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
 
     let StageOutboundArgs {
         amount_in,
+        min_amount_out,
         is_exact_in,
         target_chain,
         recipient,
@@ -212,6 +222,14 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
                                 .ok_or_else(|| SwapLayerError::U64Overflow)?
                         }
                     } else {
+                        // Min amount out must cover the relaying fee. This unwrap should
+                        // be fine since we've already checked that min_amount_out is Some
+                        // in the account context.
+                        require!(
+                            min_amount_out.unwrap() > relaying_fee,
+                            SwapLayerError::InsufficientAmountOut
+                        );
+
                         amount_in
                     },
                     StagedRedeem::Relay {
@@ -327,6 +345,7 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
             target_chain,
             is_exact_in,
             recipient,
+            min_amount_out,
         },
         staged_redeem,
         encoded_output_token,

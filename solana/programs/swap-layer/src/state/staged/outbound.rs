@@ -51,6 +51,8 @@ pub struct StagedOutboundInfo {
     /// The specified token account to refund USDC. This account is required by the Token Router
     /// program in case a fast order is reverted at the Matching Engine after it has been placed.
     pub usdc_refund_token: Pubkey,
+
+    pub min_amount_out: Option<u64>,
 }
 
 #[account]

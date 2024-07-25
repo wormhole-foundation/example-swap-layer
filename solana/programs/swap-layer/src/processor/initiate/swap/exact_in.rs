@@ -7,7 +7,6 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token, token, token_interface};
 use common::wormhole_io::TypePrefixedPayload;
-use swap_layer_messages::types::RedeemMode;
 
 #[derive(Accounts)]
 pub struct InitiateSwapExactIn<'info> {
@@ -208,18 +207,12 @@ where
         Default::default(),
     )?;
 
-    // Verify that the usdc_amount_out is larger than the encoded relaying fee
-    // if the staged outbound is a relay.
-    if let RedeemMode::Relay {
-        gas_dropoff: _,
-        relaying_fee,
-    } = swap_msg.redeem_mode
-    {
-        require!(
-            usdc_amount_out > relaying_fee.into(),
-            SwapLayerError::InsufficientAmountOut
-        );
-    }
+    // The `min_amount_out` should always be Some when swapping into USDC, this
+    // is guaranteed by the stage_outbound instruction.
+    require!(
+        usdc_amount_out >= staged_outbound.info.min_amount_out.unwrap(),
+        SwapLayerError::InsufficientAmountOut
+    );
 
     let payer = &ctx.accounts.payer;
     let src_swap_token = &ctx.accounts.src_swap_token;

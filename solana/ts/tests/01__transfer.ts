@@ -1128,6 +1128,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         {
                             transferType: "native",
                             amountIn,
+                            minAmountOut: 1n,
                             isExactIn: false,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
@@ -1162,6 +1163,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         {
                             transferType: "native",
                             amountIn,
+                            minAmountOut: 1n,
                             isExactIn: true,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
@@ -1179,7 +1181,99 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                     );
                 });
 
-                it("Stage Outbound USDC (Direct)", async function () {
+                it("Cannot Stage Outbound (Min Amount Out Required)", async function () {
+                    const stagedOutboundSigner = Keypair.generate();
+                    const stagedOutbound = stagedOutboundSigner.publicKey;
+
+                    const senderSigner = Keypair.generate();
+                    const sender = senderSigner.publicKey;
+
+                    const amountIn = 690000n;
+                    const usdcRefundToken = splToken.getAssociatedTokenAddressSync(
+                        swapLayer.usdcMint,
+                        payer.publicKey,
+                    );
+                    const [approveIx, ix] = await swapLayer.stageOutboundIx(
+                        {
+                            payer: payer.publicKey,
+                            stagedOutbound,
+                            usdcRefundToken,
+                            sender,
+                        },
+                        {
+                            transferType: "native",
+                            amountIn,
+                            isExactIn: true,
+                            targetChain: foreignChain,
+                            recipient: foreignRecipientAddress,
+                            redeemOption: null,
+                            outputToken: null,
+                        },
+                    );
+                    assert.isNull(approveIx);
+                    await expectIxErr(
+                        connection,
+                        [ix],
+                        [payer, stagedOutboundSigner, senderSigner],
+                        "MinAmountOutRequired",
+                    );
+                });
+
+                it("Cannot Stage Outbound (Amount Out Too Small)", async function () {
+                    const stagedOutboundSigner = Keypair.generate();
+                    const stagedOutbound = stagedOutboundSigner.publicKey;
+
+                    const senderSigner = Keypair.generate();
+                    const sender = senderSigner.publicKey;
+
+                    const amountIn = 690000n;
+                    const usdcRefundToken = splToken.getAssociatedTokenAddressSync(
+                        swapLayer.usdcMint,
+                        payer.publicKey,
+                    );
+
+                    const peer = await swapLayer.fetchPeer(foreignChain);
+                    const gasDropoff = 500000;
+                    const outputToken: OutputToken = { type: "Usdc" };
+                    const expectedRelayerFee = calculateRelayerFee(
+                        peer.relayParams,
+                        denormalizeGasDropOff(gasDropoff),
+                        outputToken,
+                    );
+
+                    const [approveIx, ix] = await swapLayer.stageOutboundIx(
+                        {
+                            payer: payer.publicKey,
+                            stagedOutbound,
+                            usdcRefundToken,
+                            sender,
+                        },
+                        {
+                            transferType: "native",
+                            amountIn,
+                            minAmountOut: expectedRelayerFee - 1n,
+                            isExactIn: true,
+                            targetChain: foreignChain,
+                            recipient: foreignRecipientAddress,
+                            redeemOption: {
+                                relay: {
+                                    gasDropoff,
+                                    maxRelayerFee: new BN(9999999999),
+                                },
+                            },
+                            outputToken,
+                        },
+                    );
+                    assert.isNull(approveIx);
+                    await expectIxErr(
+                        connection,
+                        [ix],
+                        [payer, stagedOutboundSigner, senderSigner],
+                        "InsufficientAmountOut",
+                    );
+                });
+
+                it("Stage Outbound (Direct)", async function () {
                     const stagedOutboundSigner = Keypair.generate();
                     const stagedOutbound = stagedOutboundSigner.publicKey;
 
@@ -1198,6 +1292,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                     );
 
                     const amountIn = 690000n;
+                    const minAmountOut = 1n;
                     const usdcRefundToken = splToken.getAssociatedTokenAddressSync(
                         swapLayer.usdcMint,
                         payer.publicKey,
@@ -1213,6 +1308,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                             transferType: "native",
                             amountIn,
                             isExactIn: true,
+                            minAmountOut,
                             targetChain: foreignChain,
                             recipient: foreignRecipientAddress,
                             redeemOption: null,
@@ -1240,6 +1336,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                 recipient: foreignRecipientAddress,
                                 isExactIn: true,
                                 usdcRefundToken,
+                                minAmountOut: uint64ToBN(minAmountOut),
                             },
                             { direct: {} },
                             Buffer.alloc(1),
@@ -1337,6 +1434,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                 recipient: foreignRecipientAddress,
                                 isExactIn: false,
                                 usdcRefundToken: senderToken,
+                                minAmountOut: null,
                             },
                             { direct: {} },
                             Buffer.alloc(1),
@@ -1400,6 +1498,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                 recipient: foreignRecipientAddress,
                                 isExactIn: false,
                                 usdcRefundToken: senderToken,
+                                minAmountOut: null,
                             },
                             { payload: { "0": Buffer.from("All your base are belong to us.") } },
                             Buffer.alloc(1),
@@ -1787,6 +1886,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                 recipient: foreignRecipientAddress,
                                 isExactIn: true,
                                 usdcRefundToken: senderToken,
+                                minAmountOut: null,
                             },
                             {
                                 relay: {
@@ -1860,6 +1960,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                 recipient: foreignRecipientAddress,
                                 isExactIn: false,
                                 usdcRefundToken: senderToken,
+                                minAmountOut: null,
                             },
                             {
                                 relay: {
@@ -1925,6 +2026,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                 recipient: foreignRecipientAddress,
                                 isExactIn: false,
                                 usdcRefundToken: senderToken,
+                                minAmountOut: null,
                             },
                             { direct: {} },
                             Buffer.alloc(1),
@@ -2002,6 +2104,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                 recipient: foreignRecipientAddress,
                                 isExactIn: false,
                                 usdcRefundToken: senderToken,
+                                minAmountOut: null,
                             },
                             { direct: {} },
                             Buffer.from(encodeOutputToken(outputToken)),
@@ -2342,9 +2445,8 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                             await expectIxOk(connection, [ix], [payer]);
 
                             // Verify the relevant information in the prepared order.
-                            const preparedOrderData = await tokenRouter.fetchPreparedOrder(
-                                preparedOrder,
-                            );
+                            const preparedOrderData =
+                                await tokenRouter.fetchPreparedOrder(preparedOrder);
 
                             const {
                                 info: { preparedCustodyTokenBump },
@@ -3763,9 +3865,8 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
             units: 300_000,
         });
 
-        const { value: lookupTableAccount } = await connection.getAddressLookupTable(
-            tokenRouterLkupTable,
-        );
+        const { value: lookupTableAccount } =
+            await connection.getAddressLookupTable(tokenRouterLkupTable);
 
         await expectIxOk(connection, [computeIx, ix], [payer], {
             addressLookupTableAccounts: [lookupTableAccount!],

@@ -529,6 +529,7 @@ export class SwapLayerProgram {
         args: {
             transferType: "native" | "programTransferAuthority" | "sender";
             amountIn: Uint64;
+            minAmountOut?: Uint64;
             isExactIn: boolean;
             targetChain: ChainId;
             recipient: Array<number>;
@@ -573,6 +574,7 @@ export class SwapLayerProgram {
         const ixBuilder = this.program.methods.stageOutbound({
             ...args,
             amountIn: uint64ToBN(amountIn),
+            minAmountOut: args.minAmountOut === undefined ? null : uint64ToBN(args.minAmountOut),
             redeemOption,
             encodedOutputToken,
         });

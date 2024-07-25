@@ -25,6 +25,7 @@ export type StagedOutboundInfo = {
     recipient: Array<number>;
     isExactIn: boolean;
     usdcRefundToken: PublicKey;
+    minAmountOut: BN | null;
 };
 
 export class StagedOutbound {
