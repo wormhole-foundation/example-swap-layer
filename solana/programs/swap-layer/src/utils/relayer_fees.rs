@@ -199,6 +199,22 @@ mod test {
     }
 
     #[test]
+    fn test_denormalize_gas_price_max() {
+        let gas_price = u32::MAX;
+        let denorm_gas_price = denormalize_gas_price(gas_price);
+
+        assert_eq!(denorm_gas_price, 4_294_967_295_000_000);
+    }
+
+    #[test]
+    fn test_denormalize_gas_price_zero() {
+        let gas_price = 0;
+        let denorm_gas_price = denormalize_gas_price(gas_price);
+
+        assert_eq!(denorm_gas_price, 0);
+    }
+
+    #[test]
     fn test_compound() {
         let base = 1_000;
         let percentage = 500_000; // 50%
@@ -273,6 +289,30 @@ mod test {
     }
 
     #[test]
+    fn test_uniswap_gas_overhead_many_swaps() {
+        let swap_type = &SwapType::UniswapV3(UniswapSwapParameters {
+            first_leg_fee: 0.into(),
+            path: vec![
+                UniswapSwapPath {
+                    evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                    fee: 0.into(),
+                },
+                UniswapSwapPath {
+                    evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                    fee: 0.into(),
+                },
+                UniswapSwapPath {
+                    evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                    fee: 0.into(),
+                },
+            ],
+        });
+        let gas_overhead = calculate_evm_swap_overhead(swap_type);
+
+        assert_eq!(gas_overhead, Some(490_000));
+    }
+
+    #[test]
     fn test_traderjoe_gas_overhead_one_swap() {
         let swap_type = &SwapType::TraderJoe(TraderJoeSwapParameters {
             first_pool_id: TraderJoePoolId {
@@ -284,6 +324,42 @@ mod test {
         let gas_overhead = calculate_evm_swap_overhead(swap_type);
 
         assert_eq!(gas_overhead, Some(110_000));
+    }
+
+    #[test]
+    fn test_traderjoe_gas_overhead_many_swaps() {
+        let swap_type = &SwapType::TraderJoe(TraderJoeSwapParameters {
+            first_pool_id: TraderJoePoolId {
+                version: 0,
+                bin_size: 69,
+            },
+            path: vec![
+                TraderJoeSwapPath {
+                    evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                    pool_id: TraderJoePoolId {
+                        version: 0,
+                        bin_size: 69,
+                    },
+                },
+                TraderJoeSwapPath {
+                    evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                    pool_id: TraderJoePoolId {
+                        version: 0,
+                        bin_size: 69,
+                    },
+                },
+                TraderJoeSwapPath {
+                    evm_address: hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a9"),
+                    pool_id: TraderJoePoolId {
+                        version: 0,
+                        bin_size: 69,
+                    },
+                },
+            ],
+        });
+        let gas_overhead = calculate_evm_swap_overhead(swap_type);
+
+        assert_eq!(gas_overhead, Some(350_000));
     }
 
     #[test]
@@ -300,6 +376,58 @@ mod test {
     }
 
     #[test]
+    fn test_calculate_evm_gas_cost_high_margin() {
+        let gas_price = 10_000; // 10 GWEI
+        let gas_price_margin = crate::MAX_BPS; // 100%
+        let total_gas = 100_000;
+        let native_token_price = 2_000_000_000; // ETH price $2000
+
+        assert_eq!(
+            calculate_evm_gas_cost(gas_price, gas_price_margin, total_gas, native_token_price),
+            Some(4_000_000)
+        );
+    }
+
+    #[test]
+    fn test_calculate_evm_gas_cost_overflow() {
+        let gas_price = u32::MAX;
+        let gas_price_margin = crate::MAX_BPS;
+        let total_gas = u64::MAX;
+        let native_token_price = u64::MAX;
+
+        assert_eq!(
+            calculate_evm_gas_cost(gas_price, gas_price_margin, total_gas, native_token_price),
+            None
+        );
+    }
+
+    #[test]
+    fn test_calculate_evm_gas_cost_zero_margin() {
+        let gas_price = 1_000; // 10 GWEI
+        let gas_price_margin = 0; // 25%
+        let total_gas = 100_000;
+        let native_token_price = 200_000_000; // 200 USDC
+
+        let gas_cost =
+            calculate_evm_gas_cost(gas_price, gas_price_margin, total_gas, native_token_price);
+
+        assert_eq!(gas_cost, Some(20_000));
+    }
+
+    #[test]
+    fn test_calculate_evm_gas_cost_zero_gas_price() {
+        let gas_price = 0; //
+        let gas_price_margin = 250_000; // 25%
+        let total_gas = 100_000;
+        let native_token_price = 200_000_000; // 200 USDC
+
+        let gas_cost =
+            calculate_evm_gas_cost(gas_price, gas_price_margin, total_gas, native_token_price);
+
+        assert_eq!(gas_cost, Some(0));
+    }
+
+    #[test]
     fn test_calculate_gas_dropoff_cost() {
         let gas_dropoff = 500_000; // .5 SOL normalized
         let gas_dropoff_margin = 500_000; // 50%
@@ -308,7 +436,67 @@ mod test {
         let dropoff_cost =
             calculate_gas_dropoff_cost(gas_dropoff, gas_dropoff_margin, native_token_price);
 
-        assert_eq!(dropoff_cost, Some(150000000));
+        assert_eq!(dropoff_cost, Some(150_000_000));
+    }
+
+    #[test]
+    fn test_calculate_gas_dropoff_zero_inputs() {
+        let specified_gas_dropoff = 0;
+        let gas_dropoff_margin = 0;
+        let native_token_price = 0;
+
+        let dropoff_cost = calculate_gas_dropoff_cost(
+            specified_gas_dropoff,
+            gas_dropoff_margin,
+            native_token_price,
+        );
+
+        assert_eq!(dropoff_cost, Some(0));
+    }
+
+    #[test]
+    fn test_calculate_gas_dropoff_max() {
+        let specified_gas_dropoff = u32::MAX;
+        let gas_dropoff_margin = 0;
+        let native_token_price = 200_000_000; // 200 USDC
+
+        let dropoff_cost = calculate_gas_dropoff_cost(
+            specified_gas_dropoff,
+            gas_dropoff_margin,
+            native_token_price,
+        );
+
+        assert_eq!(dropoff_cost, Some(858_993_459_000));
+    }
+
+    #[test]
+    fn test_calculate_gas_dropoff_max_margin() {
+        let specified_gas_dropoff = 500_000; // 0.5 SOL normalized
+        let gas_dropoff_margin = crate::MAX_BPS;
+        let native_token_price = 200_000_000; // 200 USDC
+
+        let dropoff_cost = calculate_gas_dropoff_cost(
+            specified_gas_dropoff,
+            gas_dropoff_margin,
+            native_token_price,
+        );
+
+        assert_eq!(dropoff_cost, Some(200_000_000));
+    }
+
+    #[test]
+    fn test_calculate_gas_dropoff_overflow() {
+        let specified_gas_dropoff = u32::MAX;
+        let gas_dropoff_margin = crate::MAX_BPS;
+        let native_token_price = u64::MAX;
+
+        let dropoff_cost = calculate_gas_dropoff_cost(
+            specified_gas_dropoff,
+            gas_dropoff_margin,
+            native_token_price,
+        );
+
+        assert_eq!(dropoff_cost, None); // Expected to overflow
     }
 
     #[test]
@@ -319,7 +507,75 @@ mod test {
 
         let relayer_fee = calculate_relayer_fee(&relay_params, gas_dropoff, output_token);
 
-        assert_eq!(relayer_fee.unwrap(), 17280000);
+        assert_eq!(relayer_fee.unwrap(), 17_280_000);
+    }
+
+    #[test]
+    fn test_calculate_relayer_fee_zero_gas_dropoff() {
+        let relay_params = test_relay_params();
+        let gas_dropoff = 0;
+        let output_token = &OutputToken::Usdc;
+
+        let relayer_fee = calculate_relayer_fee(&relay_params, gas_dropoff, output_token);
+
+        assert_eq!(relayer_fee.unwrap(), 2_200_000);
+    }
+
+    #[test]
+    fn test_calculate_relayer_fee_max_base_fee() {
+        let mut relay_params = test_relay_params();
+        relay_params.base_fee = u32::MAX - 1;
+        let gas_dropoff = 50_000;
+        let output_token = &OutputToken::Usdc;
+
+        let relayer_fee = calculate_relayer_fee(&relay_params, gas_dropoff, output_token);
+
+        assert!(relayer_fee.is_ok());
+        assert!(relayer_fee.unwrap() > u32::MAX.into());
+    }
+
+    #[test]
+    fn test_calculate_relayer_fee_relaying_disabled() {
+        let mut relay_params = test_relay_params();
+        relay_params.base_fee = u32::MAX;
+        let gas_dropoff = 50_000;
+        let output_token = &OutputToken::Usdc;
+
+        let relayer_fee = calculate_relayer_fee(&relay_params, gas_dropoff, output_token);
+
+        assert_eq!(
+            relayer_fee.unwrap_err(),
+            SwapLayerError::RelayingDisabled.into()
+        );
+    }
+
+    #[test]
+    fn test_calculate_relayer_fee_invalid_execution_params() {
+        let mut relay_params = test_relay_params();
+        relay_params.execution_params = ExecutionParams::None;
+        let gas_dropoff = 50_000;
+        let output_token = &OutputToken::Usdc;
+
+        let relayer_fee = calculate_relayer_fee(&relay_params, gas_dropoff, output_token);
+
+        assert_eq!(
+            relayer_fee.unwrap_err(),
+            SwapLayerError::InvalidExecutionParams.into()
+        );
+    }
+
+    #[test]
+    fn test_calculate_relayer_fee_invalid_gas_dropoff() {
+        let relay_params = test_relay_params();
+        let gas_dropoff = relay_params.max_gas_dropoff + 1;
+        let output_token = &OutputToken::Usdc;
+
+        let relayer_fee = calculate_relayer_fee(&relay_params, gas_dropoff, output_token);
+
+        assert_eq!(
+            relayer_fee.unwrap_err(),
+            SwapLayerError::InvalidGasDropoff.into()
+        );
     }
 
     #[test]
@@ -382,8 +638,6 @@ mod test {
 
         assert_eq!(relayer_fee.unwrap(), 17755000);
     }
-
-    // TODO: Add boundary tests.
 
     fn test_relay_params() -> RelayParams {
         RelayParams {
