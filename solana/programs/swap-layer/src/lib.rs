@@ -112,8 +112,8 @@ pub mod swap_layer {
     /// Updates the `fee_recipient` field in the `Custodian` account.
     ///
     /// This instruction is used to update the `fee_recipient` field in the `Custodian` account. This
-    /// instruction can only be called by the `owner`. The `fee_recipient` must be a valid token
-    /// account. The `fee_recipient` receives any relayer fees received by the swap layer.
+    /// instruction can only be called by the `owner` and `owner_assistant`. The `fee_recipient` must
+    /// be a valid token account. The `fee_recipient` receives any relayer fees received by the swap layer.
     ///
     /// # Arguments
     ///

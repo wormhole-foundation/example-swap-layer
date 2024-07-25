@@ -109,7 +109,7 @@ pub struct InitiateSwapExactIn<'info> {
     /// CHECK: Seeds must be \["endpoint"\, target_chain.to_be_bytes()] (Matching Engine Program).
     target_router_endpoint: UncheckedAccount<'info>,
 
-    /// CHECK: Mutable, seeds must be \["prepared-custody", prepared_order.key()\]
+    /// CHECK: Mutable. This account is verified by the Token Router Program.
     #[account(mut)]
     prepared_custody_token: UncheckedAccount<'info>,
 
