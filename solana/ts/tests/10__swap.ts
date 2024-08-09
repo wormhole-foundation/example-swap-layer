@@ -2935,7 +2935,7 @@ describe("Swap Layer -- Jupiter V6", () => {
 
         const ixs = [
             ComputeBudgetProgram.setComputeUnitLimit({
-                units: 700_000,
+                units: 750_000,
             }),
             ix,
         ];
@@ -3036,7 +3036,7 @@ describe("Swap Layer -- Jupiter V6", () => {
 
         const ixs = [
             ComputeBudgetProgram.setComputeUnitLimit({
-                units: 700_000,
+                units: 750_000,
             }),
             ix,
         ];
@@ -3172,7 +3172,7 @@ describe("Swap Layer -- Jupiter V6", () => {
 
         const ixs = [
             ComputeBudgetProgram.setComputeUnitLimit({
-                units: 700_000,
+                units: 750_000,
             }),
             ix,
         ];
@@ -4009,7 +4009,7 @@ describe("Swap Layer -- Jupiter V6", () => {
         const ix = await swapLayer.initiateSwapExactInIx(accounts, args);
 
         const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
-            units: 700_000,
+            units: 750_000,
         });
 
         const addressLookupTableAccounts = await Promise.all(

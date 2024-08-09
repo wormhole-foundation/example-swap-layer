@@ -44,7 +44,6 @@ impl StagedInbound {
         const FIXED: usize = 8 // DISCRIMINATOR
             + StagedInboundSeeds::INIT_SPACE
             + StagedInboundInfo::INIT_SPACE
-            + 32 // sender
             + 4 // payload len
         ;
 
