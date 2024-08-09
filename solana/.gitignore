@@ -3,6 +3,7 @@
 .DS_Store
 target
 **/*.rs.bk
+artifacts-*
 node_modules
 test-ledger
 ts/tests/artifacts

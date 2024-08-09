@@ -58,6 +58,17 @@ cargo-test-all:
 	NETWORK=localnet $(MAKE) cargo-test
 	NETWORK=testnet $(MAKE) cargo-test
 
+.PHONY: build
+build: fast-transfer-sync
+	anchor build -- --features $(NETWORK)
+	mkdir -p artifacts-$(NETWORK)
+	cp target/deploy/swap_layer.so artifacts-$(NETWORK)
+
+.PHONY: check-build
+check-build:
+	NETWORK=testnet $(MAKE) build
+	ls artifacts-testnet/swap_layer.so
+
 ts/tests/artifacts:
 	mkdir ts/tests/artifacts
 
