@@ -4,7 +4,7 @@ use crate::{
     state::Custodian,
     utils::{self},
 };
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, system_program};
 use anchor_spl::token;
 use swap_layer_messages::types::{OutputToken, RedeemMode};
 use token_router::state::FillType;
@@ -14,6 +14,11 @@ pub struct CompleteTransferRelay<'info> {
     #[account(mut)]
     /// The payer of the transaction. This could either be the recipient or a relayer.
     payer: Signer<'info>,
+
+    /// This redeemer is used to check against the recipient. If the redeemer is the same as the
+    /// recipient, he is free to redeem his tokens directly as USDC even if swap instructions are
+    /// encoded.
+    redeemer: Signer<'info>,
 
     #[account(
         constraint = {
@@ -29,32 +34,34 @@ pub struct CompleteTransferRelay<'info> {
             // relayer is attempting to redeem an output token that is not USDC.
             match swap_msg.output_token {
                 OutputToken::Usdc => {}
-                OutputToken::Gas(_) | OutputToken::Other {
-                    address: _,
-                    swap: _,
-                } => {
-                    let time_diff = Clock::get()?
-                        .unix_timestamp
-                        .saturating_sub(consume_swap_layer_fill.fill.timestamp);
-                    let swap_time_limit = &consume_swap_layer_fill
-                        .source_peer
-                        .relay_params
-                        .swap_time_limit;
+                OutputToken::Gas(_) | OutputToken::Other { .. } => {
+                    // If the redeemer is not the recipient, handle these output tokens very
+                    // carefully by checking the time limits.
+                    if redeemer.key() != recipient.key() {
+                        let time_diff = Clock::get()
+                            .unwrap()
+                            .unix_timestamp
+                            .saturating_sub(consume_swap_layer_fill.fill.timestamp);
+                        let swap_time_limit = &consume_swap_layer_fill
+                            .source_peer
+                            .relay_params
+                            .swap_time_limit;
 
-                    match consume_swap_layer_fill.fill.fill_type {
-                        FillType::FastFill => {
-                            require!(
-                                time_diff >= i64::from(swap_time_limit.fast_limit),
-                                SwapLayerError::SwapTimeLimitNotExceeded
-                            );
+                        match consume_swap_layer_fill.fill.fill_type {
+                            FillType::FastFill => {
+                                require!(
+                                    time_diff >= i64::from(swap_time_limit.fast_limit),
+                                    SwapLayerError::SwapTimeLimitNotExceeded
+                                );
+                            }
+                            FillType::WormholeCctpDeposit => {
+                                require!(
+                                    time_diff >= i64::from(swap_time_limit.finalized_limit),
+                                    SwapLayerError::SwapTimeLimitNotExceeded
+                                );
+                            }
+                            FillType::Unset => return Err(SwapLayerError::UnsupportedFillType.into()),
                         }
-                        FillType::WormholeCctpDeposit => {
-                            require!(
-                                time_diff >= i64::from(swap_time_limit.finalized_limit),
-                                SwapLayerError::SwapTimeLimitNotExceeded
-                            );
-                        }
-                        FillType::Unset => return Err(SwapLayerError::UnsupportedFillType.into()),
                     }
                 }
             }
@@ -87,7 +94,7 @@ pub struct CompleteTransferRelay<'info> {
     /// of the bridged tokens.
     recipient_token_account: Box<Account<'info, token::TokenAccount>>,
 
-    /// CHECK: recipient may differ from payer if a relayer paid for this
+    /// CHECK: Recipient may differ from redeemer if a relayer paid for this
     /// transaction. This instruction verifies that the recipient key
     /// passed in this context matches the intended recipient in the fill.
     #[account(mut)]
@@ -143,16 +150,16 @@ fn handle_complete_transfer_relay(
     let payer = &ctx.accounts.payer;
     let recipient = &ctx.accounts.recipient;
 
-    // If the payer is the recipient, just transfer the tokens to the recipient.
+    // If the redeemer is the recipient, just transfer the tokens to the recipient.
     let user_amount = {
-        if payer.key() == recipient.key() {
+        if ctx.accounts.redeemer.key() == recipient.key() {
             fill_amount
         } else {
             if gas_dropoff > 0 {
-                anchor_lang::system_program::transfer(
+                system_program::transfer(
                     CpiContext::new(
                         ctx.accounts.system_program.to_account_info(),
-                        anchor_lang::system_program::Transfer {
+                        system_program::Transfer {
                             from: payer.to_account_info(),
                             to: recipient.to_account_info(),
                         },
@@ -169,10 +176,10 @@ fn handle_complete_transfer_relay(
     };
 
     // Transfer the tokens to the recipient.
-    anchor_spl::token::transfer(
+    token::transfer(
         CpiContext::new_with_signer(
             token_program.to_account_info(),
-            anchor_spl::token::Transfer {
+            token::Transfer {
                 from: complete_token.to_account_info(),
                 to: ctx.accounts.recipient_token_account.to_account_info(),
                 authority: custodian.to_account_info(),
@@ -184,10 +191,10 @@ fn handle_complete_transfer_relay(
 
     // Transfer eligible USDC to the fee recipient.
     if user_amount != fill_amount {
-        anchor_spl::token::transfer(
+        token::transfer(
             CpiContext::new_with_signer(
                 token_program.to_account_info(),
-                anchor_spl::token::Transfer {
+                token::Transfer {
                     from: complete_token.to_account_info(),
                     to: ctx.accounts.fee_recipient_token.to_account_info(),
                     authority: custodian.to_account_info(),

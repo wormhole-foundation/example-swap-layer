@@ -32,6 +32,7 @@ pub enum SwapLayerError {
     UnsupportedFillType = 0x115,
     SwapTimeLimitNotExceeded = 0x116,
     ImmutableProgram = 0x118,
+    InvalidRedeemer = 0x11a,
 
     // EVM Execution Param errors
     InvalidBaseFee = 0x200,

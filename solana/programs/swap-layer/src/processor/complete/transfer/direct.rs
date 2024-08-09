@@ -5,6 +5,11 @@ use swap_layer_messages::types::{OutputToken, RedeemMode};
 
 #[derive(Accounts)]
 pub struct CompleteTransferDirect<'info> {
+    /// This redeemer is used to check against the recipient. If the redeemer is the same as the
+    /// recipient, he is free to redeem his tokens directly as USDC even if swap instructions are
+    /// encoded.
+    redeemer: Signer<'info>,
+
     #[account(
         constraint = {
             let swap_msg = consume_swap_layer_fill.read_message_unchecked();
@@ -15,13 +20,16 @@ pub struct CompleteTransferDirect<'info> {
                 SwapLayerError::InvalidRecipient
             );
 
-            require!(
-                matches!(
-                    swap_msg.output_token,
-                    OutputToken::Usdc
-                ),
-                SwapLayerError::InvalidOutputToken
-            );
+            match &swap_msg.output_token {
+                OutputToken::Usdc => {}
+                OutputToken::Gas(_) | OutputToken::Other { .. } => {
+                    require_eq!(
+                        redeemer.key(),
+                        recipient.key(),
+                        SwapLayerError::InvalidRedeemer
+                    );
+                }
+            }
 
             true
         }

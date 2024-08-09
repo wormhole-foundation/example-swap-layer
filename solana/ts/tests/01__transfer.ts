@@ -2644,7 +2644,61 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                     await expectIxErr(connection, [transferIx], [payer], "InvalidPeer");
                 });
 
-                it("Cannot Complete Transfer (Swap Time Limit Not Exceeded)", async function () {
+                it("Cannot Complete Transfer with Redeemer != Recipient and Output Token != USDC (Swap Time Limit Not Exceeded)", async function () {
+                    const currTime = await connection.getBlockTime(await connection.getSlot());
+                    const result = await createAndRedeemCctpFillForTest(
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(payer.publicKey.toString(), "base58"),
+                            redeemMode: {
+                                mode: "Relay",
+                                gasDropoff: 0,
+                                relayingFee: 6900n,
+                            },
+                            outputToken: {
+                                type: "Gas",
+                                swap: {
+                                    deadline: 0,
+                                    limitAmount: 0n,
+                                    type: {
+                                        id: "JupiterV6",
+                                        dexProgramId: { isSome: false },
+                                    },
+                                },
+                            },
+                        }),
+                        {
+                            vaaTimestamp:
+                                currTime - TEST_RELAY_PARAMS.swapTimeLimit.finalizedLimit + 5,
+                        },
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const redeemer = Keypair.generate();
+                    const transferIx = await swapLayer.completeTransferRelayIx(
+                        {
+                            payer: payer.publicKey,
+                            redeemer: redeemer.publicKey,
+                            preparedFill,
+                            recipient: payer.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxErr(
+                        connection,
+                        [transferIx],
+                        [payer, redeemer],
+                        "SwapTimeLimitNotExceeded",
+                    );
+                });
+
+                it("Complete Transfer with Redeemer == Recipient and Output Token != USDC", async function () {
                     const currTime = await connection.getBlockTime(await connection.getSlot());
                     const result = await createAndRedeemCctpFillForTest(
                         testCctpNonce++,
@@ -2688,12 +2742,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         foreignChain,
                     );
 
-                    await expectIxErr(
-                        connection,
-                        [transferIx],
-                        [payer],
-                        "SwapTimeLimitNotExceeded",
-                    );
+                    await expectIxOk(connection, [transferIx], [payer]);
                 });
 
                 it("Cannot Complete Transfer (Invalid Recipient)", async function () {
@@ -3218,7 +3267,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                     await expectIxErr(connection, [transferIx], [payer], "InvalidRecipient");
                 });
 
-                it("Cannot Complete Transfer (Invalid Output Token)", async function () {
+                it("Cannot Complete Transfer with Redeemer != Recipient and Output Token != USDC (Invalid Redeemer)", async function () {
                     const result = await createAndRedeemCctpFillForTest(
                         testCctpNonce++,
                         foreignChain,
@@ -3258,7 +3307,56 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         foreignChain,
                     );
 
-                    await expectIxErr(connection, [transferIx], [payer], "InvalidOutputToken");
+                    await expectIxErr(
+                        connection,
+                        [transferIx],
+                        [payer],
+                        "Error Code: InvalidRedeemer",
+                    );
+                });
+
+                it("Complete Transfer with Redeemer == Recipient and Output Token != USDC", async function () {
+                    const result = await createAndRedeemCctpFillForTest(
+                        testCctpNonce++,
+                        foreignChain,
+                        foreignTokenRouterAddress,
+                        foreignSwapLayerAddress,
+                        wormholeSequence,
+                        encodeSwapLayerMessage({
+                            recipient: new UniversalAddress(
+                                recipient.publicKey.toString(),
+                                "base58",
+                            ),
+                            redeemMode: {
+                                mode: "Direct",
+                            },
+                            outputToken: {
+                                type: "Gas",
+                                swap: {
+                                    deadline: 0,
+                                    limitAmount: 0n,
+                                    type: {
+                                        id: "JupiterV6",
+                                        dexProgramId: { isSome: false },
+                                    },
+                                },
+                            },
+                        }),
+                    );
+                    const { vaa } = result!;
+                    const preparedFill = tokenRouter.preparedFillAddress(vaa);
+
+                    const transferIx = await swapLayer.completeTransferDirectIx(
+                        {
+                            payer: payer.publicKey,
+                            redeemer: recipient.publicKey,
+                            preparedFill,
+                            recipient: recipient.publicKey,
+                        },
+                        foreignChain,
+                    );
+
+                    await expectIxOk(connection, [transferIx], [payer, recipient]);
                 });
 
                 it("Complete Transfer (Recipient Not Payer)", async function () {
@@ -3336,6 +3434,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                             payer: payer.publicKey,
                             beneficiary: beneficiary.publicKey,
                             preparedFill,
+                            recipient: payer.publicKey,
                         },
                         foreignChain,
                     );
@@ -3452,7 +3551,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                 });
 
                 describe("Stage Inbound", function () {
-                    it("Cannot Stage Inbound (Invalid Output Token)", async function () {
+                    it("Cannot Complete Transfer with Redeemer != Recipient and Output Token != USDC (Invalid Redeemer)", async function () {
                         // Try to complete the swap with an invalid output token (include
                         // swap instructions).
                         const result = await createAndRedeemCctpFillForTest(
@@ -3501,10 +3600,68 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                             foreignChain,
                         );
 
-                        await expectIxErr(connection, [transferIx], [payer], "InvalidOutputToken");
+                        await expectIxErr(
+                            connection,
+                            [transferIx],
+                            [payer],
+                            "Error Code: InvalidRedeemer",
+                        );
                     });
 
-                    it("Cannot Stage Inbound (Invalid Swap Message)", async function () {
+                    it("Complete Transfer with Redeemer == Recipient and Output Token != USDC", async function () {
+                        // Try to complete the swap with an invalid output token (include
+                        // swap instructions).
+                        const result = await createAndRedeemCctpFillForTest(
+                            testCctpNonce++,
+                            foreignChain,
+                            foreignTokenRouterAddress,
+                            foreignSwapLayerAddress,
+                            wormholeSequence,
+                            encodeSwapLayerMessage({
+                                recipient: new UniversalAddress(
+                                    recipient.publicKey.toString(),
+                                    "base58",
+                                ),
+                                redeemMode: {
+                                    mode: "Payload",
+                                    sender: toUniversal(
+                                        "Ethereum",
+                                        "0x000000000000000000000000000000000000d00d",
+                                    ),
+                                    buf: Buffer.from("Insert payload here"),
+                                },
+                                outputToken: {
+                                    type: "Gas",
+                                    swap: {
+                                        deadline: 0,
+                                        limitAmount: 0n,
+                                        type: {
+                                            id: "JupiterV6",
+                                            dexProgramId: { isSome: false },
+                                        },
+                                    },
+                                },
+                            }),
+                        );
+                        const { vaa } = result!;
+
+                        const preparedFill = tokenRouter.preparedFillAddress(vaa);
+                        const beneficiary = Keypair.generate();
+
+                        const transferIx = await swapLayer.completeTransferPayloadIx(
+                            {
+                                payer: payer.publicKey,
+                                redeemer: recipient.publicKey,
+                                beneficiary: beneficiary.publicKey,
+                                preparedFill,
+                            },
+                            foreignChain,
+                        );
+
+                        await expectIxOk(connection, [transferIx], [payer, recipient]);
+                    });
+
+                    it("Cannot Complete Transfer (Invalid Swap Message)", async function () {
                         const result = await createAndRedeemCctpFillForTest(
                             testCctpNonce++,
                             foreignChain,
@@ -3530,7 +3687,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         await expectIxErr(connection, [transferIx], [payer], "InvalidSwapMessage");
                     });
 
-                    it("Cannot Stage Inbound (Peer Doesn't Exist)", async function () {
+                    it("Cannot Complete Transfer (Peer Doesn't Exist)", async function () {
                         const result = await createAndRedeemCctpFillForTest(
                             testCctpNonce++,
                             foreignChain,
@@ -3561,7 +3718,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         );
                     });
 
-                    it("Cannot Stage Inbound (Chain Mismatch)", async function () {
+                    it("Cannot Complete Transfer (Chain Mismatch)", async function () {
                         const result = await createAndRedeemCctpFillForTest(
                             testCctpNonce++,
                             foreignChain,
@@ -3587,7 +3744,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         await expectIxErr(connection, [transferIx], [payer], "InvalidPeer");
                     });
 
-                    it("Cannot Stage Inbound (Invalid Peer)", async function () {
+                    it("Cannot Complete Transfer (Invalid Peer)", async function () {
                         const result = await createAndRedeemCctpFillForTest(
                             testCctpNonce++,
                             foreignChain,
@@ -3619,7 +3776,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         await expectIxErr(connection, [transferIx], [payer], "InvalidPeer");
                     });
 
-                    it("Cannot Stage Inbound (Invalid Redeem Mode)", async function () {
+                    it("Cannot Complete Transfer (Invalid Redeem Mode)", async function () {
                         const result = await createAndRedeemCctpFillForTest(
                             testCctpNonce++,
                             foreignChain,
@@ -3652,7 +3809,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         await expectIxErr(connection, [transferIx], [payer], "InvalidRedeemMode");
                     });
 
-                    it("Stage Inbound", async function () {
+                    it("Complete Transfer with Output Token == USDC", async function () {
                         const result = await createAndRedeemCctpFillForTest(
                             testCctpNonce++,
                             foreignChain,

@@ -811,6 +811,7 @@ export class SwapLayerProgram {
     async completeTransferRelayIx(
         accounts: {
             payer: PublicKey;
+            redeemer?: PublicKey;
             preparedFill: PublicKey;
             recipient: PublicKey;
             peer?: PublicKey;
@@ -820,16 +821,11 @@ export class SwapLayerProgram {
         },
         sourceChain?: wormholeSdk.ChainId,
     ) {
-        let {
-            payer,
-            beneficiary,
-            preparedFill,
-            peer,
-            recipient,
-            recipientTokenAccount,
-            feeRecipientToken,
-        } = accounts;
+        const { payer, preparedFill, recipient } = accounts;
 
+        let { redeemer, beneficiary, peer, recipientTokenAccount, feeRecipientToken } = accounts;
+
+        redeemer ??= payer;
         beneficiary ??= payer;
         recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, recipient);
 
@@ -843,6 +839,7 @@ export class SwapLayerProgram {
             .completeTransferRelay()
             .accounts({
                 payer,
+                redeemer,
                 consumeSwapLayerFill: await this.consumeSwapLayerFillComposite(
                     {
                         preparedFill,
@@ -865,23 +862,27 @@ export class SwapLayerProgram {
     async completeTransferDirectIx(
         accounts: {
             payer: PublicKey;
+            redeemer?: PublicKey;
             preparedFill: PublicKey;
             peer?: PublicKey;
-            recipient?: PublicKey;
+            recipient: PublicKey;
             beneficiary?: PublicKey;
             recipientTokenAccount?: PublicKey;
         },
         sourceChain?: wormholeSdk.ChainId,
     ) {
-        let { payer, beneficiary, preparedFill, peer, recipient, recipientTokenAccount } = accounts;
+        const { payer, preparedFill, recipient } = accounts;
 
+        let { redeemer, beneficiary, peer, recipientTokenAccount } = accounts;
+
+        redeemer ??= payer;
         beneficiary ??= payer;
-        recipient ??= payer;
         recipientTokenAccount ??= splToken.getAssociatedTokenAddressSync(this.usdcMint, recipient);
 
         return this.program.methods
             .completeTransferDirect()
             .accounts({
+                redeemer,
                 consumeSwapLayerFill: await this.consumeSwapLayerFillComposite(
                     {
                         preparedFill,
@@ -900,14 +901,17 @@ export class SwapLayerProgram {
     async completeTransferPayloadIx(
         accounts: {
             payer: PublicKey;
+            redeemer?: PublicKey;
             preparedFill: PublicKey;
             peer?: PublicKey;
             beneficiary?: PublicKey;
         },
         sourceChain?: wormholeSdk.ChainId,
     ) {
-        let { payer, preparedFill, peer, beneficiary } = accounts;
+        const { payer, preparedFill } = accounts;
+        let { redeemer, peer, beneficiary } = accounts;
 
+        redeemer ??= payer;
         beneficiary ??= payer;
 
         const stagedInbound = this.stagedInboundAddress(preparedFill);
@@ -916,7 +920,8 @@ export class SwapLayerProgram {
         return this.program.methods
             .completeTransferPayload()
             .accounts({
-                payer: payer,
+                payer,
+                redeemer,
                 consumeSwapLayerFill: await this.consumeSwapLayerFillComposite(
                     {
                         preparedFill,
