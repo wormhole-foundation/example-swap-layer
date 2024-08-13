@@ -92,6 +92,7 @@ type StageOutboundArgs = {
         | { payload: Uint8Array | Buffer }
         | null;
     outputToken?: OutputToken | null;
+    minAmountOut?: bigint;
 };
 
 export async function stageOutboundOnSolana(
@@ -111,7 +112,7 @@ export async function stageOutboundOnSolana(
     const stagedOutboundSigner = Keypair.generate();
     const stagedOutbound = stagedOutboundSigner.publicKey;
 
-    let { redeemOption, outputToken, transferType, exactIn } = opts;
+    let { redeemOption, outputToken, transferType, exactIn, minAmountOut } = opts;
     redeemOption ??= null;
     outputToken ??= null;
     transferType ??= "sender";
@@ -126,6 +127,7 @@ export async function stageOutboundOnSolana(
         {
             transferType,
             amountIn,
+            minAmountOut,
             isExactIn: exactIn,
             targetChain: toChainId(targetChain),
             recipient: foreignRecipientAddress,
@@ -366,6 +368,7 @@ export async function initiateOnSolanaSwapLayer(
             outputToken,
             transferType,
             exactIn,
+            minAmountOut: quotedOutAmount,
         },
     );
 

@@ -705,7 +705,7 @@ describe("Swap Layer", () => {
             describe("Direct", function () {
                 it("Outbound", async function () {
                     const amountIn = 1_000_000_000n; // 1 SOL
-                    const amountOut = 150_000_000n; // 150 USDC
+                    const amountOut = 140_000_000n; // 140 USDC
                     const targetAmountOut = 25_000_000_000_000_000n; // 0.025 ETH
                     const senderToken = splToken.getAssociatedTokenAddressSync(
                         splToken.NATIVE_MINT,
@@ -771,7 +771,7 @@ describe("Swap Layer", () => {
             describe("Relay", function () {
                 it("Outbound", async function () {
                     const amountIn = 1_000_000_000n; // 1 SOL
-                    const amountOut = 150_000_000n; // 150 USDC
+                    const amountOut = 140_000_000n; // 140 USDC
                     const targetAmountOut = 25_000_000_000_000_000n; // 0.025 ETH
                     const senderToken = splToken.getAssociatedTokenAddressSync(
                         splToken.NATIVE_MINT,

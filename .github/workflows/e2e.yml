@@ -1,0 +1,38 @@
+name: e2e
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  RUSTC_VERSION: 1.75.0
+jobs:
+  test:
+    name: bash sh/run_test.sh
+    runs-on: ubuntu-latest
+    # Anchor Docker image: https://www.anchor-lang.com/docs/verifiable-builds#images
+    # container: backpackapp/build:v0.30.0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - uses: metadaoproject/setup-anchor@v2
+        with:
+          node-version: "20.11.0"
+          solana-cli-version: "1.18.15"
+          anchor-version: "0.30.0"
+      - name: Set default Rust toolchain
+        run: rustup default stable
+      - name: make node_modules
+        run: make node_modules
+      - name: make build
+        run: make build
+        working-directory: ./evm
+      - name: bash sh/run_test.sh
+        run: bash sh/run_test.sh
+        working-directory: ./e2e
