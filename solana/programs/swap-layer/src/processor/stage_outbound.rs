@@ -68,6 +68,9 @@ pub struct StageOutbound<'info> {
         payer = payer,
         space = StagedOutbound::try_compute_size(&args.redeem_option, &args.encoded_output_token)?,
         constraint = {
+            // Disallow amount in of zero.
+            require!(args.amount_in != 0, SwapLayerError::ZeroAmountIn);
+
             // Cannot send to zero address.
             require!(args.recipient != [0; 32], SwapLayerError::InvalidRecipient);
 
