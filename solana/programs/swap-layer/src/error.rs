@@ -51,6 +51,7 @@ pub enum SwapLayerError {
     ZeroAmountIn = 0x261,
     ZeroMinAmountOut = 0x262,
     DelegatedAmountMismatch = 0x264,
+    NotProgramTransferAuthority = 0x265,
     ExactInRequired = 0x266,
     InsufficientAmountIn = 0x268,
 

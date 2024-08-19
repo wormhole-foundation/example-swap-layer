@@ -282,6 +282,13 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
                     SwapLayerError::DelegatedAmountMismatch,
                 );
 
+                // And make sure the delegated authority is the program transfer authority.
+                require!(
+                    Option::<Pubkey>::from(sender_token.delegate)
+                        .is_some_and(|delegate| { delegate == program_transfer_authority.key() }),
+                    SwapLayerError::NotProgramTransferAuthority,
+                );
+
                 let (hashed_args, authority_bump) = last_transfer_authority_signer_seeds.unwrap();
 
                 token_interface::transfer_checked(
