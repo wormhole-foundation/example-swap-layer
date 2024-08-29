@@ -31,12 +31,13 @@ fast-transfer-sync:
 
 .PHONY: clippy
 clippy:
-	cargo clippy --workspace --no-deps --all-targets --all-features -- -Dwarnings
+	cargo clippy --workspace --no-deps --all-targets --features $(NETWORK) -- -Dwarnings
 
 .PHONY: lint
 lint: fast-transfer-sync
 	cargo fmt --check
-	$(MAKE) clippy
+	NETWORK=localnet $(MAKE) clippy
+	NETWORK=testnet $(MAKE) clippy
 
 .PHONY: cargo-test
 cargo-test: fast-transfer-sync
