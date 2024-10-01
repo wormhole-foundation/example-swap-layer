@@ -71,7 +71,6 @@ impl StagedOutbound {
     const BASE_SIZE: usize = 8 // DISCRIMINATOR
         + StagedOutboundInfo::INIT_SPACE
         + 1 // StagedRedeem discrimant
-        + 1 // encoded_output_token === None
         ;
 
     pub fn try_compute_size(
