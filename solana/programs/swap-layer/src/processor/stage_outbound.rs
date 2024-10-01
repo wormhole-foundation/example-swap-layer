@@ -1,7 +1,7 @@
 use crate::{
     composite::*,
     error::SwapLayerError,
-    state::{Peer, RedeemOption, StagedOutbound, StagedOutboundInfo, StagedRedeem},
+    state::{RedeemOption, StagedOutbound, StagedOutboundInfo, StagedRedeem},
     utils, TRANSFER_AUTHORITY_SEED_PREFIX,
 };
 use anchor_lang::{prelude::*, system_program};
@@ -327,17 +327,11 @@ pub fn stage_outbound(ctx: Context<StageOutbound>, args: StageOutboundArgs) -> R
                     transfer_amount,
                 )?;
 
-                let peer_seeds = &ctx.accounts.target_peer.seeds;
-                token_interface::sync_native(CpiContext::new_with_signer(
+                token_interface::sync_native(CpiContext::new(
                     src_token_program.to_account_info(),
                     token_interface::SyncNative {
                         account: custody_token.to_account_info(),
                     },
-                    &[&[
-                        Peer::SEED_PREFIX,
-                        &peer_seeds.chain.to_be_bytes(),
-                        &[peer_seeds.bump],
-                    ]],
                 ))?;
 
                 sender.key()
