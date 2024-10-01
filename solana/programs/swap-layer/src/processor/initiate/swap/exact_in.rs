@@ -28,9 +28,21 @@ pub struct InitiateSwapExactIn<'info> {
     /// This account may be closed by the end of the instruction if there is no dust after the swap.
     #[account(
         mut,
-        constraint = staged_outbound.info.is_exact_in @ SwapLayerError::ExactInRequired,
+        constraint = {
+            require!(staged_outbound.info.is_exact_in, SwapLayerError::ExactInRequired);
+
+            // Cannot send to zero address.
+            //
+            // NOTE: This zero address check happens at the stage outbound instruction. But this
+            // instruction sets the recipient to the zero address if there was any dust remaining
+            // after the swap. So by checking for the zero address here, we prevent a replay of the
+            // same outbound swap using dust remaining in the custody token account.
+            require!(staged_outbound.info.recipient != [0; 32], SwapLayerError::InvalidRecipient);
+
+            true
+        }
     )]
-    staged_outbound: Account<'info, StagedOutbound>,
+    staged_outbound: Box<Account<'info, StagedOutbound>>,
 
     /// This custody token account may be closed by the end of the instruction if there is no dust
     /// after the swap.
@@ -337,6 +349,9 @@ where
         ctx.accounts
             .staged_outbound
             .close(prepared_by.to_account_info())?;
+    } else {
+        // Override the recipient to prevent replaying the same outbound swap.
+        ctx.accounts.staged_outbound.info.recipient = Default::default();
     }
 
     // Done.
