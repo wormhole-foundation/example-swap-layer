@@ -167,7 +167,7 @@ pub fn initiate_transfer(ctx: Context<InitiateTransfer>) -> Result<()> {
         ctx.accounts.token_program.to_account_info(),
         token::CloseAccount {
             account: custody_token.to_account_info(),
-            destination: ctx.accounts.payer.to_account_info(),
+            destination: ctx.accounts.prepared_by.to_account_info(),
             authority: ctx.accounts.custodian.to_account_info(),
         },
         &[Custodian::SIGNER_SEEDS],
