@@ -6,7 +6,7 @@ import "@openzeppelin/token/ERC20/IERC20.sol";
 import "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
 
-import "wormhole-sdk/interfaces/token/IPermit2.sol";
+import "permit2/interfaces/IPermit2.sol";
 import { BytesParsing } from "wormhole-sdk/libraries/BytesParsing.sol";
 
 import { checkAddr } from "./Params.sol";
