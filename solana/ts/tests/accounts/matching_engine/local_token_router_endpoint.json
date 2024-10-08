@@ -1,0 +1,14 @@
+{
+  "pubkey": "DM2XBh6idYEGffbmpXpZ8imvvqr3wiGWQSPDPi7DUhK6",
+  "account": {
+    "lamports": 1642560,
+    "data": [
+      "2ZS8y7dpms3+AQDLBAbllVW/A3G3xP/xgSoRqNktrQKtQiBilx1h3M4s0DNaCpv0sk+AZeIvAcOHXlUjPSggm8JUmF3OIGM4z2RPAQbd9uG30FNCYIGt/sMR2odA7yJzvBqMmQv6AP8AAAAA",
+      "base64"
+    ],
+    "owner": "MatchingEngine11111111111111111111111111111",
+    "executable": false,
+    "rentEpoch": 18446744073709551615,
+    "space": 108
+  }
+}

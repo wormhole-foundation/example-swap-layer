@@ -1,0 +1,87 @@
+name: solana
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  RUSTC_VERSION: 1.75.0
+jobs:
+  make-cargo-test-all:
+    name: make cargo-test-all
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUSTC_VERSION }}
+          components: clippy, rustfmt
+      - name: make cargo-test-all
+        run: make cargo-test-all
+        working-directory: ./solana
+
+  make-lint:
+    name: make lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUSTC_VERSION }}
+          components: clippy, rustfmt
+      - name: make lint
+        run: make lint
+        working-directory: ./solana
+
+  make-anchor-test:
+    name: make anchor-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - uses: metadaoproject/setup-anchor@v2
+        with:
+          node-version: "20.11.0"
+          solana-cli-version: "1.18.15"
+          anchor-version: "0.30.1"
+      - name: Set default Rust toolchain
+        run: rustup default stable
+        working-directory: ./solana
+      - name: make anchor-test
+        run: make anchor-test
+        working-directory: ./solana
+
+  make-check-build:
+    name: make check-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - uses: metadaoproject/setup-anchor@v2
+        with:
+          node-version: "20.11.0"
+          solana-cli-version: "1.18.15"
+          anchor-version: "0.30.1"
+      - name: Set default Rust toolchain
+        run: rustup default stable
+        working-directory: ./solana
+      - name: make check-build
+        run: make check-build
+        working-directory: ./solana
