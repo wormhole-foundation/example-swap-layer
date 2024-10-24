@@ -88,8 +88,8 @@ describe("Swap Layer", () => {
                         const amountIn = 20_000_000_000; // 20k USDC
 
                         const output: InitiateArgs = {
-                            transferMode: {
-                                mode: "LiquidityLayer",
+                            fastTransferMode: {
+                                mode: "Disabled",
                             },
                             redeemMode: {
                                 mode: "Direct",
@@ -171,8 +171,8 @@ describe("Swap Layer", () => {
                             .then((encodedFee) => Number(encodedFee));
 
                         const output: InitiateArgs = {
-                            transferMode: {
-                                mode: "LiquidityLayer",
+                            fastTransferMode: {
+                                mode: "Disabled",
                             },
                             redeemMode: {
                                 mode: "Relay",
@@ -270,8 +270,8 @@ describe("Swap Layer", () => {
                             .then((b) => b.timestamp);
 
                         const output: InitiateArgs = {
-                            transferMode: {
-                                mode: "LiquidityLayer",
+                            fastTransferMode: {
+                                mode: "Disabled",
                             },
                             redeemMode: {
                                 mode: "Direct",
@@ -377,8 +377,8 @@ describe("Swap Layer", () => {
                             .then((encodedFee) => BigInt(encodedFee));
 
                         const output: InitiateArgs = {
-                            transferMode: {
-                                mode: "LiquidityLayer",
+                            fastTransferMode: {
+                                mode: "Disabled",
                             },
                             redeemMode: {
                                 mode: "Relay",
@@ -1045,8 +1045,8 @@ describe("Swap Layer", () => {
                     const amountIn = 20_000_000_000; // 20k USDC
 
                     const output: InitiateArgs = {
-                        transferMode: {
-                            mode: "LiquidityLayer",
+                        fastTransferMode: {
+                            mode: "Disabled",
                         },
                         redeemMode: {
                             mode: "Direct",
@@ -1152,8 +1152,8 @@ describe("Swap Layer", () => {
                         .then((encodedFee) => Number(encodedFee));
 
                     const output: InitiateArgs = {
-                        transferMode: {
-                            mode: "LiquidityLayer",
+                        fastTransferMode: {
+                            mode: "Disabled",
                         },
                         redeemMode: {
                             mode: "Relay",
@@ -1277,8 +1277,8 @@ describe("Swap Layer", () => {
                         .then((b) => b.timestamp);
 
                     const output: InitiateArgs = {
-                        transferMode: {
-                            mode: "LiquidityLayer",
+                        fastTransferMode: {
+                            mode: "Disabled",
                         },
                         redeemMode: {
                             mode: "Direct",
@@ -1406,8 +1406,8 @@ describe("Swap Layer", () => {
                         .then((encodedFee) => BigInt(encodedFee));
 
                     const output: InitiateArgs = {
-                        transferMode: {
-                            mode: "LiquidityLayer",
+                        fastTransferMode: {
+                            mode: "Disabled",
                         },
                         redeemMode: {
                             mode: "Relay",
@@ -1542,8 +1542,8 @@ describe("Swap Layer", () => {
                         .then((b) => b.timestamp);
 
                     const output: InitiateArgs = {
-                        transferMode: {
-                            mode: "LiquidityLayer",
+                        fastTransferMode: {
+                            mode: "Disabled",
                         },
                         redeemMode: {
                             mode: "Direct",
@@ -1682,8 +1682,8 @@ describe("Swap Layer", () => {
                     const amountOut = amountIn - relayingFee - 500_000n;
 
                     const output: InitiateArgs = {
-                        transferMode: {
-                            mode: "LiquidityLayer",
+                        fastTransferMode: {
+                            mode: "Disabled",
                         },
                         redeemMode: {
                             mode: "Relay",

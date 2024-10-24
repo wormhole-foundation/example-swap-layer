@@ -850,8 +850,15 @@ describe("Swap Layer -- Jupiter V6", () => {
             let listenerId: number | null;
 
             before("Start Event Listener", async function () {
-                listenerId = matchingEngine.onFilledLocalFastOrder((event, slot, signature) => {
-                    emittedEvents.push({ event, slot, signature });
+                listenerId = matchingEngine.onEventCpi((event, slot, signature) => {
+                    const { localFastOrderFilled } = event;
+                    if (localFastOrderFilled !== undefined) {
+                        emittedEvents.push({
+                            event: localFastOrderFilled,
+                            slot,
+                            signature,
+                        });
+                    }
                 });
             });
 
@@ -2158,8 +2165,15 @@ describe("Swap Layer -- Jupiter V6", () => {
             let listenerId: number | null;
 
             before("Start Event Listener", async function () {
-                listenerId = matchingEngine.onFilledLocalFastOrder((event, slot, signature) => {
-                    emittedEvents.push({ event, slot, signature });
+                listenerId = matchingEngine.onEventCpi((event, slot, signature) => {
+                    const { localFastOrderFilled } = event;
+                    if (localFastOrderFilled !== undefined) {
+                        emittedEvents.push({
+                            event: localFastOrderFilled,
+                            slot,
+                            signature,
+                        });
+                    }
                 });
             });
 
@@ -2231,7 +2245,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                                 "Ethereum",
                                 "0x000000000000000000000000000000000000d00d",
                             ),
-                            buf: Buffer.from("All your base are belong to us."),
+                            buf: Uint8Array.from(Buffer.from("All your base are belong to us.")),
                         },
                         amountIn,
                     },
@@ -2300,7 +2314,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                 const redeemMode: RedeemMode = {
                     mode: "Payload",
                     sender: toUniversal("Ethereum", "0x000000000000000000000000000000000000d00d"),
-                    buf: Buffer.from("All your base are belong to us."),
+                    buf: Uint8Array.from(Buffer.from("All your base are belong to us.")),
                 };
 
                 const amountIn = 200_000_000n;
@@ -2318,7 +2332,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                 );
 
                 // Fetch amount from prepared fill.
-                const preparedData = await tokenRouter.preparedCustodyTokenAddress(preparedFill);
+                const preparedData = tokenRouter.preparedCustodyTokenAddress(preparedFill);
                 const { amount: custodyAmount } = await splToken.getAccount(
                     connection,
                     preparedData,
@@ -2702,8 +2716,15 @@ describe("Swap Layer -- Jupiter V6", () => {
             let listenerId: number | null;
 
             before("Start Event Listener", async function () {
-                listenerId = matchingEngine.onFilledLocalFastOrder((event, slot, signature) => {
-                    emittedEvents.push({ event, slot, signature });
+                listenerId = matchingEngine.onEventCpi((event, slot, signature) => {
+                    const { localFastOrderFilled } = event;
+                    if (localFastOrderFilled !== undefined) {
+                        emittedEvents.push({
+                            event: localFastOrderFilled,
+                            slot,
+                            signature,
+                        });
+                    }
                 });
             });
 
@@ -2733,7 +2754,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                                 "Ethereum",
                                 "0x000000000000000000000000000000000000d00d",
                             ),
-                            buf: Buffer.from("All your base are belong to us."),
+                            buf: Uint8Array.from(Buffer.from("All your base are belong to us.")),
                         },
                         outputToken,
                         amountIn,
@@ -2773,7 +2794,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                                 "Ethereum",
                                 "0x000000000000000000000000000000000000d00d",
                             ),
-                            buf: Buffer.from("All your base are belong to us."),
+                            buf: Uint8Array.from(Buffer.from("All your base are belong to us."),)
                         },
                         outputToken,
                         amountIn,
@@ -2811,7 +2832,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                                 "Ethereum",
                                 "0x000000000000000000000000000000000000d00d",
                             ),
-                            buf: Buffer.from("All your base are belong to us."),
+                            buf: Uint8Array.from(Buffer.from("All your base are belong to us."),)
                         },
                         amountIn,
                     },
@@ -2849,7 +2870,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                                 "Ethereum",
                                 "0x000000000000000000000000000000000000d00d",
                             ),
-                            buf: Buffer.from("All your base are belong to us."),
+                            buf: Uint8Array.from(Buffer.from("All your base are belong to us."),)
                         },
                         outputToken,
                         amountIn,
@@ -2975,7 +2996,7 @@ describe("Swap Layer -- Jupiter V6", () => {
         }
 
         const { redeemerMessage } = await tokenRouter.fetchPreparedFill(accounts.preparedFill);
-        const outputToken = decodeSwapLayerMessage(redeemerMessage).outputToken;
+        const outputToken = decodeSwapLayerMessage(Uint8Array.from(redeemerMessage)).outputToken;
 
         if (outputToken.type === "Gas" || outputTokenOverride === "Gas") {
             const balanceBefore = await connection.getBalance(accounts.recipient).then(BigInt);
@@ -3076,7 +3097,7 @@ describe("Swap Layer -- Jupiter V6", () => {
         }
 
         const { redeemerMessage } = await tokenRouter.fetchPreparedFill(accounts.preparedFill);
-        const swapMsg = decodeSwapLayerMessage(redeemerMessage);
+        const swapMsg = decodeSwapLayerMessage(Uint8Array.from(redeemerMessage));
         const selfRedeem = accounts.payer == accounts.recipient;
 
         // Fetch the balance of the fee recipient before the swap.
@@ -3219,7 +3240,7 @@ describe("Swap Layer -- Jupiter V6", () => {
             addressLookupTableAccounts,
         });
 
-        const { recipient, redeemMode, outputToken } = decodeSwapLayerMessage(redeemerMessage);
+        const { recipient, redeemMode, outputToken } = decodeSwapLayerMessage(Uint8Array.from(redeemerMessage));
         if (redeemMode.mode !== "Payload") {
             assert.fail("Not in payload mode");
         }
@@ -3335,7 +3356,7 @@ describe("Swap Layer -- Jupiter V6", () => {
 
         const preparedFill = tokenRouter.preparedFillAddress(fastFill);
         const { redeemerMessage } = await tokenRouter.fetchPreparedFill(preparedFill);
-        assert.deepEqual(decodeSwapLayerMessage(redeemerMessage), msg);
+        assert.deepEqual(decodeSwapLayerMessage(Uint8Array.from(redeemerMessage)), msg);
 
         return { preparedFill, recipient };
     }
@@ -3668,7 +3689,7 @@ describe("Swap Layer -- Jupiter V6", () => {
             maxFee: maxFee ?? 42069n,
             initAuctionFee: initAuctionFee ?? 1_250_000n,
             deadline: deadline ?? 0,
-            redeemerMessage: Buffer.from(redeemerMessage ?? Uint8Array.from([4, 20, 69])),
+            redeemerMessage: redeemerMessage ?? Uint8Array.from([4, 20, 69]),
         };
     }
 
@@ -3983,7 +4004,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                 return {
                     mode: "Payload",
                     sender: toUniversal("Solana", sender.toBytes()),
-                    buf: redeemOption.payload,
+                    buf: Uint8Array.from(redeemOption.payload),
                 };
             } else {
                 throw new Error("Invalid redeem option");

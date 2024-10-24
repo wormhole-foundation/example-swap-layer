@@ -21,8 +21,8 @@ export const ONE_SOL = 1000000000;
 
 // Avalanche Mainnet Fork
 export const EVM_LOCALHOSTS = {
-    Ethereum: "http://127.0.0.1:8548",
-    Base: "http://127.0.0.1:8549",
+    Ethereum: "http://127.0.0.1:8545",
+    Base: "http://127.0.0.1:8546",
 };
 
 // USDT tokens on Ethereum.

@@ -6,7 +6,10 @@ on:
   pull_request:
 
 env:
+  ANCHOR_VERSION: 0.30.1
+  NODE_VERSION: 20.11.0
   RUSTC_VERSION: 1.75.0
+  SOLANA_VERSION: 1.18.15
 jobs:
   make-cargo-test-all:
     name: make cargo-test-all
@@ -51,14 +54,22 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-      - uses: metadaoproject/setup-anchor@v2
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20.11.0"
-          solana-cli-version: "1.18.15"
-          anchor-version: "0.30.1"
-      - name: Set default Rust toolchain
-        run: rustup default stable
-        working-directory: ./solana
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install Solana CLI tools
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
+        shell: bash
+      - name: Update PATH
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Install Anchor
+        run: npm i -g @coral-xyz/anchor-cli@${{ env.ANCHOR_VERSION }}
+        shell: bash
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUSTC_VERSION }}
       - name: make anchor-test
         run: make anchor-test
         working-directory: ./solana
@@ -79,9 +90,10 @@ jobs:
           node-version: "20.11.0"
           solana-cli-version: "1.18.15"
           anchor-version: "0.30.1"
-      - name: Set default Rust toolchain
-        run: rustup default stable
-        working-directory: ./solana
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUSTC_VERSION }}
       - name: make check-build
         run: make check-build
         working-directory: ./solana

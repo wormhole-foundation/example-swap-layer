@@ -3,7 +3,6 @@ export * from "./messages";
 export * from "./relayerFees";
 export * from "./state";
 
-import * as wormholeSdk from "@certusone/wormhole-sdk";
 import { BN, Program } from "@coral-xyz/anchor";
 import * as splToken from "@solana/spl-token";
 import { Connection, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
@@ -26,7 +25,7 @@ export const PROGRAM_IDS = ["SwapLayer1111111111111111111111111111111111"] as co
 export type ProgramId = (typeof PROGRAM_IDS)[number];
 
 export type AddPeerArgs = {
-    chain: wormholeSdk.ChainId;
+    chain: ChainId;
     address: Array<number>;
     relayParams: RelayParams;
 };
@@ -46,7 +45,7 @@ export type InitiateTransferArgs = {
 };
 
 export type UpdateRelayParametersArgs = {
-    chain: wormholeSdk.ChainId;
+    chain: ChainId;
     relayParams: RelayParams;
 };
 
@@ -89,7 +88,7 @@ export class SwapLayerProgram {
         return PublicKey.findProgramAddressSync([Buffer.from("custodian")], this.ID)[0];
     }
 
-    peerAddress(chain: wormholeSdk.ChainId): PublicKey {
+    peerAddress(chain: ChainId): PublicKey {
         return Peer.address(this.ID, chain);
     }
 
@@ -159,7 +158,7 @@ export class SwapLayerProgram {
             beneficiary: PublicKey;
             sourcePeer?: PublicKey;
         },
-        opts: { sourceChain?: wormholeSdk.ChainId } = {},
+        opts: { sourceChain?: ChainId } = {},
     ): Promise<{
         custodian: CheckedCustodianComposite;
         fill: PublicKey;
@@ -271,7 +270,7 @@ export class SwapLayerProgram {
         return this.program.account.custodian.fetch(addr);
     }
 
-    async fetchPeer(input: wormholeSdk.ChainId | { address: PublicKey }): Promise<Peer> {
+    async fetchPeer(input: ChainId | { address: PublicKey }): Promise<Peer> {
         const addr =
             typeof input == "object" && "address" in input
                 ? input.address
@@ -819,7 +818,7 @@ export class SwapLayerProgram {
             recipientTokenAccount?: PublicKey;
             feeRecipientToken?: PublicKey;
         },
-        sourceChain?: wormholeSdk.ChainId,
+        sourceChain?: ChainId,
     ) {
         const { payer, preparedFill, recipient } = accounts;
 
@@ -869,7 +868,7 @@ export class SwapLayerProgram {
             beneficiary?: PublicKey;
             recipientTokenAccount?: PublicKey;
         },
-        sourceChain?: wormholeSdk.ChainId,
+        sourceChain?: ChainId,
     ) {
         const { payer, preparedFill, recipient } = accounts;
 
@@ -906,7 +905,7 @@ export class SwapLayerProgram {
             peer?: PublicKey;
             beneficiary?: PublicKey;
         },
-        sourceChain?: wormholeSdk.ChainId,
+        sourceChain?: ChainId,
     ) {
         const { payer, preparedFill } = accounts;
         let { redeemer, peer, beneficiary } = accounts;

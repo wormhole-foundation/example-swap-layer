@@ -14,10 +14,10 @@
         "@wormhole-foundation/example-liquidity-layer-definitions": "file:../lib/example-liquidity-layer/wormhole-foundation-example-liquidity-layer-definitions-0.0.1.tgz",
         "@wormhole-foundation/example-liquidity-layer-evm": "file:../lib/example-liquidity-layer/wormhole-foundation-example-liquidity-layer-evm-0.0.1.tgz",
         "@wormhole-foundation/example-liquidity-layer-solana": "file:../lib/example-liquidity-layer/wormhole-foundation-example-liquidity-layer-solana-0.0.1.tgz",
-        "@wormhole-foundation/sdk-base": "^0.7.0-beta.6",
-        "@wormhole-foundation/sdk-definitions": "^0.7.0-beta.6",
-        "@wormhole-foundation/sdk-evm": "^0.7.0-beta.6",
-        "@wormhole-foundation/sdk-solana": "^0.7.0-beta.6",
+        "@wormhole-foundation/sdk-base": "^0.10.9",
+        "@wormhole-foundation/sdk-definitions": "^0.10.9",
+        "@wormhole-foundation/sdk-evm": "^0.10.9",
+        "@wormhole-foundation/sdk-solana": "^0.10.9",
         "chai": "^4.3.4",
         "dotenv": "^16.4.5",
         "mocha": "^9.0.3",
@@ -25,7 +25,6 @@
         "ts-mocha": "^10.0.0"
     },
     "devDependencies": {
-        "@typechain/ethers-v5": "^11.1.2",
         "envfile": "^7.1.0",
         "ethers": "^5.7.2",
         "typechain": "^8.3.2"

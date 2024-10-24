@@ -6,13 +6,15 @@ on:
   pull_request:
 
 env:
+  ANCHOR_VERSION: 0.30.1
+  NODE_VERSION: 20.11.0
   RUSTC_VERSION: 1.75.0
+  SOLANA_VERSION: 1.18.15
 jobs:
   test:
     name: bash sh/run_test.sh
-    runs-on: ubuntu-latest
-    # Anchor Docker image: https://www.anchor-lang.com/docs/verifiable-builds#images
-    # container: backpackapp/build:v0.30.1
+    runs-on:
+      labels: ubuntu-latest-l
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,18 +23,36 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-      - uses: metadaoproject/setup-anchor@v2
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20.11.0"
-          solana-cli-version: "1.18.15"
-          anchor-version: "0.30.1"
-      - name: Set default Rust toolchain
-        run: rustup default stable
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install Solana CLI tools
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
+        shell: bash
+      - name: Update PATH
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Install Anchor
+        run: npm i -g @coral-xyz/anchor-cli@${{ env.ANCHOR_VERSION }}
+        shell: bash
       - name: make node_modules
         run: make node_modules
-      - name: make build
+      - name: cd evm && make build
         run: make build
         working-directory: ./evm
-      - name: bash sh/run_test.sh
+      - name: cd evm/ts-sdk && npm run build
+        run: npm run build
+        working-directory: ./evm/ts-sdk
+      - name: cd solana && make anchor-test-setup
+        run: make anchor-test-setup
+        working-directory: ./solana
+      - name: cd solana && anchor build -- --features integration-test
+        run: anchor build -- --features integration-test
+        working-directory: ./solana
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUSTC_VERSION }}
+      - name: cd e2e && bash sh/run_test.sh
         run: bash sh/run_test.sh
         working-directory: ./e2e

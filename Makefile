@@ -7,8 +7,9 @@ build: node_modules
 
 .PHONY: clean
 clean: fast-transfer-clean
+	rm -rf e2e/node_modules
 	cd evm && $(MAKE) clean
-	cd solana && $(MAKE) clean 
+	cd solana && $(MAKE) clean
 	npm run clean
 	rm -rf node_modules
 

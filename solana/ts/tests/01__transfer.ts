@@ -230,6 +230,8 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                         [
                             await createAddPeerIx({
                                 args: {
+                                    // @ts-ignore: Override with zero even though this is not a
+                                    // valid type.
                                     chain: 0,
                                     address: foreignSwapLayerAddress,
                                     relayParams: startParams,
@@ -3518,7 +3520,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                     redeemMode: {
                                         mode: "Payload",
                                         sender: toUniversal("Solana", payer.publicKey.toBytes()),
-                                        buf: payload,
+                                        buf: Uint8Array.from(payload),
                                     },
                                     outputToken,
                                 }),
@@ -3545,7 +3547,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                             "Ethereum",
                             "0x000000000000000000000000000000000000d00d",
                         ),
-                        buf: payload,
+                        buf: Uint8Array.from(payload),
                     },
                     outputToken: { type: "Usdc" },
                 });
@@ -3571,7 +3573,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                         "Ethereum",
                                         "0x000000000000000000000000000000000000d00d",
                                     ),
-                                    buf: Buffer.from("Insert payload here"),
+                                    buf: Uint8Array.from(Buffer.from("Insert payload here")),
                                 },
                                 outputToken: {
                                     type: "Gas",
@@ -3628,7 +3630,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                                         "Ethereum",
                                         "0x000000000000000000000000000000000000d00d",
                                     ),
-                                    buf: Buffer.from("Insert payload here"),
+                                    buf: Uint8Array.from(Buffer.from("Insert payload here")),
                                 },
                                 outputToken: {
                                     type: "Gas",
@@ -3992,7 +3994,7 @@ describe("Swap Layer -- Admin and USDC Transfer", () => {
                     sourceChain: toChain(foreignChain),
                     orderSender: toUniversalAddress(orderSender),
                     redeemer: toUniversalAddress(redeemer.toBuffer()),
-                    redeemerMessage: Buffer.from(redeemerMessage),
+                    redeemerMessage: Uint8Array.from(redeemerMessage),
                 },
             }),
         });
