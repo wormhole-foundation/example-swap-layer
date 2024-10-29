@@ -1,0 +1,33 @@
+{
+  "name": "@wormhole-foundation/swap-layer",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "clean": "npm run clean --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "generate": "npm run generate --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.5",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.4.1",
+    "chai": "^4.3.7",
+    "chai-as-promised": "^7.1.1",
+    "jest": "^29.7.0",
+    "prettier": "^3.0.3",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.1",
+    "typescript": "5.4.5"
+  },
+  "keywords": [
+    "wormhole"
+  ],
+  "workspaces": [
+    "e2e",
+    "evm/ts-sdk",
+    "solana"
+  ]
+}

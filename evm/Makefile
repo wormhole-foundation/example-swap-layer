@@ -23,7 +23,7 @@ endef
 .PHONY: build test clean dependencies
 
 build: dependencies
-	forge build
+	forge build --skip test
 
 test: dependencies
 	forge test --fork-url $$TEST_RPC -vvv
@@ -32,8 +32,8 @@ test: dependencies
 LIB_DEPS = foundry-rs/forge-std
 LIB_DEPS += openzeppelin/openzeppelin-contracts@dc44c9f #4.9.6
 LIB_DEPS += Uniswap/permit2@cc56ad0 #latest commit as per 22/04/2024
-LIB_DEPS += wormhole-foundation/wormhole-solidity-sdk@b935ddc #post-merged branch
-LIB_DEPS += wormhole-foundation/example-liquidity-layer@80aebe9 #main branch
+LIB_DEPS += wormhole-foundation/wormhole-solidity-sdk@60fb760 #post-merged branch
+LIB_DEPS += wormhole-foundation/example-liquidity-layer@v0.3.2 #latest build tag
 
 # dynamically generate install rule for each lib dependency and add to depdenencies
 $(foreach dep,$(LIB_DEPS), $(eval $(call install_lib,$(dep))))
@@ -41,5 +41,5 @@ $(foreach dep,$(LIB_DEPS), $(eval $(call install_lib,$(dep))))
 clean:
 	forge clean
 	rm -rf lib
+	cd ts-sdk && npm run clean
 	@$(MAKE) -C env clean
-

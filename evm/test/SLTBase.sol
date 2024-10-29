@@ -8,10 +8,9 @@ import { ERC1967Proxy } from "@openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/token/ERC20/IERC20.sol";
 
 import "wormhole-sdk/interfaces/IWormhole.sol";
-import "wormhole-sdk/interfaces/token/IWETH.sol";
-import "wormhole-sdk/interfaces/token/IUSDC.sol";
+import { IWETH } from "wormhole-sdk/interfaces/token/IWETH.sol";
 import "wormhole-sdk/proxy/Proxy.sol";
-import "wormhole-sdk/testing/UsdcDealer.sol";
+import { IUSDC, UsdcDealer } from "wormhole-sdk/testing/UsdcDealer.sol";
 import "wormhole-sdk/testing/WormholeCctpSimulator.sol";
 
 import { ITokenRouter } from "liquidity-layer/interfaces/ITokenRouter.sol";

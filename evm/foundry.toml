@@ -13,6 +13,7 @@ remappings = [
     "@openzeppelin/=lib/openzeppelin-contracts/contracts/",
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "forge-std/=lib/forge-std/src/",
+    "permit2/=lib/permit2/src/",
     "wormhole-sdk/=lib/wormhole-solidity-sdk/src/",
     "liquidity-layer/=lib/example-liquidity-layer/evm/src/",
     "local-modules/=lib/example-liquidity-layer/evm/forge/modules/",
