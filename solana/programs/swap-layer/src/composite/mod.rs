@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use anchor_lang::{prelude::*, system_program};
-use anchor_spl::{associated_token, token, token_interface};
+use anchor_spl::{token, token_interface};
 use common::{
     admin::utils::{
         assistant::{self, only_authorized},
@@ -328,9 +328,10 @@ pub struct CompleteSwap<'info> {
 
     /// Temporary swap token account to receive USDC from the prepared fill. This account will be
     /// closed at the end of this instruction.
+    ///
+    /// NOTE: This ATA must already be created.
     #[account(
-        init_if_needed,
-        payer = payer,
+        mut,
         associated_token::mint = usdc,
         associated_token::authority = authority,
         associated_token::token_program = token_program
@@ -339,9 +340,10 @@ pub struct CompleteSwap<'info> {
 
     /// Temporary swap token account to receive destination mint after the swap. This account will
     /// be closed at the end of this instruction.
+    ///
+    /// NOTE: This ATA must already be created.
     #[account(
-        init_if_needed,
-        payer = payer,
+        mut,
         associated_token::mint = dst_mint,
         associated_token::authority = authority,
         associated_token::token_program = dst_token_program
@@ -365,7 +367,6 @@ pub struct CompleteSwap<'info> {
 
     pub token_program: Program<'info, token::Token>,
     pub dst_token_program: Interface<'info, token_interface::TokenInterface>,
-    associated_token_program: Program<'info, associated_token::AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 

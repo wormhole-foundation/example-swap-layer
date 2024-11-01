@@ -4,7 +4,7 @@ use crate::{
     state::{StagedInbound, StagedInboundInfo, StagedInboundSeeds},
 };
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token, token, token_interface};
+use anchor_spl::{token, token_interface};
 use swap_layer_messages::{
     messages::SwapMessageV1,
     types::{OutputToken, RedeemMode},
@@ -35,9 +35,10 @@ pub struct CompleteSwapPayload<'info> {
 
     /// Temporary swap token account to receive USDC from the prepared fill. This account will be
     /// closed at the end of this instruction.
+    ///
+    /// NOTE: This ATA must already be created.
     #[account(
-        init_if_needed,
-        payer = payer,
+        mut,
         associated_token::mint = usdc,
         associated_token::authority = staged_inbound,
         associated_token::token_program = token_program
@@ -46,9 +47,10 @@ pub struct CompleteSwapPayload<'info> {
 
     /// Temporary swap token account to receive destination mint after the swap. This account will
     /// be closed at the end of this instruction.
+    ///
+    /// NOTE: This ATA must already be created.
     #[account(
-        init_if_needed,
-        payer = payer,
+        mut,
         associated_token::mint = dst_mint,
         associated_token::authority = staged_inbound,
         associated_token::token_program = dst_token_program
@@ -72,7 +74,6 @@ pub struct CompleteSwapPayload<'info> {
 
     token_program: Program<'info, token::Token>,
     dst_token_program: Interface<'info, token_interface::TokenInterface>,
-    associated_token_program: Program<'info, associated_token::AssociatedToken>,
     system_program: Program<'info, System>,
 }
 

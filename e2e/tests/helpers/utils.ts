@@ -189,18 +189,18 @@ export async function completeSwapForTest(
         },
     );
 
-    let ix;
+    let swapIxes;
     if (opts.redeemMode === "direct") {
-        ix = await swapLayer.completeSwapDirectIx(accounts, { cpiInstruction });
+        swapIxes = await swapLayer.completeSwapDirectIxes(accounts, { cpiInstruction });
     } else if (opts.redeemMode === "relay") {
-        ix = await swapLayer.completeSwapRelayIx(accounts, { cpiInstruction });
+        swapIxes = await swapLayer.completeSwapRelayIxes(accounts, { cpiInstruction });
     }
 
     const ixs = [
         ComputeBudgetProgram.setComputeUnitLimit({
             units: 700_000,
         }),
-        ix,
+        ...swapIxes,
     ];
 
     const addressLookupTableAccounts = await Promise.all(
@@ -239,7 +239,7 @@ export async function swapExactInForTest(
     let { additionalLuts, signers } = opts;
     additionalLuts ??= [];
 
-    const ix = await swapLayer.initiateSwapExactInIx(accounts, args);
+    const swapIxes = await swapLayer.initiateSwapExactInIxes(accounts, args);
 
     const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
         units: 700_000,
@@ -252,7 +252,7 @@ export async function swapExactInForTest(
         }),
     );
 
-    await expectIxOk(swapLayer.connection(), [computeIx, ix], signers, {
+    await expectIxOk(swapLayer.connection(), [computeIx, ...swapIxes], signers, {
         addressLookupTableAccounts,
     });
 }
