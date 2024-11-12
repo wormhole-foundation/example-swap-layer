@@ -5,7 +5,7 @@ use crate::{
     PREPARED_ORDER_SEED_PREFIX,
 };
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token, token, token_interface};
+use anchor_spl::{token, token_interface};
 use common::wormhole_io::TypePrefixedPayload;
 
 #[derive(Accounts)]
@@ -89,9 +89,10 @@ pub struct InitiateSwapExactIn<'info> {
 
     /// Temporary swap token account to receive source mint from the staged custody token. This
     /// account will be closed at the end of this instruction.
+    ///
+    /// NOTE: This ATA must already be created.
     #[account(
-        init_if_needed,
-        payer = payer,
+        mut,
         associated_token::mint = src_mint,
         associated_token::authority = swap_authority,
         associated_token::token_program = src_token_program
@@ -100,9 +101,10 @@ pub struct InitiateSwapExactIn<'info> {
 
     /// Temporary swap token account to receive destination mint after the swap. This account will
     /// be closed at the end of this instruction.
+    ///
+    /// NOTE: This ATA must already be created.
     #[account(
-        init_if_needed,
-        payer = payer,
+        mut,
         associated_token::mint = usdc,
         associated_token::authority = swap_authority
     )]
@@ -126,7 +128,6 @@ pub struct InitiateSwapExactIn<'info> {
     prepared_custody_token: UncheckedAccount<'info>,
 
     token_router_program: Program<'info, token_router::program::TokenRouter>,
-    associated_token_program: Program<'info, associated_token::AssociatedToken>,
     src_token_program: Interface<'info, token_interface::TokenInterface>,
     token_program: Program<'info, token::Token>,
     system_program: Program<'info, System>,

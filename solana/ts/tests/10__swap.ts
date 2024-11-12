@@ -2004,7 +2004,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                 assert.deepEqual(sourceMint, srcMint);
                 assert.deepEqual(destinationMint, swapLayer.usdcMint);
 
-                const ix = await swapLayer.initiateSwapExactInIx(
+                const swapIxes = await swapLayer.initiateSwapExactInIxes(
                     {
                         payer: payer.publicKey,
                         stagedOutbound,
@@ -2026,9 +2026,15 @@ describe("Swap Layer -- Jupiter V6", () => {
                     }),
                 );
 
-                await expectIxErr(connection, [computeIx, ix], [payer], "InsufficientAmountOut", {
-                    addressLookupTableAccounts,
-                });
+                await expectIxErr(
+                    connection,
+                    [computeIx, ...swapIxes],
+                    [payer],
+                    "InsufficientAmountOut",
+                    {
+                        addressLookupTableAccounts,
+                    },
+                );
             });
 
             it("USDT via Whirlpool", async function () {
@@ -2081,7 +2087,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                     assert.isTrue(accInfos.every((info) => info === null));
                 }
 
-                const ix = await swapLayer.initiateSwapExactInIx(
+                const swapIxes = await swapLayer.initiateSwapExactInIxes(
                     {
                         payer: payer.publicKey,
                         stagedOutbound,
@@ -2103,7 +2109,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                     }),
                 );
 
-                await expectIxOk(connection, [computeIx, ix], [payer], {
+                await expectIxOk(connection, [computeIx, ...swapIxes], [payer], {
                     addressLookupTableAccounts,
                 });
 
@@ -2632,7 +2638,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                     assert.isTrue(accInfos.every((info) => info === null));
                 }
 
-                const ix = await swapLayer.initiateSwapExactInIx(
+                const swapIxes = await swapLayer.initiateSwapExactInIxes(
                     {
                         payer: payer.publicKey,
                         stagedOutbound,
@@ -2654,7 +2660,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                     }),
                 );
 
-                await expectIxOk(connection, [computeIx, ix], [payer], {
+                await expectIxOk(connection, [computeIx, ...swapIxes], [payer], {
                     addressLookupTableAccounts,
                 });
 
@@ -2794,7 +2800,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                                 "Ethereum",
                                 "0x000000000000000000000000000000000000d00d",
                             ),
-                            buf: Uint8Array.from(Buffer.from("All your base are belong to us."),)
+                            buf: Uint8Array.from(Buffer.from("All your base are belong to us.")),
                         },
                         outputToken,
                         amountIn,
@@ -2832,7 +2838,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                                 "Ethereum",
                                 "0x000000000000000000000000000000000000d00d",
                             ),
-                            buf: Uint8Array.from(Buffer.from("All your base are belong to us."),)
+                            buf: Uint8Array.from(Buffer.from("All your base are belong to us.")),
                         },
                         amountIn,
                     },
@@ -2870,7 +2876,7 @@ describe("Swap Layer -- Jupiter V6", () => {
                                 "Ethereum",
                                 "0x000000000000000000000000000000000000d00d",
                             ),
-                            buf: Uint8Array.from(Buffer.from("All your base are belong to us."),)
+                            buf: Uint8Array.from(Buffer.from("All your base are belong to us.")),
                         },
                         outputToken,
                         amountIn,
@@ -2972,13 +2978,13 @@ describe("Swap Layer -- Jupiter V6", () => {
         const expectedDstMint = accounts.dstMint ?? splToken.NATIVE_MINT;
         assert.deepEqual(destinationMint, expectedDstMint);
 
-        const ix = await swapLayer.completeSwapDirectIx(accounts, { cpiInstruction });
+        const swapIxes = await swapLayer.completeSwapDirectIxes(accounts, { cpiInstruction });
 
         const ixs = [
             ComputeBudgetProgram.setComputeUnitLimit({
                 units: 750_000,
             }),
-            ix,
+            ...swapIxes,
         ];
 
         const addressLookupTableAccounts = await Promise.all(
@@ -3073,13 +3079,13 @@ describe("Swap Layer -- Jupiter V6", () => {
         );
         const expectedDstMint = accounts.dstMint ?? splToken.NATIVE_MINT;
 
-        const ix = await swapLayer.completeSwapRelayIx(accounts, { cpiInstruction });
+        const swapIxes = await swapLayer.completeSwapRelayIxes(accounts, { cpiInstruction });
 
         const ixs = [
             ComputeBudgetProgram.setComputeUnitLimit({
                 units: 750_000,
             }),
-            ix,
+            ...swapIxes,
         ];
 
         const addressLookupTableAccounts = await Promise.all(
@@ -3209,13 +3215,13 @@ describe("Swap Layer -- Jupiter V6", () => {
             ),
         );
 
-        const ix = await swapLayer.completeSwapPayloadIx(accounts, { cpiInstruction });
+        const swapIxs = await swapLayer.completeSwapPayloadIxes(accounts, { cpiInstruction });
 
         const ixs = [
             ComputeBudgetProgram.setComputeUnitLimit({
                 units: 750_000,
             }),
-            ix,
+            ...swapIxs,
         ];
 
         const addressLookupTableAccounts = await Promise.all(
@@ -3240,7 +3246,9 @@ describe("Swap Layer -- Jupiter V6", () => {
             addressLookupTableAccounts,
         });
 
-        const { recipient, redeemMode, outputToken } = decodeSwapLayerMessage(Uint8Array.from(redeemerMessage));
+        const { recipient, redeemMode, outputToken } = decodeSwapLayerMessage(
+            Uint8Array.from(redeemerMessage),
+        );
         if (redeemMode.mode !== "Payload") {
             assert.fail("Not in payload mode");
         }
@@ -4047,7 +4055,7 @@ describe("Swap Layer -- Jupiter V6", () => {
         let { additionalLuts } = otherOpts;
         additionalLuts ??= [];
 
-        const ix = await swapLayer.initiateSwapExactInIx(accounts, args);
+        const swapIxes = await swapLayer.initiateSwapExactInIxes(accounts, args);
 
         const computeIx = ComputeBudgetProgram.setComputeUnitLimit({
             units: 750_000,
@@ -4061,13 +4069,13 @@ describe("Swap Layer -- Jupiter V6", () => {
         );
 
         if (errorMsg !== null) {
-            await expectIxErr(connection, [computeIx, ix], signers, errorMsg, {
+            await expectIxErr(connection, [computeIx, ...swapIxes], signers, errorMsg, {
                 addressLookupTableAccounts,
             });
             return;
         }
 
-        await expectIxOk(connection, [computeIx, ix], signers, {
+        await expectIxOk(connection, [computeIx, ...swapIxes], signers, {
             addressLookupTableAccounts,
         });
     }
