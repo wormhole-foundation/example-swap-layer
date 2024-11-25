@@ -28,10 +28,12 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
   using SafeERC20 for IERC20;
 
   function initiate(
-    uint16 targetChain,
     bytes32 recipient, //= redeemer in case of a payload
+    uint256 amountIn,
+    uint16 targetChain,
     bytes memory params
   ) external payable returns (bytes memory) { unchecked {
+    params = replaceAmountIn(inputParams, amountIn);
     checkAddr(targetChain, recipient);
     ModesOffsetsSizes memory mos = parseParamBaseStructure(targetChain, params);
 
@@ -269,5 +271,33 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       _assertExhaustive();
 
     return offset;
+  }
+
+  function replaceAmountIn(
+    bytes calldata params,
+    uint256 amountIn
+  ) private pure returns(bytes memory) {
+    require(params.length >= 40, "params too short");
+    bytes memory modifiedData = new bytes(params.length);
+
+    // Copy the function selector and token in
+    for (uint i = 0; i < 24; i++) {
+      modifiedData[i] = params[i];
+    }
+
+    // Encode the amount and place it into the modified call data
+    // Starting from byte 24 to byte 40 (16 bytes for uint128)
+    uint128 newAmount = uint128(amountIn);
+    bytes memory encodedAmount = abi.encode(newAmount);
+    for (uint i = 0; i < 16; i++) {
+      modifiedData[i + 24] = encodedAmount[i];
+    }
+
+    // Copy the rest of the original data after the first argument
+    for (uint i = 40; i < params.length; i++) {
+      modifiedData[i] = params[i];
+    }
+
+    return modifiedData;
   }
 }
