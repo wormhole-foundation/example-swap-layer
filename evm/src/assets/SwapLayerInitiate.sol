@@ -31,7 +31,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     bytes32 recipient, //= redeemer in case of a payload
     uint256 amountIn,
     uint16 targetChain,
-    bytes memory params
+    bytes memory inputParams
   ) external payable returns (bytes memory) { unchecked {
     params = replaceAmountIn(inputParams, amountIn);
     checkAddr(targetChain, recipient);
