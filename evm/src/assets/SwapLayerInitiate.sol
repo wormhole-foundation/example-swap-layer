@@ -274,7 +274,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
   }
 
   function replaceAmountIn(
-    bytes calldata params,
+    bytes memory params,
     uint256 amountIn
   ) private pure returns(bytes memory) {
     require(params.length >= 40, "params too short");
