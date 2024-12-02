@@ -33,7 +33,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     uint16 targetChain,
     bytes memory inputParams
   ) external payable returns (bytes memory) { unchecked {
-    params = replaceAmountIn(inputParams, amountIn);
+    bytes memory params = replaceAmountIn(inputParams, amountIn);
     checkAddr(targetChain, recipient);
     ModesOffsetsSizes memory mos = parseParamBaseStructure(targetChain, params);
 
