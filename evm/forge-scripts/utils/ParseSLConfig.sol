@@ -14,14 +14,14 @@ contract ParseSwapLayerConfig is Script {
     struct ChainConfig {
         uint16 chainId;
         uint32 circleDomain;
-        address wormhole;
-        address liquidityLayer;
-        address universalRouter;
-        address permit2;
-        address usdc;
         address circleMessageTransmitter;
-        address weth;
+        address liquidityLayer;
+        address permit2;
         address traderJoeRouter;
+        address universalRouter;
+        address usdc;
+        address weth;
+        address wormhole;
     }
 
     mapping(uint16 => bool) duplicateChainIds;
