@@ -1,0 +1,29 @@
+{
+    "contracts": [
+        {
+            "chainId": 6,
+            "circleDomain": 1,
+            "wormholeAddress": "0x7bbcE28e64B3F8b84d876Ab298393c38ad7aac4C",
+            "liquidityLayerAddress": "0x8Cd7D7C980cd72eBD16737dC3fa04469dcFcf07A",
+            "universalRouterAddress": "0x0000000000000000000000000000000000000000",
+            "permit2Address": "0x0000000000000000000000000000000000000000",
+            "usdcAddress": "0x5425890298aed601595a70ab815c96711a31bc65",
+            "circleMessageTransmitter": "0xa9fb1b3009dcb79e2fe346c16a604b8fa8ae0a79",
+            "wethAddress": "0xd00ae08403b9bbb9124bb305c09058e32c39a48c",
+            "traderJoeRouterAddress": "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30"
+        },
+        {
+            "chainId": 10003,
+            "circleDomain": 3,
+            "rpc": "https://public.stackup.sh/api/v1/node/arbitrum-sepolia",
+            "wormholeAddress": "0x6b9C8671cdDC8dEab9c719bB87cBd3e782bA6a35",
+            "liquidityLayerAddress": "0xe0418C44F06B0b0D7D1706E01706316DBB0B210E",
+            "universalRouterAddress": "0x4A7b5Da61326A6379179b40d00F57E5bbDC962c2",
+            "permit2Address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+            "usdcAddress": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+            "circleMessageTransmitter": "0xaCF1ceeF35caAc005e15888dDb8A3515C41B4872",
+            "wethAddress": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73",
+            "traderJoeRouterAddress": "0x0000000000000000000000000000000000000000"
+        }
+    ]
+}
