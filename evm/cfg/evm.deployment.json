@@ -31,12 +31,24 @@
     ],
     "registrations": [
         {
+            "address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "baseFee": 250000,
             "chainId": 6,
-            "address": "0x"
+            "gasDropoffMargin": 1,
+            "gasPrice": 250000000000,
+            "gasPriceMargin": 25,
+            "gasTokenPrice": 100000000,
+            "maxGasDropoff": 100000000000000000
         },
         {
+            "address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "baseFee": 250000,
             "chainId": 10003,
-            "address": "0x"
+            "gasDropoffMargin": 1,
+            "gasPrice": 250000000000,
+            "gasPriceMargin": 25,
+            "gasTokenPrice": 100000000,
+            "maxGasDropoff": 100000000000000000
         }
     ]
 }

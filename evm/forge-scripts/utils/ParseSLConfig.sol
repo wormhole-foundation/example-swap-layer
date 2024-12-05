@@ -4,7 +4,7 @@ pragma solidity >=0.8.8 <0.9.0;
 import {Script, console2} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
-import {ISwapLayer} from "swap-layer/ISwapLayer.sol";
+import {SwapLayer} from "swap-layer/SwapLayer.sol";
 
 contract ParseSwapLayerConfig is Script {
     using stdJson for string;
@@ -26,6 +26,60 @@ contract ParseSwapLayerConfig is Script {
         address wormhole;
     }
 
+    struct SLRegistration {
+        bytes32 addr;
+        uint32 baseFee;
+        uint16 chainId;
+        uint256 gasDropoffMargin;
+        uint256 gasPrice;
+        uint256 gasPriceMargin;
+        uint64 gasTokenPrice;
+        uint256 maxGasDropoff;
+    }
+
+    mapping(uint16 => bool) duplicateChainIds;
+
+    function fromUniversalAddress(
+        bytes32 universalAddr
+    ) internal pure returns (address converted) {
+        require(bytes12(universalAddr) == 0, "Address overflow");
+
+        assembly ("memory-safe") {
+            converted := universalAddr
+        }
+    }
+
+    function _parseRegistrationConfig(
+        uint16 wormholeChainId
+    )
+        internal
+        returns (
+            SLRegistration[] memory configs,
+            SwapLayer swapLayer
+        )
+    {
+        require(wormholeChainId > 0, "Invalid chain id");
+
+        string memory root = vm.projectRoot();
+        string memory path = string.concat(root, "/cfg/evm.deployment.json");
+        string memory json = vm.readFile(path);
+        bytes memory registrations = json.parseRaw(".registrations");
+
+        configs = abi.decode(registrations, (SLRegistration[]));
+
+        for (uint256 i = 0; i < configs.length; i++) {
+            SLRegistration memory targetConfig = configs[i];
+
+            require(!duplicateChainIds[targetConfig.chainId], "Duplicate chain ID");
+            duplicateChainIds[targetConfig.chainId] = true;
+
+            // Set the contract addresses for this chain.
+            if (targetConfig.chainId == wormholeChainId) {
+                swapLayer = SwapLayer(payable(fromUniversalAddress(targetConfig.addr)));
+            }
+        }
+    }
+
     function _parseAndValidateDeploymentConfig(
         uint16 wormholeChainId
     )
@@ -41,7 +95,7 @@ contract ParseSwapLayerConfig is Script {
         string memory json = vm.readFile(path);
         bytes memory deployments = json.parseRaw(".deployment");
 
-        // Decode the json into ChainConfig array.
+        // Decode the json into DeploymentConfig array.
         DeploymentConfig[] memory config = abi.decode(deployments, (DeploymentConfig[]));
 
         // Validate values and find the specified chain's configuration.
