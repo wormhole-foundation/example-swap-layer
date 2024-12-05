@@ -10,54 +10,39 @@ import {SwapLayer} from "swap-layer/SwapLayer.sol";
 import {ParseSwapLayerConfig} from "./utils/ParseSLConfig.sol";
 
 contract DeploySwapLayerForTest is ParseSwapLayerConfig {
-    function deploy() public {
-        // address swapLayer = address(
-        //     new Proxy(
-        //         address(
-        //             new SwapLayer(
-        //                 tokenRouter,
-        //                 permit2Contract,
-        //                 wnative,
-        //                 uniswapRouterAddress,
-        //                 traderJoeRouterAddress
-        //             )
-        //         ),
-        //         abi.encodePacked(
-        //             msg.sender,
-        //             assistant,
-        //             feeUpdater,
-        //             feeRecipient,
-        //             solChain,
-        //             solSwapLayer,
-        //             feeParams,
-        //             evmChain,
-        //             evmSwapLayer,
-        //             feeParams
-        //         )
-        //     )
-        // );
+    function deploy(DeploymentConfig memory config) public {
+        address swapLayer = address(
+            new Proxy(
+                address(
+                    new SwapLayer(
+                        config.liquidityLayer,
+                        config.permit2,
+                        config.weth,
+                        config.universalRouter,
+                        config.traderJoeRouter
+                    )
+                ),
+                abi.encodePacked(
+                    msg.sender,
+                    config.assistant,
+                    config.feeUpdater,
+                    config.feeRecipient
+                )
+            )
+        );
 
-        //console.log("Swap layer deployed at:", swapLayer);
+        console2.log("Swap layer proxy deployed at:", swapLayer);
         return;
     }
 
     function run() public {
         vm.startBroadcast();
 
-        ChainConfig[] memory config = _parseAndValidateConfigFile(6);
+        DeploymentConfig memory config = _parseAndValidateDeploymentConfig(
+            uint16(vm.envUint("RELEASE_WORMHOLE_CHAIN_ID"))
+        );
 
-        console2.log("chain id: %s", config[0].chainId);
-        console2.log("circleDomain: %s", config[0].circleDomain);
-        console2.log("wormhole: %s", config[0].wormhole);
-        console2.log("liquidityLayer: %s", config[0].liquidityLayer);
-        console2.log("universalRouter: %s", config[0].universalRouter);
-        console2.log("permit2: %s", config[0].permit2);
-        console2.log("usdc: %s", config[0].usdc);
-        console2.log("circleMessageTransmitter: %s", config[0].circleMessageTransmitter);
-        console2.log("weth: %s", config[0].weth);
-        console2.log("traderJoeRouter: %s", config[0].traderJoeRouter);
-
-        //deploy();
+        deploy(config);
         vm.stopBroadcast();
     }
 }

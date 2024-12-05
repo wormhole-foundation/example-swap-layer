@@ -11,64 +11,56 @@ contract ParseSwapLayerConfig is Script {
 
     // NOTE: Forge expects any struct to be defined in alphabetical order if being used
     // to parse JSON.
-    struct ChainConfig {
+    struct DeploymentConfig {
+        address assistant;
         uint16 chainId;
         uint32 circleDomain;
         address circleMessageTransmitter;
+        address feeRecipient;
+        address feeUpdater;
         address liquidityLayer;
         address permit2;
         address traderJoeRouter;
         address universalRouter;
-        address usdc;
         address weth;
         address wormhole;
     }
 
-    mapping(uint16 => bool) duplicateChainIds;
-
-    function toUniversalAddress(
-        address evmAddr
-    ) internal pure returns (bytes32 converted) {
-        assembly ("memory-safe") {
-            converted := and(0xffffffffffffffffffffffffffffffffffffffff, evmAddr)
-        }
-    }
-
-    function fromUniversalAddress(
-        bytes32 universalAddr
-    ) internal pure returns (address converted) {
-        require(bytes12(universalAddr) == 0, "Address overflow");
-
-        assembly ("memory-safe") {
-            converted := universalAddr
-        }
-    }
-
-    function _parseAndValidateConfigFile(
+    function _parseAndValidateDeploymentConfig(
         uint16 wormholeChainId
     )
         internal
         returns (
-            ChainConfig[] memory config
+            DeploymentConfig memory config
         )
     {
+        require(wormholeChainId > 0, "Invalid chain id");
+
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/cfg/evm.deployment.json");
         string memory json = vm.readFile(path);
-        bytes memory contracts = json.parseRaw(".contracts");
+        bytes memory deployments = json.parseRaw(".deployment");
 
         // Decode the json into ChainConfig array.
-        config = abi.decode(contracts, (ChainConfig[]));
+        DeploymentConfig[] memory config = abi.decode(deployments, (DeploymentConfig[]));
 
-        // Validate values and set the contract addresses for this chain.
+        // Validate values and find the specified chain's configuration.
         for (uint256 i = 0; i < config.length; i++) {
-            require(config[i].chainId != 0, "Invalid chain ID");
+            DeploymentConfig memory targetConfig = config[i];
 
-            // Make sure we don't configure the same chain twice.
-            require(!duplicateChainIds[config[i].chainId], "Duplicate chain ID");
-            duplicateChainIds[config[i].chainId] = true;
+            if (targetConfig.chainId == wormholeChainId) {
+                require(targetConfig.circleMessageTransmitter != address(0), "Invalid circleMessageTransmitter");
+                require(targetConfig.liquidityLayer != address(0), "Invalid liquidityLayer");
+                require(targetConfig.weth != address(0), "Invalid weth");
+                require(targetConfig.wormhole != address(0), "Invalid wormhole");
+                require(targetConfig.assistant != address(0), "Invalid assistant");
+                require(targetConfig.feeRecipient != address(0), "Invalid feeRecipient");
+                require(targetConfig.feeUpdater != address(0), "Invalid feeUpdater");
+
+                return config[i];
+            }
         }
 
-        require(duplicateChainIds[wormholeChainId], "Wormhole chain ID not found");
+        revert("Chain configuration not found");
     }
 }
