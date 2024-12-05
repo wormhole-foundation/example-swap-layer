@@ -22,12 +22,7 @@ contract DeploySwapLayerForTest is ParseSwapLayerConfig {
                         config.traderJoeRouter
                     )
                 ),
-                abi.encodePacked(
-                    msg.sender,
-                    config.assistant,
-                    config.feeUpdater,
-                    config.feeRecipient
-                )
+                abi.encodePacked(msg.sender, config.assistant, config.feeUpdater, config.feeRecipient)
             )
         );
 
@@ -38,9 +33,8 @@ contract DeploySwapLayerForTest is ParseSwapLayerConfig {
     function run() public {
         vm.startBroadcast();
 
-        DeploymentConfig memory config = _parseAndValidateDeploymentConfig(
-            uint16(vm.envUint("RELEASE_WORMHOLE_CHAIN_ID"))
-        );
+        DeploymentConfig memory config =
+            _parseAndValidateDeploymentConfig(uint16(vm.envUint("RELEASE_WORMHOLE_CHAIN_ID")));
 
         deploy(config);
         vm.stopBroadcast();

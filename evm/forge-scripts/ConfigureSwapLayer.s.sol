@@ -13,9 +13,7 @@ import "swap-layer/assets/SwapLayerRelayingFees.sol";
 import "swap-layer/assets/SwapLayerGovernance.sol";
 
 contract ConfigureSwapLayerForTest is ParseSwapLayerConfig {
-    function createPeerRegistrationCommand(
-        SLRegistration memory config
-    ) internal returns (bytes memory) {
+    function createPeerRegistrationCommand(SLRegistration memory config) internal pure returns (bytes memory) {
         FeeParams feeParams;
         feeParams = feeParams.baseFee(config.baseFee);
         feeParams = feeParams.gasPrice(GasPriceLib.to(config.gasPrice));
@@ -24,26 +22,31 @@ contract ConfigureSwapLayerForTest is ParseSwapLayerConfig {
         feeParams = feeParams.gasDropoffMargin(PercentageLib.to(config.gasDropoffMargin, 0));
         feeParams = feeParams.gasTokenPrice(config.gasTokenPrice);
 
-        return abi.encodePacked(
-            GovernanceCommand.UpdatePeer,
-            config.chainId,
-            config.addr,
-            feeParams
-        );
+        return abi.encodePacked(GovernanceCommand.UpdatePeer, config.chainId, config.swapLayer, feeParams);
     }
 
     function run() public {
         vm.startBroadcast();
 
-        (SLRegistration[] memory config, SwapLayer swapLayer) = _parseRegistrationConfig(
-            uint16(vm.envUint("RELEASE_WORMHOLE_CHAIN_ID"))
-        );
+        // Wormhole chain ID that we are configuring.
+        uint16 thisChainId = uint16(vm.envUint("RELEASE_WORMHOLE_CHAIN_ID"));
+
+        (SLRegistration[] memory config, SwapLayer swapLayer) = _parseRegistrationConfig(thisChainId);
 
         bytes memory governanceCommands;
-        // TODO: loop through config (ignoring the deployment chainID) and encode governance commands
-        // using the createPeerRegistrationCommand function.
+        for (uint256 i = 0; i < config.length; i++) {
+            // Ignore our own chain ID.
+            if (config[i].chainId == thisChainId) {
+                continue;
+            }
 
-        // NOTE: See Governance.t.sol as a reference for how to batchGovernanceCommands.
+            governanceCommands = abi.encodePacked(governanceCommands, createPeerRegistrationCommand(config[i]));
+        }
+
+        // Batch the governance commands now.
+        swapLayer.batchGovernanceCommands(governanceCommands);
+
+        console2.log("Successfully configured swap layer for chain ID:", thisChainId);
 
         vm.stopBroadcast();
     }

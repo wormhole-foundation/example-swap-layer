@@ -27,7 +27,6 @@ contract ParseSwapLayerConfig is Script {
     }
 
     struct SLRegistration {
-        bytes32 addr;
         uint32 baseFee;
         uint16 chainId;
         uint256 gasDropoffMargin;
@@ -35,13 +34,12 @@ contract ParseSwapLayerConfig is Script {
         uint256 gasPriceMargin;
         uint64 gasTokenPrice;
         uint256 maxGasDropoff;
+        bytes32 swapLayer;
     }
 
     mapping(uint16 => bool) duplicateChainIds;
 
-    function fromUniversalAddress(
-        bytes32 universalAddr
-    ) internal pure returns (address converted) {
+    function fromUniversalAddress(bytes32 universalAddr) internal pure returns (address converted) {
         require(bytes12(universalAddr) == 0, "Address overflow");
 
         assembly ("memory-safe") {
@@ -49,14 +47,9 @@ contract ParseSwapLayerConfig is Script {
         }
     }
 
-    function _parseRegistrationConfig(
-        uint16 wormholeChainId
-    )
+    function _parseRegistrationConfig(uint16 wormholeChainId)
         internal
-        returns (
-            SLRegistration[] memory configs,
-            SwapLayer swapLayer
-        )
+        returns (SLRegistration[] memory configs, SwapLayer swapLayer)
     {
         require(wormholeChainId > 0, "Invalid chain id");
 
@@ -75,18 +68,15 @@ contract ParseSwapLayerConfig is Script {
 
             // Set the contract addresses for this chain.
             if (targetConfig.chainId == wormholeChainId) {
-                swapLayer = SwapLayer(payable(fromUniversalAddress(targetConfig.addr)));
+                swapLayer = SwapLayer(payable(fromUniversalAddress(targetConfig.swapLayer)));
             }
         }
     }
 
-    function _parseAndValidateDeploymentConfig(
-        uint16 wormholeChainId
-    )
+    function _parseAndValidateDeploymentConfig(uint16 wormholeChainId)
         internal
-        returns (
-            DeploymentConfig memory config
-        )
+        view
+        returns (DeploymentConfig memory)
     {
         require(wormholeChainId > 0, "Invalid chain id");
 
