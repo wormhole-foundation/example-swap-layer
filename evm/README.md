@@ -103,4 +103,53 @@ Build the sdk:
 `cd ts-sdk && npm ci && npm run build`
 
 Then configure `.env` with your private keys before finally running the scripts via `package.json`.
- 
+
+
+## Running forge-scripts
+
+### Deployment 
+
+Before deploying the swap layer contract:
+
+1. Open `cfg/evm.deployments.json`
+2. Update the following in the configuration:
+   - Set addresses in the `deployment` array (currently `address(0)`)
+   - Configure any additional desired networks
+   - Ensure all target networks are properly configured before proceeding
+
+> **Important**: The configuration file includes example entries with testnet Wormhole chain IDs. Forge requires dictionary keys to be in alphabetical order - do not modify this ordering.
+
+To run the deployment script, run the following command from the `root`:
+```
+# Parameters:
+
+# YOUR_RPC: Network RPC endpoint
+# YOUR_PRIVATE_KEY: Deployment wallet private key
+# WORMHOLE_CHAIN_ID: Target network's Wormhole chain ID
+
+bash sh/deploy.sh -r YOUR_RPC -k YOUR_PRIVATE_KEY -c WORMHOLE_CHAIN_ID
+```
+
+Run this command for each network in the `evm.deployments.json` config. Make sure to save each address that is output in the forge logs. The [Configuration](#configuration) section relies on the `deployment` section of the config file, so please do not modify any values post deployment.
+
+### Configuration
+
+After deploying to each network, do the following:
+1. Add each 32-byte proxy address to the `registrations` section of the `evm.deployments.json` file
+2. Configure the relay parameters for each network. See the `FeeParams.sol` file for more information about these parameters
+
+> **Important**: `gasDropoffMargin` and `gasPriceMargin` are both set using `fractionalDigits` of zero. Meaning, that if you set the `gasPriceMargin` parameter to `25` in this config, that will be 25%. The ConfigureSwapLayer.s.sol file will need to be updated to use different `fractionalDigits`. 
+
+To run the configuration script, run the following command from the `root`:
+
+```
+bash sh/deploy.sh -r YOUR_RPC -k YOUR_PRIVATE_KEY -c WORMHOLE_CHAIN_ID -a configure
+```
+
+### Validation
+
+To confirm that the contract was configured according to the parameters specified in `evm.deployments.json`. Run the following command for each network:
+
+```
+bash sh/deploy.sh -r YOUR_RPC -k YOUR_PRIVATE_KEY -c WORMHOLE_CHAIN_ID -a validate
+```

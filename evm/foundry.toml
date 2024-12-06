@@ -4,6 +4,7 @@ evm_version = "paris" # prevent use of PUSH0 opcode until it is widely supported
 optimizer = true
 via_ir = true
 extra_output = ["metadata", "storageLayout", "evm.deployedBytecode.immutableReferences"]
+fs_permissions = [{access = "read", path = "./cfg/"}]
 
 libs = [
     "lib",

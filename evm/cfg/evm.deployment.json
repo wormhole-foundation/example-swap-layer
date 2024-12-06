@@ -1,0 +1,54 @@
+{
+    "deployment": [
+        {
+            "assistant": "0x0000000000000000000000000000000000000000",
+            "chainId": 6,
+            "circleDomain": 1,
+            "circleMessageTransmitter": "0x0000000000000000000000000000000000000000",
+            "feeRecipient": "0x0000000000000000000000000000000000000000",
+            "feeUpdater": "0x0000000000000000000000000000000000000000",
+            "liquidityLayerAddress": "0x0000000000000000000000000000000000000000",
+            "permit2Address": "0x0000000000000000000000000000000000000000",
+            "traderJoeRouterAddress": "0x0000000000000000000000000000000000000000",
+            "universalRouterAddress": "0x0000000000000000000000000000000000000000",
+            "wethAddress": "0x0000000000000000000000000000000000000000",
+            "wormholeAddress": "0x0000000000000000000000000000000000000000"
+        },
+        {
+            "assistant": "0x0000000000000000000000000000000000000000",
+            "chainId": 10003,
+            "circleDomain": 3,
+            "circleMessageTransmitter": "0x0000000000000000000000000000000000000000",
+            "feeRecipient": "0x0000000000000000000000000000000000000000",
+            "feeUpdater": "0x0000000000000000000000000000000000000000",
+            "liquidityLayerAddress": "0x0000000000000000000000000000000000000000",
+            "permit2Address": "0x0000000000000000000000000000000000000000",
+            "traderJoeRouterAddress": "0x0000000000000000000000000000000000000000",
+            "universalRouterAddress": "0x0000000000000000000000000000000000000000",
+            "wethAddress": "0x0000000000000000000000000000000000000000",
+            "wormholeAddress": "0x0000000000000000000000000000000000000000"
+        }
+    ],
+    "registrations": [
+        { 
+            "baseFee": 250000,
+            "chainId": 6,
+            "gasDropoffMargin": 1,
+            "gasPrice": 250000000000,
+            "gasPriceMargin": 25,
+            "gasTokenPrice": 100000000,
+            "maxGasDropoff": 100000000000000000,
+            "swapLayerAddress": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        { 
+            "baseFee": 250000,
+            "chainId": 10003,
+            "gasDropoffMargin": 1,
+            "gasPrice": 250000000000,
+            "gasPriceMargin": 25,
+            "gasTokenPrice": 100000000,
+            "maxGasDropoff": 100000000000000000,
+            "swapLayerAddress": "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    ]
+}
