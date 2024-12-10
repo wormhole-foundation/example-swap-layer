@@ -33,7 +33,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     uint16 targetChain,
     bytes memory inputParams
   ) external payable returns (bytes memory) { unchecked {
-    bytes memory params = replaceAmountIn(inputParams, amountIn);
+    bytes memory params = _replaceAmountIn(inputParams, amountIn);
     checkAddr(targetChain, recipient);
     ModesOffsetsSizes memory mos = parseParamBaseStructure(targetChain, params);
 
@@ -273,14 +273,14 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     return offset;
   }
 
-  function replaceAmountIn(
+  function _replaceAmountIn(
     bytes memory params,
     uint256 amountIn
   ) private pure returns(bytes memory) {
     require(params.length >= 40, "params too short");
     bytes memory modifiedData = new bytes(params.length);
 
-    // Copy the function selector and token in
+    // Copy the bytes before the input amount
     for (uint i = 0; i < 24; i++) {
       modifiedData[i] = params[i];
     }
@@ -288,12 +288,12 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     // Encode the amount and place it into the modified call data
     // Starting from byte 24 to byte 40 (16 bytes for uint128)
     uint128 newAmount = uint128(amountIn);
-    bytes memory encodedAmount = abi.encode(newAmount);
+    bytes memory encodedAmount = abi.encodePacked(newAmount);
     for (uint i = 0; i < 16; i++) {
       modifiedData[i + 24] = encodedAmount[i];
     }
 
-    // Copy the rest of the original data after the first argument
+    // Copy the rest of the original data after the input amount
     for (uint i = 40; i < params.length; i++) {
       modifiedData[i] = params[i];
     }
