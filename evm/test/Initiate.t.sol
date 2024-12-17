@@ -126,8 +126,9 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
       value: _wormholeMsgFee() + (inputToken == IoToken.Gas ? inputAmount : 0)
     }(abi.encodeWithSelector(
       swapLayer.initiate.selector,
-      FOREIGN_CHAIN_ID,
       user.toUniversalAddress(),
+      0,
+      FOREIGN_CHAIN_ID,
       abi.encodePacked(
         FastTransferMode.Disabled,
         new bytes(0),
@@ -467,8 +468,9 @@ contract InitiateTest is SLTSwapBase, SwapLayerIntegrationBase {
     (bool success, bytes memory returnData) = address(swapLayer).call{value: vars.msgValue}(
       abi.encodeCall(
         swapLayer.initiate, (
-          vars.targetChain,
           user.toUniversalAddress(),
+          0,
+          vars.targetChain,
           abi.encodePacked(
             vars.fastTransferMode,
             vars.transferParams,

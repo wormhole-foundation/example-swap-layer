@@ -22,16 +22,21 @@ error InsufficientInputAmount(uint256 input, uint256 minimum);
 error InvalidLength(uint256 received, uint256 expected);
 error ExceedsMaxRelayingFee(uint256 fee, uint256 maximum);
 error ChainNotSupported(uint16 chain);
+error InvalidOverrideAmount(uint256 received, uint128 maximum);
 
 abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
   using BytesParsing for bytes;
   using SafeERC20 for IERC20;
 
   function initiate(
-    uint16 targetChain,
     bytes32 recipient, //= redeemer in case of a payload
+    uint256 overrideAmountIn,
+    uint16 targetChain,
     bytes memory params
   ) external payable returns (bytes memory) { unchecked {
+    if (overrideAmountIn > type(uint128).max) {
+      revert InvalidOverrideAmount(overrideAmountIn, type(uint128).max);
+    }
     checkAddr(targetChain, recipient);
     ModesOffsetsSizes memory mos = parseParamBaseStructure(targetChain, params);
 
@@ -68,7 +73,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
     }
 
     (uint64 usdcAmount, uint wormholeFee) =
-      _acquireUsdc(uint(maxFastFee) + relayingFee, mos, params);
+      _acquireUsdc(uint(maxFastFee) + relayingFee, overrideAmountIn, mos, params);
 
     bytes32 peer = _getPeer(targetChain);
     if (peer == bytes32(0))
@@ -117,6 +122,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
 
   function _acquireUsdc(
     uint totalFee,
+    uint overrideAmountIn,
     ModesOffsetsSizes memory mos,
     bytes memory params
   ) private returns (uint64 usdcAmount, uint wormholeFee) { unchecked {
@@ -128,6 +134,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
       wormholeFee = msg.value; //we save the gas for an STATICCALL to look up the wormhole msg fee
                                //and rely on the liquidity layer to revert if msg.value != fee
       (finalAmount, offset) = params.asUint128Unchecked(offset);
+      if (overrideAmountIn > 0) finalAmount = overrideAmountIn;
       if (mos.isExactIn) {
         if (finalAmount < totalFee)
           revert InsufficientInputAmount(finalAmount, totalFee);
@@ -159,6 +166,7 @@ abstract contract SwapLayerInitiate is SwapLayerRelayingFees {
         (approveCheck, offset) = params.asBoolUnchecked(offset);
         (inputToken,  offset) = parseIERC20(params, offset);
         (inputAmount, offset) = params.asUint128Unchecked(offset);
+        if (overrideAmountIn > 0) inputAmount = overrideAmountIn;
         offset = _acquireInputTokens(inputAmount, inputToken, params, offset);
       }
       else

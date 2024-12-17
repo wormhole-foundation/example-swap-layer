@@ -37,8 +37,9 @@ contract PermitsTest is SLTSwapBase {
     vm.startPrank(user);
     usdc.approve(address(swapLayer), amount);
     bytes memory swapReturn = swapLayer.initiate(
-      FOREIGN_CHAIN_ID,
       user.toUniversalAddress(),
+      0,
+      FOREIGN_CHAIN_ID,
       abi.encodePacked(
         false,           //fast transfer
         RedeemMode.Direct,
@@ -88,8 +89,9 @@ contract PermitsTest is SLTSwapBase {
     vm.startPrank(user);
     usdc.approve(permit2, amount);
     bytes memory swapReturn = swapLayer.initiate(
-      FOREIGN_CHAIN_ID,
       user.toUniversalAddress(),
+      0,
+      FOREIGN_CHAIN_ID,
       abi.encodePacked(
         false,           //fast transfer
         RedeemMode.Direct,
@@ -140,8 +142,9 @@ contract PermitsTest is SLTSwapBase {
     vm.startPrank(user);
     usdc.approve(permit2, amount);
     bytes memory swapReturn = swapLayer.initiate(
-      FOREIGN_CHAIN_ID,
       user.toUniversalAddress(),
+      0,
+      FOREIGN_CHAIN_ID,
       abi.encodePacked(
         false,           //fast transfer
         RedeemMode.Direct,

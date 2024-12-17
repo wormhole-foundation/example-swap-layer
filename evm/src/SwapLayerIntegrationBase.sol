@@ -203,8 +203,9 @@ abstract contract SwapLayerIntegrationBase {
     try _swapLayer().initiate{
       value: _swapLayerReplaceFeePlaceholderChecked(params.msgValueOrPlaceholder)
       }(
-        params.targetParams.chainId,
         params.targetParams.recipient,
+        0,
+        params.targetParams.chainId,
         params.params
       )
     returns (bytes memory successData) { return (true,  successData); }
