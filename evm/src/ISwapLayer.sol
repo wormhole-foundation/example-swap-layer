@@ -11,8 +11,9 @@ import { OrderResponse } from "liquidity-layer/interfaces/ITokenRouter.sol";
 interface ISwapLayer {
   //selector: 0f3376b1
   function initiate(
-    uint16 targetChain,
     bytes32 recipient, //must be the redeemer in case of a custom payload
+    uint256 overrideAmountIn,
+    uint16 targetChain,
     bytes calldata params
   ) external payable returns (bytes memory);
 
