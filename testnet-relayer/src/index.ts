@@ -25,7 +25,7 @@ import {
 import {
   MessageDecoder,
   LiquidityLayerMessageBody,
-} from "wormhole-liquidity-layer-sdk";
+} from "@wormhole-foundation/wormhole-liquidity-layer-sdk";
 import { deserializeSwapMessage } from "@xlabs/wh-swap-layer-ts-sdk";
 import { get } from "lodash";
 
