@@ -29,7 +29,7 @@ test: dependencies
 	forge test --fork-url $$TEST_RPC -vvv
 #--match-test InitiateFullFuzz
 
-LIB_DEPS = foundry-rs/forge-std
+LIB_DEPS = foundry-rs/forge-std@v1.9.3
 LIB_DEPS += openzeppelin/openzeppelin-contracts@dc44c9f #4.9.6
 LIB_DEPS += Uniswap/permit2@cc56ad0 #latest commit as per 22/04/2024
 LIB_DEPS += wormhole-foundation/wormhole-solidity-sdk@60fb760 #post-merged branch
